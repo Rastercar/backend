@@ -1,0 +1,21 @@
+[package]
+name = "api-rust"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+envy = "0.4"
+regex = "1.9.3"
+chrono = "0.4.26"
+lazy_static = "1.4.0"
+axum = { version = "0.6.20", features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.31.0", features = ["full"] }
+validator = { version = "0.16", features = ["derive"] }
+diesel = { version = "2.1.0", features = ["chrono", "postgres"] }
+diesel-async = { version = "0.3.2", features = ["deadpool", "postgres"] }
+diesel_geometry = "1.4.0"
+diesel_migrations = "2.1.0"
+anyhow = "1.0.74"
