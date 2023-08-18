@@ -12,13 +12,11 @@ use axum::{
 };
 use validator::Validate;
 
-pub fn create_organization_router() -> Router<AppState> {
-    Router::new().route("/", post(create_organization))
+pub fn create_auth_router() -> Router<AppState> {
+    Router::new().route("/register-organization", post(register_organization))
 }
 
-// TODO: FINISH ME !
-// TODO: should i really be named create_organization and set to POST /organization ?
-async fn create_organization(
+async fn register_organization(
     State(state): State<AppState>,
     Json(payload): Json<dto::RegisterUser>,
 ) -> Result<impl IntoResponse, (StatusCode, SimpleError)> {
@@ -43,9 +41,15 @@ async fn create_organization(
         ));
     }
 
-    state
+    let created_user = state
         .auth_service
         .register_user_and_organization(payload)
+        .await
+        .or(Err(internal_server_error_response.clone()))?;
+
+    state
+        .auth_service
+        .login_for_user(created_user, true)
         .await
         .or(Err(internal_server_error_response))?;
 

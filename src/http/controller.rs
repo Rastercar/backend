@@ -1,6 +1,6 @@
 use crate::modules::{
+    auth::routes::create_auth_router,
     auth::service::{new_auth_service, AuthService},
-    organization::routes::create_organization_router,
 };
 use axum::{routing::get, Router};
 use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection};
@@ -19,6 +19,6 @@ pub fn create_axum_app(db_conn_pool: Pool<AsyncPgConnection>) -> Router {
 
     Router::new()
         .route("/healthcheck", get(|| async { "ok" }))
-        .nest("/organization", create_organization_router())
+        .nest("/auth", create_auth_router())
         .with_state(state)
 }

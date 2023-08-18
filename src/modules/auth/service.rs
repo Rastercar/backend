@@ -1,7 +1,7 @@
 use super::constants::Permission;
+use super::dto;
 use crate::database::models;
 use crate::database::schema::{access_level, master_user, organization, unregistered_user, user};
-use crate::modules::organization::dto;
 use anyhow::Result;
 use bcrypt::{hash, DEFAULT_COST};
 use chrono::Utc;
@@ -20,6 +20,7 @@ pub fn new_auth_service(db_conn_pool: Pool<AsyncPgConnection>) -> AuthService {
 }
 
 impl AuthService {
+    // TODO: finish me !
     pub async fn login_for_user(
         &self,
         user_model: models::User,
