@@ -4,3 +4,6 @@
 # Env
 env/*
 !env/.example.env
+
+# Other
+todo.txt

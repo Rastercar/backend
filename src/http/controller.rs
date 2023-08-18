@@ -1,6 +1,6 @@
-use crate::modules::organization::{
-    repository::{new_organization_repository, OrganizationRepository},
-    routes::create_organization_router,
+use crate::modules::{
+    auth::service::{new_auth_service, AuthService},
+    organization::routes::create_organization_router,
 };
 use axum::{routing::get, Router};
 use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection};
@@ -8,13 +8,13 @@ use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection};
 #[derive(Clone)]
 pub struct AppState {
     pub db_conn_pool: Pool<AsyncPgConnection>,
-    pub organization_repository: OrganizationRepository,
+    pub auth_service: AuthService,
 }
 
 pub fn create_axum_app(db_conn_pool: Pool<AsyncPgConnection>) -> Router {
     let state = AppState {
         db_conn_pool: db_conn_pool.clone(),
-        organization_repository: new_organization_repository(db_conn_pool),
+        auth_service: new_auth_service(db_conn_pool.clone()),
     };
 
     Router::new()

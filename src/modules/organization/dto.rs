@@ -12,7 +12,7 @@ lazy_static! {
 
 #[derive(Deserialize, Serialize, Validate, Debug)]
 #[serde(rename_all = "snake_case")]
-pub struct RegisterUserDto {
+pub struct RegisterUser {
     #[validate(length(min = 5, max = 60))]
     pub username: String,
 
@@ -38,5 +38,13 @@ pub struct RegisterUserDto {
     ))]
     pub password: String,
 
+    /// ### Explanation
+    ///
+    /// whenever someone without a account attempts to login to the platform using oauth they
+    /// are redirected to the register page, creating a unregistered user record to so if the
+    /// registration is not finished, we can email the the "user" to finish his registration.
+    ///
+    /// if he does login with oauth again and finish his registration, we have to delete the
+    /// unregistered user record by its uuid, thats what this field is for!
     pub refers_to_unregistered_user: Option<String>,
 }

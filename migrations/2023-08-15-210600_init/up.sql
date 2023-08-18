@@ -1,7 +1,7 @@
 -- Your SQL goes here
 create table "master_access_level" (
     "id" serial primary key,
-    "created_at" timestamptz(0) not null,
+    "created_at" timestamptz(0) not null default now(),
     "updated_at" timestamptz(0) null,
     "name" varchar(255) not null,
     "description" varchar(255) not null,
@@ -11,7 +11,7 @@ create table "master_access_level" (
 
 create table "unregistered_user" (
     "uuid" varchar(255) not null,
-    "created_at" timestamptz(0) not null,
+    "created_at" timestamptz(0) not null default now(),
     "updated_at" timestamptz(0) not null,
     "username" varchar(255) null,
     "email" varchar(255) null,
@@ -23,7 +23,7 @@ create table "unregistered_user" (
 
 create table "organization" (
     "id" serial primary key,
-    "created_at" timestamptz(0) not null,
+    "created_at" timestamptz(0) not null default now(),
     "updated_at" timestamptz(0) null,
     "name" varchar(255) not null,
     "deleted_at" timestamptz(0) null,
@@ -45,7 +45,7 @@ add
 
 create table "user" (
     "id" serial primary key,
-    "created_at" timestamptz(0) not null,
+    "created_at" timestamptz(0) not null default now(),
     "updated_at" timestamptz(0) null,
     "username" varchar(255) not null,
     "last_login" timestamptz(0) null,
@@ -84,7 +84,7 @@ add
 
 create table "access_level" (
     "id" serial primary key,
-    "created_at" timestamptz(0) not null,
+    "created_at" timestamptz(0) not null default now(),
     "updated_at" timestamptz(0) null,
     "name" varchar(255) not null,
     "description" varchar(255) not null,
@@ -95,7 +95,7 @@ create table "access_level" (
 
 create table "master_user" (
     "id" serial primary key,
-    "created_at" timestamptz(0) not null,
+    "created_at" timestamptz(0) not null default now(),
     "updated_at" timestamptz(0) null,
     "username" varchar(255) not null,
     "last_login" timestamptz(0) null,
@@ -125,7 +125,7 @@ add
 
 create table "vehicle" (
     "id" serial primary key,
-    "created_at" timestamptz(0) not null,
+    "created_at" timestamptz(0) not null default now(),
     "updated_at" timestamptz(0) null,
     "plate" varchar(255) not null,
     "photo" varchar(255) null,
@@ -148,7 +148,7 @@ add
 
 create table "vehicle_tracker" (
     "id" serial primary key,
-    "created_at" timestamptz(0) not null,
+    "created_at" timestamptz(0) not null default now(),
     "updated_at" timestamptz(0) null,
     "model" varchar(255) not null,
     "imei" varchar(255) not null,
@@ -164,7 +164,7 @@ add
 
 create table "sim_card" (
     "id" serial primary key,
-    "created_at" timestamptz(0) not null,
+    "created_at" timestamptz(0) not null default now(),
     "updated_at" timestamptz(0) null,
     "phone_number" varchar(255) not null,
     "ssn" varchar(255) not null,
