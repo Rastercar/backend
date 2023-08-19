@@ -164,3 +164,11 @@ pub struct VehicleTrackerLocation {
     pub tracker_id: i32,
     pub point: Point,
 }
+
+#[derive(Queryable, Debug, Identifiable)]
+#[diesel(primary_key(session_token))]
+#[diesel(table_name = crate::database::schema::session)]
+pub struct Session {
+    pub session_token: Vec<u8>,
+    pub user_id: Option<i32>,
+}

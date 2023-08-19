@@ -210,6 +210,11 @@ create table "vehicle_tracker_location" (
     constraint "vehicle_tracker_location_pkey" primary key ("time", "tracker_id")
 );
 
+create table "session" (
+    "session_token" BYTEA PRIMARY KEY,
+    "user_id" int not null REFERENCES "user" (id) ON DELETE CASCADE
+);
+
 alter table
     "organization"
 add

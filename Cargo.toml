@@ -22,3 +22,8 @@ anyhow = "1.0.74"
 strum = { version = "0.25", features = ["derive"] }
 convert_case = "0.6.0"
 bcrypt = "0.15.0"
+rand_core = { version = "0.6", features = ["std"] }
+cookie = "0.17"
+rand_chacha = "0.3.1"
+http = "0.2.9"
+http-body = "0.4.5"

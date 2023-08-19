@@ -2,58 +2,49 @@ use super::constants::Permission;
 use super::dto;
 use crate::database::models;
 use crate::database::schema::{access_level, master_user, organization, unregistered_user, user};
+use crate::modules::auth::session::SessionToken;
 use anyhow::Result;
 use bcrypt::{hash, DEFAULT_COST};
 use chrono::Utc;
 use diesel::prelude::*;
 use diesel_async::scoped_futures::ScopedFutureExt;
-use diesel_async::RunQueryDsl;
-use diesel_async::{pooled_connection::deadpool::Pool, AsyncConnection, AsyncPgConnection};
+use diesel_async::{
+    pooled_connection::deadpool::Pool, AsyncConnection, AsyncPgConnection, RunQueryDsl,
+};
+use rand_chacha::ChaCha8Rng;
 
 #[derive(Clone)]
 pub struct AuthService {
+    rng: ChaCha8Rng,
     db_conn_pool: Pool<AsyncPgConnection>,
 }
 
-pub fn new_auth_service(db_conn_pool: Pool<AsyncPgConnection>) -> AuthService {
-    AuthService { db_conn_pool }
+pub fn new_auth_service(db_conn_pool: Pool<AsyncPgConnection>, rng: ChaCha8Rng) -> AuthService {
+    AuthService { db_conn_pool, rng }
 }
 
 impl AuthService {
-    // TODO: finish me !
-    pub async fn login_for_user(
+    /// generates a new session token and creates a new session record on the DB for the user
+    pub async fn new_session(
         &self,
-        user_model: models::User,
-        set_last_login: bool,
-    ) -> Result<(models::User, String)> {
-        if set_last_login || user_model.google_profile_id.is_some() {
-            let conn = &mut self.db_conn_pool.get().await?;
+        db_conn_pool: Pool<AsyncPgConnection>,
+        user_identifier: i32,
+    ) -> Result<SessionToken> {
+        use crate::database::schema::session::dsl::*;
 
-            if set_last_login {
-                use crate::database::schema::user::dsl::*;
-                diesel::update(user)
-                    .filter(id.eq(user_model.id))
-                    .set(last_login.eq(Utc::now()))
-                    .execute(conn);
-            }
+        let conn = &mut db_conn_pool.get().await?;
 
-            if let Some(g_profile_id) = &user_model.google_profile_id {
-                use crate::database::schema::unregistered_user::dsl::*;
+        let ses_token = SessionToken::generate_new(&mut self.rng.clone());
 
-                let delete_query = unregistered_user
-                    .filter(oauth_profile_id.eq(g_profile_id))
-                    .filter(oauth_provider.eq("google"));
+        diesel::insert_into(session)
+            .values((
+                user_id.eq(user_identifier),
+                session_token.eq(ses_token.into_database_value()),
+            ))
+            .get_result::<models::Session>(conn)
+            .await?;
 
-                diesel::delete(delete_query).execute(conn).await?;
-            }
-        }
-
-        // TODO: !
-        // const token = this.authTokenService.createTokenForUser(user, options.tokenOptions)
-        // sub: 'user'-${user.id}
-        // jwtService.sign({ sub }, options)
-
-        Ok((user_model, String::from("")))
+        Ok(ses_token)
     }
 
     /// checks if a email is in use by a organization, master user or a user
@@ -97,7 +88,7 @@ impl AuthService {
     /// to a previously unregistered user
     pub async fn register_user_and_organization(
         &self,
-        dto: dto::RegisterUser,
+        dto: dto::RegisterOrganization,
     ) -> Result<models::User> {
         let conn = &mut self.db_conn_pool.get().await?;
 
@@ -185,5 +176,39 @@ impl AuthService {
             .await?;
 
         Ok(created_user)
+    }
+
+    // TODO: finish me !
+    // TODO: document me !
+    pub async fn login_for_user(
+        &self,
+        user_model: models::User,
+        set_last_login: bool,
+    ) -> Result<(models::User, String)> {
+        if set_last_login || user_model.google_profile_id.is_some() {
+            let conn = &mut self.db_conn_pool.get().await?;
+
+            if set_last_login {
+                use crate::database::schema::user::dsl::*;
+
+                diesel::update(user)
+                    .filter(id.eq(user_model.id))
+                    .set(last_login.eq(Utc::now()))
+                    .execute(conn);
+            }
+
+            if let Some(g_profile_id) = &user_model.google_profile_id {
+                use crate::database::schema::unregistered_user::dsl::*;
+
+                let delete_query = unregistered_user
+                    .filter(oauth_profile_id.eq(g_profile_id))
+                    .filter(oauth_provider.eq("google"));
+
+                diesel::delete(delete_query).execute(conn).await?;
+            }
+        }
+
+        // TODO: should i really return the user model ?
+        Ok((user_model, String::from("")))
     }
 }

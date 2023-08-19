@@ -4,17 +4,22 @@ use crate::modules::{
 };
 use axum::{routing::get, Router};
 use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection};
+use rand_chacha::ChaCha8Rng;
+use rand_core::{OsRng, RngCore, SeedableRng};
 
 #[derive(Clone)]
 pub struct AppState {
-    pub db_conn_pool: Pool<AsyncPgConnection>,
     pub auth_service: AuthService,
+    pub db_conn_pool: Pool<AsyncPgConnection>,
 }
 
-pub fn create_axum_app(db_conn_pool: Pool<AsyncPgConnection>) -> Router {
+/// Creates the main axum router/controller to be served over https
+pub fn new(db_conn_pool: Pool<AsyncPgConnection>) -> Router {
+    let rng = ChaCha8Rng::seed_from_u64(OsRng.next_u64());
+
     let state = AppState {
         db_conn_pool: db_conn_pool.clone(),
-        auth_service: new_auth_service(db_conn_pool.clone()),
+        auth_service: new_auth_service(db_conn_pool.clone(), rng),
     };
 
     Router::new()

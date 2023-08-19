@@ -12,7 +12,7 @@ lazy_static! {
 
 #[derive(Deserialize, Serialize, Validate, Debug)]
 #[serde(rename_all = "snake_case")]
-pub struct RegisterUser {
+pub struct RegisterOrganization {
     #[validate(length(min = 5, max = 60))]
     pub username: String,
 
@@ -47,4 +47,14 @@ pub struct RegisterUser {
     /// if he does login with oauth again and finish his registration, we have to delete the
     /// unregistered user record by its uuid, thats what this field is for!
     pub refers_to_unregistered_user: Option<String>,
+}
+
+#[derive(Deserialize, Serialize, Validate, Debug)]
+#[serde(rename_all = "snake_case")]
+pub struct SignIn {
+    #[validate(length(min = 5, max = 400))]
+    pub password: String,
+
+    #[validate(email)]
+    pub email: String,
 }
