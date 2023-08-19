@@ -4,23 +4,33 @@ use crate::database::models;
 use crate::database::schema::{access_level, master_user, organization, unregistered_user, user};
 use crate::modules::auth::session::SessionToken;
 use anyhow::Result;
-use bcrypt::{hash, DEFAULT_COST};
-use chrono::Utc;
+use bcrypt::{hash, verify, DEFAULT_COST};
 use diesel::prelude::*;
 use diesel_async::scoped_futures::ScopedFutureExt;
 use diesel_async::{
     pooled_connection::deadpool::Pool, AsyncConnection, AsyncPgConnection, RunQueryDsl,
 };
 use rand_chacha::ChaCha8Rng;
+use std::net::IpAddr;
+use std::sync::{Arc, Mutex};
+
+pub enum UserFromCredentialsError {
+    NotFound,
+    InternalError,
+    InvalidPassword,
+}
 
 #[derive(Clone)]
 pub struct AuthService {
-    rng: ChaCha8Rng,
+    rng: Arc<Mutex<ChaCha8Rng>>,
     db_conn_pool: Pool<AsyncPgConnection>,
 }
 
 pub fn new_auth_service(db_conn_pool: Pool<AsyncPgConnection>, rng: ChaCha8Rng) -> AuthService {
-    AuthService { db_conn_pool, rng }
+    AuthService {
+        db_conn_pool,
+        rng: Arc::new(Mutex::new(rng)),
+    }
 }
 
 impl AuthService {
@@ -29,12 +39,17 @@ impl AuthService {
         &self,
         db_conn_pool: Pool<AsyncPgConnection>,
         user_identifier: i32,
+        client_ip: IpAddr,
+        client_user_agent: String,
     ) -> Result<SessionToken> {
         use crate::database::schema::session::dsl::*;
 
+        println!("{:#?}", client_ip);
+        println!("{:#?}", client_user_agent);
+
         let conn = &mut db_conn_pool.get().await?;
 
-        let ses_token = SessionToken::generate_new(&mut self.rng.clone());
+        let ses_token = SessionToken::generate_new(&mut self.rng.lock().unwrap());
 
         diesel::insert_into(session)
             .values((
@@ -45,6 +60,39 @@ impl AuthService {
             .await?;
 
         Ok(ses_token)
+    }
+
+    pub async fn get_user_from_credentials(
+        &self,
+        user_email: String,
+        password: String,
+    ) -> Result<models::User, UserFromCredentialsError> {
+        let conn = &mut self
+            .db_conn_pool
+            .get()
+            .await
+            .or(Err(UserFromCredentialsError::InternalError))?;
+
+        let user_model: Option<models::User> = user::dsl::user
+            .filter(user::dsl::email.eq(&user_email))
+            .first(conn)
+            .await
+            .optional()
+            .or(Err(UserFromCredentialsError::InternalError))?;
+
+        match user_model {
+            Some(usr) => {
+                let password_is_valid = verify(password, &usr.password)
+                    .or(Err(UserFromCredentialsError::InternalError))?;
+
+                if password_is_valid {
+                    Ok(usr)
+                } else {
+                    Err(UserFromCredentialsError::InvalidPassword)
+                }
+            }
+            None => return Err(UserFromCredentialsError::NotFound),
+        }
     }
 
     /// checks if a email is in use by a organization, master user or a user
@@ -178,37 +226,14 @@ impl AuthService {
         Ok(created_user)
     }
 
-    // TODO: finish me !
-    // TODO: document me !
-    pub async fn login_for_user(
-        &self,
-        user_model: models::User,
-        set_last_login: bool,
-    ) -> Result<(models::User, String)> {
-        if set_last_login || user_model.google_profile_id.is_some() {
-            let conn = &mut self.db_conn_pool.get().await?;
+    pub async fn delete_unregistered_users_by_email(&self, user_email: &String) -> Result<()> {
+        use crate::database::schema::unregistered_user::dsl::*;
 
-            if set_last_login {
-                use crate::database::schema::user::dsl::*;
+        let conn = &mut self.db_conn_pool.get().await?;
 
-                diesel::update(user)
-                    .filter(id.eq(user_model.id))
-                    .set(last_login.eq(Utc::now()))
-                    .execute(conn);
-            }
+        let delete_query = unregistered_user.filter(email.eq(user_email));
+        diesel::delete(delete_query).execute(conn).await?;
 
-            if let Some(g_profile_id) = &user_model.google_profile_id {
-                use crate::database::schema::unregistered_user::dsl::*;
-
-                let delete_query = unregistered_user
-                    .filter(oauth_profile_id.eq(g_profile_id))
-                    .filter(oauth_provider.eq("google"));
-
-                diesel::delete(delete_query).execute(conn).await?;
-            }
-        }
-
-        // TODO: should i really return the user model ?
-        Ok((user_model, String::from("")))
+        Ok(())
     }
 }

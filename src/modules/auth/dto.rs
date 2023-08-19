@@ -1,7 +1,10 @@
+use chrono::{DateTime, Utc};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
+
+use crate::database::models;
 
 lazy_static! {
     static ref REGEX_CONTAINS_NUMBER: Regex = Regex::new(r"[0-9]").unwrap();
@@ -41,7 +44,7 @@ pub struct RegisterOrganization {
     /// ### Explanation
     ///
     /// whenever someone without a account attempts to login to the platform using oauth they
-    /// are redirected to the register page, creating a unregistered user record to so if the
+    /// are redirected to the register page, creating a unregistered user record so if the
     /// registration is not finished, we can email the the "user" to finish his registration.
     ///
     /// if he does login with oauth again and finish his registration, we have to delete the
@@ -57,4 +60,43 @@ pub struct SignIn {
 
     #[validate(email)]
     pub email: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SignInResponse {
+    pub user: UserDto,
+    pub message: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserDto {
+    pub id: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: Option<DateTime<Utc>>,
+    pub username: String,
+    pub email: String,
+    pub email_verified: bool,
+    pub profile_picture: Option<String>,
+    pub description: Option<String>,
+    pub organization_id: i32,
+    pub access_level_id: i32,
+}
+
+impl From<models::User> for UserDto {
+    fn from(value: models::User) -> Self {
+        Self {
+            id: value.id,
+            created_at: value.created_at,
+            updated_at: value.updated_at,
+            username: value.username,
+            email: value.email,
+            email_verified: value.email_verified,
+            profile_picture: value.profile_picture,
+            description: value.description,
+            organization_id: value.organization_id,
+            access_level_id: value.access_level_id,
+        }
+    }
 }

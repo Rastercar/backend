@@ -2,7 +2,6 @@ mod config;
 mod database;
 mod modules;
 mod server;
-
 use config::AppConfig;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
@@ -18,7 +17,10 @@ async fn main() {
     println!("[WEB] listening on {}", addr);
 
     axum::Server::bind(&addr)
-        .serve(server::controller::new(db_connection_pool).into_make_service())
+        .serve(
+            server::controller::new(db_connection_pool)
+                .into_make_service_with_connect_info::<SocketAddr>(),
+        )
         .await
         .unwrap();
 }

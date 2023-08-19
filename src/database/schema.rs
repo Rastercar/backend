@@ -42,7 +42,6 @@ diesel::table! {
         updated_at -> Nullable<Timestamptz>,
         #[max_length = 255]
         username -> Varchar,
-        last_login -> Nullable<Timestamptz>,
         #[max_length = 255]
         email -> Varchar,
         email_verified -> Bool,
@@ -144,7 +143,6 @@ diesel::table! {
         updated_at -> Nullable<Timestamptz>,
         #[max_length = 255]
         username -> Varchar,
-        last_login -> Nullable<Timestamptz>,
         #[max_length = 255]
         email -> Varchar,
         email_verified -> Bool,

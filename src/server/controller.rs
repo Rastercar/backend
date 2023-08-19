@@ -3,6 +3,7 @@ use crate::modules::{
     auth::service::{new_auth_service, AuthService},
 };
 use axum::{routing::get, Router};
+use axum_client_ip::SecureClientIpSource;
 use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection};
 use rand_chacha::ChaCha8Rng;
 use rand_core::{OsRng, RngCore, SeedableRng};
@@ -25,5 +26,6 @@ pub fn new(db_conn_pool: Pool<AsyncPgConnection>) -> Router {
     Router::new()
         .route("/healthcheck", get(|| async { "ok" }))
         .nest("/auth", create_auth_router())
+        .layer(SecureClientIpSource::ConnectInfo.into_extension())
         .with_state(state)
 }

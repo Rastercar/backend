@@ -48,7 +48,6 @@ create table "user" (
     "created_at" timestamptz(0) not null default now(),
     "updated_at" timestamptz(0) null,
     "username" varchar(255) not null,
-    "last_login" timestamptz(0) null,
     "email" varchar(255) not null,
     "email_verified" boolean not null default false,
     "password" varchar(255) not null,
@@ -98,7 +97,6 @@ create table "master_user" (
     "created_at" timestamptz(0) not null default now(),
     "updated_at" timestamptz(0) null,
     "username" varchar(255) not null,
-    "last_login" timestamptz(0) null,
     "email" varchar(255) not null,
     "email_verified" boolean not null default false,
     "password" varchar(255) not null,
@@ -212,6 +210,8 @@ create table "vehicle_tracker_location" (
 
 create table "session" (
     "session_token" BYTEA PRIMARY KEY,
+    "created_at" timestamptz(0) not null default now(),
+    "expires_at" timestamptz(0) not null,
     "user_id" int not null REFERENCES "user" (id) ON DELETE CASCADE
 );
 
