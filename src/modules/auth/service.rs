@@ -2,14 +2,16 @@ use super::constants::Permission;
 use super::dto;
 use crate::database::models;
 use crate::database::schema::{access_level, master_user, organization, unregistered_user, user};
-use crate::modules::auth::session::SessionToken;
+use crate::modules::auth::session::{SessionToken, SESSION_DAYS_DURATION};
 use anyhow::Result;
 use bcrypt::{hash, verify, DEFAULT_COST};
+use chrono::Utc;
 use diesel::prelude::*;
 use diesel_async::scoped_futures::ScopedFutureExt;
 use diesel_async::{
     pooled_connection::deadpool::Pool, AsyncConnection, AsyncPgConnection, RunQueryDsl,
 };
+use ipnetwork::IpNetwork;
 use rand_chacha::ChaCha8Rng;
 use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
@@ -44,15 +46,15 @@ impl AuthService {
     ) -> Result<SessionToken> {
         use crate::database::schema::session::dsl::*;
 
-        println!("{:#?}", client_ip);
-        println!("{:#?}", client_user_agent);
-
         let conn = &mut db_conn_pool.get().await?;
 
         let ses_token = SessionToken::generate_new(&mut self.rng.lock().unwrap());
 
         diesel::insert_into(session)
             .values((
+                ip.eq(IpNetwork::from(client_ip)),
+                user_agent.eq(client_user_agent),
+                expires_at.eq(Utc::now() + chrono::Duration::days(SESSION_DAYS_DURATION)),
                 user_id.eq(user_identifier),
                 session_token.eq(ses_token.into_database_value()),
             ))
@@ -60,6 +62,18 @@ impl AuthService {
             .await?;
 
         Ok(ses_token)
+    }
+
+    /// deletes a session by its token
+    pub async fn delete_session(&self, token: SessionToken) -> Result<()> {
+        use crate::database::schema::session::dsl::*;
+
+        let conn = &mut self.db_conn_pool.get().await?;
+
+        let delete_query = session.filter(session_token.eq(token.into_database_value()));
+        diesel::delete(delete_query).execute(conn).await?;
+
+        Ok(())
     }
 
     pub async fn get_user_from_credentials(

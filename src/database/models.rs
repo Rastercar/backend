@@ -2,6 +2,7 @@ use chrono::offset::Utc;
 use chrono::DateTime;
 use diesel::{Identifiable, Queryable, Selectable};
 use diesel_geometry::sql_types::*;
+use ipnetwork::IpNetwork;
 
 #[derive(Queryable, Debug, Identifiable)]
 #[diesel(table_name = crate::database::schema::access_level)]
@@ -168,5 +169,9 @@ pub struct VehicleTrackerLocation {
 #[diesel(table_name = crate::database::schema::session)]
 pub struct Session {
     pub session_token: Vec<u8>,
-    pub user_id: Option<i32>,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub user_agent: String,
+    pub ip: IpNetwork,
+    pub user_id: i32,
 }

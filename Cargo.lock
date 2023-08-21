@@ -66,12 +66,12 @@ dependencies = [
  "envy",
  "http",
  "http-body",
+ "ipnetwork",
  "lazy_static",
  "rand_chacha",
  "rand_core",
  "regex",
  "serde",
- "serde_json",
  "strum",
  "tokio",
  "validator",
@@ -399,7 +399,9 @@ dependencies = [
  "byteorder",
  "chrono",
  "diesel_derives 2.1.0",
+ "ipnetwork",
  "itoa",
+ "libc",
  "pq-sys",
 ]
 
@@ -774,6 +776,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a0c10553d664a4d0bcff9f4215d0aac67a639cc68ef660840afe309b807bc9f5"
 dependencies = [
  "generic-array",
+]
+
+[[package]]
+name = "ipnetwork"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf466541e9d546596ee94f9f69590f89473455f88372423e0008fc1a7daf100e"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

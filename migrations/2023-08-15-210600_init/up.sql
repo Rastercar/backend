@@ -212,6 +212,8 @@ create table "session" (
     "session_token" BYTEA PRIMARY KEY,
     "created_at" timestamptz(0) not null default now(),
     "expires_at" timestamptz(0) not null,
+    "user_agent" varchar(255) not null,
+    "ip" INET not null,
     "user_id" int not null REFERENCES "user" (id) ON DELETE CASCADE
 );
 

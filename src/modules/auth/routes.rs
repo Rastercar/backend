@@ -36,18 +36,11 @@ fn sign_in_or_up_response(
 
 async fn sign_in(
     client_ip: SecureClientIp,
-    session_token: OptionalSessionToken,
+    old_session_token: OptionalSessionToken,
     State(state): State<AppState>,
     TypedHeader(user_agent): TypedHeader<UserAgent>,
     ValidatedJson(payload): ValidatedJson<dto::SignIn>,
 ) -> Result<(HeaderMap, Json<dto::SignInResponse>), (StatusCode, SimpleError)> {
-    if session_token.0.is_some() {
-        return Err((
-            (StatusCode::BAD_REQUEST),
-            SimpleError::from("already signed in"),
-        ));
-    }
-
     let user = state
         .auth_service
         .get_user_from_credentials(payload.email, payload.password)
@@ -84,6 +77,10 @@ async fn sign_in(
             StatusCode::INTERNAL_SERVER_ERROR,
             SimpleError::from("failed to create session"),
         )))?;
+
+    if let Some(old_ses_token) = old_session_token.0 {
+        state.auth_service.delete_session(old_ses_token).await.ok();
+    }
 
     Ok(sign_in_or_up_response(user, session_token))
 }

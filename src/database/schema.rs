@@ -73,7 +73,12 @@ diesel::table! {
 diesel::table! {
     session (session_token) {
         session_token -> Bytea,
-        user_id -> Nullable<Int4>,
+        created_at -> Timestamptz,
+        expires_at -> Timestamptz,
+        #[max_length = 255]
+        user_agent -> Varchar,
+        ip -> Inet,
+        user_id -> Int4,
     }
 }
 
