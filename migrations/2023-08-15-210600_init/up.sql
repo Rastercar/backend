@@ -1,4 +1,3 @@
--- Your SQL goes here
 create table "master_access_level" (
     "id" serial primary key,
     "created_at" timestamptz(0) not null default now(),

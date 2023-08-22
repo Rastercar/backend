@@ -1,4 +1,3 @@
--- Your SQL goes here
 ALTER TABLE vehicle_tracker_last_location SET (fillfactor=95);
 
 CREATE OR REPLACE FUNCTION create_last_pos_trigger_fn() RETURNS TRIGGER LANGUAGE PLPGSQL AS
