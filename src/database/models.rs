@@ -85,7 +85,7 @@ pub struct SimCard {
 pub struct UnregisteredUser {
     pub uuid: String,
     pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub updated_at: Option<DateTime<Utc>>,
     pub username: Option<String>,
     pub email: Option<String>,
     pub email_verified: bool,

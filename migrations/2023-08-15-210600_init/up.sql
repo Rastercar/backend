@@ -12,7 +12,7 @@ create table "master_access_level" (
 create table "unregistered_user" (
     "uuid" varchar(255) not null,
     "created_at" timestamptz(0) not null default now(),
-    "updated_at" timestamptz(0) not null,
+    "updated_at" timestamptz(0) null,
     "username" varchar(255) null,
     "email" varchar(255) null,
     "email_verified" boolean not null default false,

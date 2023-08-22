@@ -128,7 +128,7 @@ diesel::table! {
         #[max_length = 255]
         uuid -> Varchar,
         created_at -> Timestamptz,
-        updated_at -> Nullable<Timestamptz>,
+        updated_at -> Timestamptz,
         #[max_length = 255]
         username -> Nullable<Varchar>,
         #[max_length = 255]
