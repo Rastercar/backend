@@ -1,6 +1,6 @@
 use super::dto;
 use super::service::UserFromCredentialsError;
-use super::session::{OptionalSessionToken, SessionToken};
+use super::session::{auth, OptionalSessionToken, SessionToken};
 use crate::database::models;
 use crate::modules::common::extractors::ValidatedJson;
 use crate::modules::common::{error_codes, responses::SimpleError};
@@ -16,6 +16,8 @@ pub fn create_auth_router() -> Router<AppState> {
     Router::new()
         .route("/sign-up", post(sign_up))
         .route("/sign-in", post(sign_in))
+        // TODO:
+        .layer(axum::middleware::from_fn(move |req, next| auth(req, next)))
 }
 
 fn sign_in_or_up_response(

@@ -1,4 +1,4 @@
-use crate::modules::common::responses::SimpleError;
+use crate::{database, modules::common::responses::SimpleError};
 use axum::{async_trait, extract::FromRequestParts};
 use cookie::{time, Cookie};
 use http::{request::Parts, HeaderMap, HeaderValue};
@@ -101,4 +101,24 @@ where
             Some(session_id) => Ok(OptionalSessionToken(Some(SessionToken(session_id)))),
         }
     }
+}
+
+// TODO: finish me !
+
+pub struct AuthState(Option<(u128, Option<database::models::User>)>);
+
+pub async fn auth<B>(
+    mut req: http::Request<B>,
+    next: axum::middleware::Next<B>,
+) -> axum::response::Response {
+    let mut headers = req.headers().clone();
+
+    let session_token = get_session_id_from_request_headers(&mut headers);
+
+    println!("auth middleware: {:#?}", session_token);
+
+    req.extensions_mut()
+        .insert(AuthState(session_token.map(|v| (v, None))));
+
+    next.run(req).await
 }
