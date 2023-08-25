@@ -1,23 +1,28 @@
 use super::dto;
+use super::middleware::RequestUser;
 use super::service::UserFromCredentialsError;
-use super::session::{auth, OptionalSessionToken, SessionToken};
+use super::session::{OptionalSessionToken, SessionToken};
 use crate::database::models;
 use crate::modules::common::extractors::ValidatedJson;
 use crate::modules::common::{error_codes, responses::SimpleError};
 use crate::server::controller::AppState;
 use anyhow::Result;
+use axum::extract::Path;
 use axum::headers::UserAgent;
-use axum::{extract::State, http::StatusCode, routing::post, Router};
-use axum::{Json, TypedHeader};
+use axum::{extract::State, http::StatusCode, routing::post, Extension, Json, Router, TypedHeader};
 use axum_client_ip::SecureClientIp;
 use http::HeaderMap;
 
-pub fn create_auth_router() -> Router<AppState> {
+pub fn create_auth_router(state: AppState) -> Router<AppState> {
     Router::new()
+        .route("/sign-out", post(logout))
+        .route("/sign-out/:session-id", post(logout_session_by_id))
+        .layer(axum::middleware::from_fn_with_state(
+            state,
+            super::middleware::user_only_route,
+        ))
         .route("/sign-up", post(sign_up))
         .route("/sign-in", post(sign_in))
-        // TODO:
-        .layer(axum::middleware::from_fn(move |req, next| auth(req, next)))
 }
 
 fn sign_in_or_up_response(
@@ -30,10 +35,81 @@ fn sign_in_or_up_response(
 
     let res_body = dto::SignInResponse {
         user: dto::UserDto::from(user),
-        message: String::from("login successful"),
     };
 
     (headers, Json(res_body))
+}
+
+async fn logout(
+    session: Extension<SessionToken>,
+    State(state): State<AppState>,
+) -> Result<(StatusCode, HeaderMap), (StatusCode, SimpleError)> {
+    let session_token = session.0;
+
+    state
+        .auth_service
+        .delete_session(session_token)
+        .await
+        .or(Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            SimpleError::from("failed to delete session"),
+        )))?;
+
+    let mut headers = HeaderMap::new();
+    headers.insert("Set-Cookie", session_token.into_delete_cookie_header());
+
+    Ok((StatusCode::OK, headers))
+}
+
+async fn logout_session_by_id(
+    req_user: Extension<RequestUser>,
+    req_user_session: Extension<SessionToken>,
+    Path(session_id): Path<u128>,
+    State(state): State<AppState>,
+) -> Result<(StatusCode, HeaderMap), (StatusCode, SimpleError)> {
+    let session_to_delete = SessionToken::from(session_id);
+    let request_user = req_user.0 .0;
+
+    let maybe_user_on_session_to_delete = state
+        .auth_service
+        .get_user_from_session_token(session_to_delete)
+        .await
+        .or(Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            SimpleError::internal(),
+        )))?;
+
+    match maybe_user_on_session_to_delete {
+        None => Err((
+            StatusCode::BAD_REQUEST,
+            SimpleError::from("session does not exist"),
+        )),
+        Some(user_on_session_to_delete) => {
+            if user_on_session_to_delete.id != request_user.id {
+                return Err((
+                    StatusCode::UNAUTHORIZED,
+                    SimpleError::from("session does not belong to the request user"),
+                ));
+            }
+
+            state
+                .auth_service
+                .delete_session(session_to_delete)
+                .await
+                .or(Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    SimpleError::from("failed to delete session"),
+                )))?;
+
+            let mut headers = HeaderMap::new();
+
+            if req_user_session.get_id() == session_to_delete.get_id() {
+                headers.insert("Set-Cookie", session_to_delete.into_delete_cookie_header());
+            }
+
+            Ok((StatusCode::OK, headers))
+        }
+    }
 }
 
 async fn sign_in(
@@ -80,7 +156,7 @@ async fn sign_in(
             SimpleError::from("failed to create session"),
         )))?;
 
-    if let Some(old_ses_token) = old_session_token.0 {
+    if let Some(old_ses_token) = old_session_token.get_value() {
         state.auth_service.delete_session(old_ses_token).await.ok();
     }
 

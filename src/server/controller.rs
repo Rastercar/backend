@@ -25,7 +25,7 @@ pub fn new(db_conn_pool: Pool<AsyncPgConnection>) -> Router {
 
     Router::new()
         .route("/healthcheck", get(|| async { "ok" }))
-        .nest("/auth", create_auth_router())
+        .nest("/auth", create_auth_router(state.clone()))
         .layer(SecureClientIpSource::ConnectInfo.into_extension())
         .with_state(state)
 }

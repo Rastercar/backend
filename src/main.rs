@@ -11,6 +11,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 async fn main() {
     let cfg = AppConfig::from_env();
 
+    println!("[DB] running migrations");
     database::db::run_migrations(&cfg.db_url);
 
     let db_connection_pool = database::db::get_connection_pool(&cfg.db_url).await;

@@ -66,7 +66,6 @@ pub struct SignIn {
 #[serde(rename_all = "camelCase")]
 pub struct SignInResponse {
     pub user: UserDto,
-    pub message: String,
 }
 
 #[derive(Serialize)]

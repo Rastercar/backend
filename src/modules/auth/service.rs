@@ -1,7 +1,9 @@
 use super::constants::Permission;
 use super::dto;
 use crate::database::models;
-use crate::database::schema::{access_level, master_user, organization, unregistered_user, user};
+use crate::database::schema::{
+    access_level, master_user, organization, session, unregistered_user, user,
+};
 use crate::modules::auth::session::{SessionToken, SESSION_DAYS_DURATION};
 use anyhow::Result;
 use bcrypt::{hash, verify, DEFAULT_COST};
@@ -74,6 +76,25 @@ impl AuthService {
         diesel::delete(delete_query).execute(conn).await?;
 
         Ok(())
+    }
+
+    /// gets the user from the session token if the session is not expired
+    pub async fn get_user_from_session_token(
+        &self,
+        token: SessionToken,
+    ) -> Result<Option<models::User>> {
+        let conn = &mut self.db_conn_pool.get().await?;
+
+        let maybe_user = session::table
+            .inner_join(user::table)
+            .filter(session::dsl::session_token.eq(token.into_database_value()))
+            .filter(session::dsl::expires_at.gt(Utc::now()))
+            .select(models::User::as_select())
+            .first::<models::User>(conn)
+            .await
+            .optional()?;
+
+        Ok(maybe_user)
     }
 
     pub async fn get_user_from_credentials(

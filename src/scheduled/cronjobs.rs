@@ -12,7 +12,6 @@ pub fn start_clear_sessions_cronjob(db_conn_pool: Pool<AsyncPgConnection>) {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(5 * 60));
 
-        // TODO: trace errors instead of using `ok()`
         loop {
             interval.tick().await;
 

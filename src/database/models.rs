@@ -53,7 +53,6 @@ pub struct Organization {
     pub created_at: DateTime<Utc>,
     pub updated_at: Option<DateTime<Utc>>,
     pub name: String,
-    pub deleted_at: Option<DateTime<Utc>>,
     pub blocked: bool,
     pub billing_email: String,
     pub billing_email_verified: bool,
@@ -93,7 +92,7 @@ pub struct UnregisteredUser {
     pub oauth_profile_id: String,
 }
 
-#[derive(Queryable, Debug, Identifiable)]
+#[derive(Queryable, Debug, Identifiable, Selectable, Clone)]
 #[diesel(table_name = crate::database::schema::user)]
 pub struct User {
     pub id: i32,

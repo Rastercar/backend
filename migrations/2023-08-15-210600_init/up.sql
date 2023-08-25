@@ -25,7 +25,6 @@ create table "organization" (
     "created_at" timestamptz(0) not null default now(),
     "updated_at" timestamptz(0) null,
     "name" varchar(255) not null,
-    "deleted_at" timestamptz(0) null,
     "blocked" boolean not null,
     "billing_email" varchar(255) not null,
     "billing_email_verified" boolean not null default false,

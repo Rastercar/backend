@@ -61,7 +61,6 @@ diesel::table! {
         updated_at -> Nullable<Timestamptz>,
         #[max_length = 255]
         name -> Varchar,
-        deleted_at -> Nullable<Timestamptz>,
         blocked -> Bool,
         #[max_length = 255]
         billing_email -> Varchar,

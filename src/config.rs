@@ -1,3 +1,6 @@
+use std::env;
+
+use lazy_static::lazy_static;
 use serde::Deserialize;
 
 fn def_http_port() -> u16 {
@@ -8,15 +11,30 @@ fn def_app_debug() -> bool {
     true
 }
 
+fn def_app_development() -> bool {
+    false
+}
+
 fn def_db_url() -> String {
     String::from("postgres://raster_user:raster_pass@localhost/raster_dev")
 }
 
+lazy_static! {
+    pub static ref ENV_DEVELOPMENT: bool = env::var("APP_DEVELOPMENT")
+        .unwrap_or(def_app_development().to_string())
+        .parse::<bool>()
+        .unwrap_or(def_app_development());
+}
+
 #[derive(Deserialize, Debug)]
 pub struct AppConfig {
-    /// If the application should be run in debug mode and print additional info to stdout
+    /// If the application should be print additional info to stdout
     #[serde(default = "def_app_debug")]
     pub app_debug: bool,
+
+    /// If the application is running in `development` mode
+    #[serde(default = "def_app_development")]
+    pub app_development: bool,
 
     #[serde(default = "def_http_port")]
     pub http_port: u16,
