@@ -50,6 +50,9 @@ pub async fn user_only_route<B>(
             )),
         }
     } else {
-        Err((StatusCode::UNAUTHORIZED, SimpleError::from("sid not found")))
+        Err((
+            StatusCode::UNAUTHORIZED,
+            SimpleError::from("sid cookie not found"),
+        ))
     }
 }

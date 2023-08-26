@@ -48,6 +48,7 @@ fn sign_in_or_up_response(
     post,
     path = "/auth/sign-out",
     tag = "auth",
+    security(("session_id" = [])),
     responses(
         (
             status = OK,
@@ -92,6 +93,7 @@ pub async fn sign_out(
     params(
         ("session_id" = u128, Path, description = "id of the session to delete"),
     ),
+    security(("session_id" = [])),
     responses(
         (
             status = OK,
@@ -156,9 +158,9 @@ async fn sign_out_session_by_id(
     }
 }
 
-/// Signs out of a session by its id
+/// Signs in
 ///
-/// deletes the user session with the provided ID
+/// Sign in by credentials (email, password)
 #[utoipa::path(
     post,
     path = "/auth/sign-in",
