@@ -7,7 +7,7 @@ use std::time::Duration;
 pub fn start_clear_sessions_cronjob(db_conn_pool: Pool<AsyncPgConnection>) {
     use crate::database::schema::session::dsl::*;
 
-    println!("[CRON] clearing sessions every 5 minutes");
+    println!("[CRON] clearing expired sessions every 5 minutes");
 
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(5 * 60));

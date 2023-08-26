@@ -15,8 +15,8 @@ use http::HeaderMap;
 
 pub fn create_auth_router(state: AppState) -> Router<AppState> {
     Router::new()
-        .route("/sign-out", post(logout))
-        .route("/sign-out/:session-id", post(logout_session_by_id))
+        .route("/sign-out", post(sign_out))
+        .route("/sign-out/:session-id", post(sign_out_session_by_id))
         .layer(axum::middleware::from_fn_with_state(
             state,
             super::middleware::user_only_route,
@@ -40,7 +40,28 @@ fn sign_in_or_up_response(
     (headers, Json(res_body))
 }
 
-async fn logout(
+/// Signs out of the current user session
+///
+/// signs out by deleting the user session present in the sid (session id)
+/// request cookie
+#[utoipa::path(
+    post,
+    path = "/auth/sign-out",
+    tag = "auth",
+    responses(
+        (
+            status = OK,
+            description = "sign out successful",
+            headers(("Set-Cookie" = String, description = "expired cookie sid, so the client browser deletes the cookie"))
+        ),
+        (
+            status = UNAUTHORIZED,
+            description = "session not found",
+            body = SimpleError,
+        ),
+    ),
+)]
+pub async fn sign_out(
     session: Extension<SessionToken>,
     State(state): State<AppState>,
 ) -> Result<(StatusCode, HeaderMap), (StatusCode, SimpleError)> {
@@ -61,7 +82,30 @@ async fn logout(
     Ok((StatusCode::OK, headers))
 }
 
-async fn logout_session_by_id(
+/// Signs out of a session by its id
+///
+/// deletes the user session with the provided ID
+#[utoipa::path(
+    post,
+    path = "/auth/sign-out/{session_id}",
+    tag = "auth",
+    params(
+        ("session_id" = u128, Path, description = "id of the session to delete"),
+    ),
+    responses(
+        (
+            status = OK,
+            description = "sign out successful",
+            headers(("Set-Cookie" = String, description = "expired cookie sid, returned if the deleted session equals the request one"))
+        ),
+        (
+            status = UNAUTHORIZED,
+            description = "request does not contain a valid session or the session to be deleted does not belong to the user",
+            body = SimpleError,
+        ),
+    ),
+)]
+async fn sign_out_session_by_id(
     req_user: Extension<RequestUser>,
     req_user_session: Extension<SessionToken>,
     Path(session_id): Path<u128>,
@@ -112,7 +156,39 @@ async fn logout_session_by_id(
     }
 }
 
-async fn sign_in(
+/// Signs out of a session by its id
+///
+/// deletes the user session with the provided ID
+#[utoipa::path(
+    post,
+    path = "/auth/sign-in",
+    tag = "auth",
+    request_body = SignIn,
+    responses(
+        (
+            status = OK,
+            description = "sign in successful",
+            body = SignInResponse,
+            headers(("Set-Cookie" = String, description = "new session id cookie"))
+        ),
+        (
+            status = BAD_REQUEST,
+            description = "invalid dto",
+            body = SimpleError,
+        ),
+        (
+            status = NOT_FOUND,
+            description = "user with email not found",
+            body = SimpleError,
+        ),
+        (
+            status = UNAUTHORIZED,
+            description = "invalid password",
+            body = SimpleError,
+        ),
+    ),
+)]
+pub async fn sign_in(
     client_ip: SecureClientIp,
     old_session_token: OptionalSessionToken,
     State(state): State<AppState>,
@@ -163,7 +239,30 @@ async fn sign_in(
     Ok(sign_in_or_up_response(user, session_token))
 }
 
-async fn sign_up(
+/// Signs up a new user rastercar user
+///
+/// creates the user, his organization and root access level, returning the created user
+/// and his new session cookie.
+#[utoipa::path(
+    post,
+    path = "/auth/sign-up",
+    tag = "auth",
+    request_body = RegisterOrganization,
+    responses(
+        (
+            status = OK,
+            description = "sign up successful",
+            body = SignInResponse,
+            headers(("Set-Cookie" = String, description = "new session id cookie"))
+        ),
+        (
+            status = BAD_REQUEST,
+            description = "invalid dto error message or / EMAIL_IN_USE error code, when a provided email address is in use by another entity",
+            body = SimpleError,
+        ),
+    ),
+)]
+pub async fn sign_up(
     client_ip: SecureClientIp,
     State(state): State<AppState>,
     TypedHeader(user_agent): TypedHeader<UserAgent>,
@@ -189,7 +288,7 @@ async fn sign_up(
         .auth_service
         .register_user_and_organization(payload)
         .await
-        .or(Err(internal_server_error_response.clone()))?;
+        .or(Err(internal_server_error_response))?;
 
     let session_token = state
         .auth_service

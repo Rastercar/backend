@@ -4,6 +4,7 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use serde::Serialize;
+use utoipa::ToSchema;
 use validator::ValidationErrors;
 
 /// A struct for simple API error responses, contains a timestamp from the moment
@@ -11,12 +12,11 @@ use validator::ValidationErrors;
 ///
 /// its meant to be sent as JSON so its `IntoResponse` implementation will set the
 /// response body to JSON
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SimpleError {
     pub error: String,
     timestamp: DateTime<Utc>,
-    is_rastercar_api_error: bool,
 }
 
 impl SimpleError {
@@ -33,7 +33,6 @@ impl From<String> for SimpleError {
         SimpleError {
             error: v,
             timestamp: Utc::now(),
-            is_rastercar_api_error: true,
         }
     }
 }

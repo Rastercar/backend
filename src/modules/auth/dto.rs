@@ -1,10 +1,10 @@
+use crate::database::models;
 use chrono::{DateTime, Utc};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use validator::Validate;
-
-use crate::database::models;
 
 lazy_static! {
     static ref REGEX_CONTAINS_NUMBER: Regex = Regex::new(r"[0-9]").unwrap();
@@ -13,7 +13,7 @@ lazy_static! {
     static ref REGEX_CONTAINS_SYMBOLIC_CHARACTER: Regex = Regex::new(r"[#?!@$%^&*-]").unwrap();
 }
 
-#[derive(Deserialize, Serialize, Validate, Debug)]
+#[derive(Deserialize, Serialize, Validate, Debug, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct RegisterOrganization {
     #[validate(length(min = 5, max = 60))]
@@ -52,7 +52,7 @@ pub struct RegisterOrganization {
     pub refers_to_unregistered_user: Option<String>,
 }
 
-#[derive(Deserialize, Serialize, Validate, Debug)]
+#[derive(Deserialize, Serialize, Validate, Debug, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct SignIn {
     #[validate(length(min = 5, max = 400))]
@@ -62,13 +62,13 @@ pub struct SignIn {
     pub email: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SignInResponse {
     pub user: UserDto,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UserDto {
     pub id: i32,

@@ -1,3 +1,4 @@
+use super::open_api;
 use crate::modules::{
     auth::routes::create_auth_router,
     auth::service::{new_auth_service, AuthService},
@@ -5,6 +6,7 @@ use crate::modules::{
 use axum::{routing::get, Router};
 use axum_client_ip::SecureClientIpSource;
 use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection};
+use http::StatusCode;
 use rand_chacha::ChaCha8Rng;
 use rand_core::{OsRng, RngCore, SeedableRng};
 
@@ -24,8 +26,19 @@ pub fn new(db_conn_pool: Pool<AsyncPgConnection>) -> Router {
     };
 
     Router::new()
-        .route("/healthcheck", get(|| async { "ok" }))
+        .route("/healthcheck", get(healthcheck))
+        .merge(open_api::create_openapi_router())
         .nest("/auth", create_auth_router(state.clone()))
         .layer(SecureClientIpSource::ConnectInfo.into_extension())
         .with_state(state)
+}
+
+#[utoipa::path(
+    get,
+    tag = "meta",
+    path = "/healthcheck",
+    responses((status = OK)),
+)]
+pub async fn healthcheck() -> StatusCode {
+    StatusCode::OK
 }
