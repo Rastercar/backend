@@ -1,6 +1,5 @@
 use super::dto;
 use super::middleware::RequestUser;
-use super::service::UserFromCredentialsError;
 use super::session::{OptionalSessionToken, SessionToken};
 use crate::database::models;
 use crate::modules::common::extractors::ValidatedJson;
@@ -197,18 +196,16 @@ pub async fn sign_in(
     TypedHeader(user_agent): TypedHeader<UserAgent>,
     ValidatedJson(payload): ValidatedJson<dto::SignIn>,
 ) -> Result<(HeaderMap, Json<dto::SignInResponse>), (StatusCode, SimpleError)> {
+    use super::service::UserFromCredentialsError as Err;
+
     let user = state
         .auth_service
         .get_user_from_credentials(payload.email, payload.password)
         .await
         .map_err(|e| match e {
-            UserFromCredentialsError::NotFound => {
-                (StatusCode::NOT_FOUND, SimpleError::from("user not found"))
-            }
-            UserFromCredentialsError::InternalError => {
-                (StatusCode::INTERNAL_SERVER_ERROR, SimpleError::internal())
-            }
-            UserFromCredentialsError::InvalidPassword => (
+            Err::NotFound => (StatusCode::NOT_FOUND, SimpleError::from("user not found")),
+            Err::InternalError => (StatusCode::INTERNAL_SERVER_ERROR, SimpleError::internal()),
+            Err::InvalidPassword => (
                 StatusCode::UNAUTHORIZED,
                 SimpleError::from("invalid password"),
             ),

@@ -15,7 +15,7 @@ use validator::ValidationErrors;
 #[derive(Serialize, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SimpleError {
-    pub error: String,
+    error: String,
     timestamp: DateTime<Utc>,
 }
 

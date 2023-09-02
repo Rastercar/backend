@@ -26,7 +26,7 @@ impl SessionToken {
         let mut cookie = Cookie::new(SESSION_ID_COOKIE_NAME, self.0.to_string());
 
         cookie.set_path("/");
-        cookie.set_secure(*config::ENV_DEVELOPMENT);
+        cookie.set_secure(!*config::ENV_DEVELOPMENT);
         cookie.set_same_site(SameSite::Strict);
         cookie.set_max_age(time::Duration::days(SESSION_DAYS_DURATION));
 

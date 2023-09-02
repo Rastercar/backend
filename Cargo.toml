@@ -31,9 +31,9 @@ rand_core = { version = "0.6", features = ["std"] }
 cookie = "0.17"
 rand_chacha = "0.3.1"
 http = "0.2.9"
-http-body = "0.4.5"
 axum-client-ip = "0.4.1"
 ipnetwork = "0.20.0"
 utoipa = { version = "3.5.0", features = ["chrono", "uuid"] }
 utoipa-swagger-ui = { version = "3.1.5", features = ["axum"] }
 utoipa-rapidoc = { version = "0.1.0", features = ["axum"] }
+tower-http = { version = "0.4.3", features = ["cors"] }

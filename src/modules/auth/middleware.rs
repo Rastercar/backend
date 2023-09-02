@@ -1,7 +1,13 @@
 use super::session::get_session_id_from_request_headers;
 use crate::{
     database,
-    modules::{auth::session::SessionToken, common::responses::SimpleError},
+    modules::{
+        auth::session::SessionToken,
+        common::{
+            error_codes::{INVALID_SESSION, NO_SID_COOKIE},
+            responses::SimpleError,
+        },
+    },
     server::controller::AppState,
 };
 use axum::{extract::State, response::Response};
@@ -39,10 +45,7 @@ pub async fn user_only_route<B>(
                     req.extensions_mut().insert(RequestUser(user));
                     Ok(next.run(req).await)
                 }
-                None => Err((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    SimpleError::from("session not found or expired"),
-                )),
+                None => Err((StatusCode::UNAUTHORIZED, SimpleError::from(INVALID_SESSION))),
             },
             Err(_) => Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -50,9 +53,6 @@ pub async fn user_only_route<B>(
             )),
         }
     } else {
-        Err((
-            StatusCode::UNAUTHORIZED,
-            SimpleError::from("sid cookie not found"),
-        ))
+        Err((StatusCode::UNAUTHORIZED, SimpleError::from(NO_SID_COOKIE)))
     }
 }
