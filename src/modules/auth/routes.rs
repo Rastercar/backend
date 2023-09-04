@@ -1,19 +1,25 @@
-use super::dto;
+use super::dto::{self, UserDto};
 use super::middleware::RequestUser;
 use super::session::{OptionalSessionToken, SessionToken};
-use crate::database::models;
+use crate::database::models::{self};
 use crate::modules::common::extractors::ValidatedJson;
 use crate::modules::common::{error_codes, responses::SimpleError};
 use crate::server::controller::AppState;
 use anyhow::Result;
 use axum::extract::Path;
 use axum::headers::UserAgent;
-use axum::{extract::State, http::StatusCode, routing::post, Extension, Json, Router, TypedHeader};
+use axum::{
+    extract::State,
+    http::StatusCode,
+    routing::{get, post},
+    Extension, Json, Router, TypedHeader,
+};
 use axum_client_ip::SecureClientIp;
 use http::HeaderMap;
 
 pub fn create_auth_router(state: AppState) -> Router<AppState> {
     Router::new()
+        .route("/me", get(me))
         .route("/sign-out", post(sign_out))
         .route("/sign-out/:session-id", post(sign_out_session_by_id))
         .layer(axum::middleware::from_fn_with_state(
@@ -37,6 +43,30 @@ fn sign_in_or_up_response(
     };
 
     (headers, Json(res_body))
+}
+
+/// Returns the request user
+///
+/// the request user is the user that owns the session on the session id (sid) cookie
+#[utoipa::path(
+    get,
+    path = "/auth/me",
+    tag = "auth",
+    security(("session_id" = [])),
+    responses(
+        (
+            status = OK,
+            body = User,
+        ),
+        (
+            status = UNAUTHORIZED,
+            description = "session not found",
+            body = SimpleError,
+        ),
+    ),
+)]
+pub async fn me(req_user: Extension<RequestUser>) -> Json<UserDto> {
+    Json(UserDto::from(req_user.0 .0))
 }
 
 /// Signs out of the current user session
@@ -210,12 +240,6 @@ pub async fn sign_in(
                 SimpleError::from("invalid password"),
             ),
         })?;
-
-    state
-        .auth_service
-        .delete_unregistered_users_by_email(&user.email)
-        .await
-        .ok();
 
     let session_token = state
         .auth_service

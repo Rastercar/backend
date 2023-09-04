@@ -78,20 +78,6 @@ pub struct SimCard {
     pub tracker_id: Option<i32>,
 }
 
-#[derive(Queryable, Debug, Identifiable, Selectable)]
-#[diesel(primary_key(uuid))]
-#[diesel(table_name = crate::database::schema::unregistered_user)]
-pub struct UnregisteredUser {
-    pub uuid: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: Option<DateTime<Utc>>,
-    pub username: Option<String>,
-    pub email: Option<String>,
-    pub email_verified: bool,
-    pub oauth_provider: String,
-    pub oauth_profile_id: String,
-}
-
 #[derive(Queryable, Debug, Identifiable, Selectable, Clone)]
 #[diesel(table_name = crate::database::schema::user)]
 pub struct User {
@@ -106,7 +92,6 @@ pub struct User {
     pub confirm_email_token: Option<String>,
     pub profile_picture: Option<String>,
     pub description: Option<String>,
-    pub google_profile_id: Option<String>,
     pub auto_login_token: Option<String>,
     pub organization_id: i32,
     pub access_level_id: i32,

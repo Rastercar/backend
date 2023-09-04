@@ -8,18 +8,6 @@ create table "master_access_level" (
     "permissions" text [] not null default '{}'
 );
 
-create table "unregistered_user" (
-    "uuid" varchar(255) not null,
-    "created_at" timestamptz(0) not null default now(),
-    "updated_at" timestamptz(0) null,
-    "username" varchar(255) null,
-    "email" varchar(255) null,
-    "email_verified" boolean not null default false,
-    "oauth_provider" varchar(255) not null,
-    "oauth_profile_id" varchar(255) not null,
-    constraint "unregistered_user_pkey" primary key ("uuid")
-);
-
 create table "organization" (
     "id" serial primary key,
     "created_at" timestamptz(0) not null default now(),
@@ -53,7 +41,6 @@ create table "user" (
     "confirm_email_token" text null,
     "profile_picture" varchar(255) null,
     "description" varchar(255) null,
-    "google_profile_id" varchar(255) null,
     "auto_login_token" text null,
     "organization_id" int not null,
     "access_level_id" int not null
@@ -73,11 +60,6 @@ alter table
     "user"
 add
     constraint "user_confirm_email_token_unique" unique ("confirm_email_token");
-
-alter table
-    "user"
-add
-    constraint "user_google_profile_id_unique" unique ("google_profile_id");
 
 create table "access_level" (
     "id" serial primary key,

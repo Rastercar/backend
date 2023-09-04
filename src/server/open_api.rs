@@ -18,6 +18,7 @@ use utoipa_swagger_ui::SwaggerUi;
     )),
     paths(
         controller::healthcheck,
+        auth::routes::me,
         auth::routes::sign_up,
         auth::routes::sign_in,
         auth::routes::sign_out,

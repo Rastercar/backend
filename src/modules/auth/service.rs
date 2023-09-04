@@ -1,9 +1,7 @@
 use super::constants::Permission;
 use super::dto;
 use crate::database::models;
-use crate::database::schema::{
-    access_level, master_user, organization, session, unregistered_user, user,
-};
+use crate::database::schema::{access_level, master_user, organization, session, user};
 use crate::modules::auth::session::{SessionToken, SESSION_DAYS_DURATION};
 use anyhow::Result;
 use bcrypt::{hash, verify, DEFAULT_COST};
@@ -167,29 +165,11 @@ impl AuthService {
     }
 
     /// creates a new user and his organization, as well as a root access level for said org
-    /// and finally deletes the unregistered user record if the user being registered refers
-    /// to a previously unregistered user
     pub async fn register_user_and_organization(
         &self,
         dto: dto::RegisterOrganization,
     ) -> Result<models::User> {
         let conn = &mut self.db_conn_pool.get().await?;
-
-        let unregistered_user_finishing_registration: Option<models::UnregisteredUser> =
-            match dto.refers_to_unregistered_user {
-                None => None,
-                Some(ur_user_id) => unregistered_user::dsl::unregistered_user
-                    .find(ur_user_id)
-                    .select(models::UnregisteredUser::as_select())
-                    .first(conn)
-                    .await
-                    .optional()?,
-            };
-
-        let email_verified = match &unregistered_user_finishing_registration {
-            Some(u) => u.email_verified,
-            None => false,
-        };
 
         let created_user = conn
             .transaction::<_, anyhow::Error, _>(|conn| {
@@ -199,7 +179,7 @@ impl AuthService {
                             organization::dsl::name.eq(&dto.username),
                             organization::dsl::blocked.eq(false),
                             organization::dsl::billing_email.eq(&dto.email),
-                            organization::dsl::billing_email_verified.eq(email_verified),
+                            organization::dsl::billing_email_verified.eq(false),
                         ))
                         .get_result::<models::Organization>(conn)
                         .await?;
@@ -215,31 +195,12 @@ impl AuthService {
                         .get_result::<models::AccessLevel>(conn)
                         .await?;
 
-                    let google_profile_id = match &unregistered_user_finishing_registration {
-                        Some(u) => {
-                            if u.oauth_provider == "google" {
-                                Some(u.oauth_profile_id.clone())
-                            } else {
-                                None
-                            }
-                        }
-                        None => None,
-                    };
-
-                    if let Some(ur_user) = unregistered_user_finishing_registration {
-                        let delete_query = unregistered_user::dsl::unregistered_user
-                            .filter(unregistered_user::dsl::uuid.eq(ur_user.uuid));
-
-                        diesel::delete(delete_query).execute(conn).await?;
-                    }
-
                     let created_user = diesel::insert_into(user::dsl::user)
                         .values((
                             user::dsl::email.eq(dto.email),
                             user::dsl::username.eq(dto.username),
                             user::dsl::password.eq(hash(dto.password, DEFAULT_COST)?),
-                            user::dsl::email_verified.eq(email_verified),
-                            user::dsl::google_profile_id.eq(google_profile_id),
+                            user::dsl::email_verified.eq(false),
                             user::dsl::organization_id.eq(created_organization.id),
                             user::dsl::access_level_id.eq(created_access_level.id),
                         ))
@@ -259,16 +220,5 @@ impl AuthService {
             .await?;
 
         Ok(created_user)
-    }
-
-    pub async fn delete_unregistered_users_by_email(&self, user_email: &String) -> Result<()> {
-        use crate::database::schema::unregistered_user::dsl::*;
-
-        let conn = &mut self.db_conn_pool.get().await?;
-
-        let delete_query = unregistered_user.filter(email.eq(user_email));
-        diesel::delete(delete_query).execute(conn).await?;
-
-        Ok(())
     }
 }

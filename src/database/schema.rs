@@ -123,24 +123,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    unregistered_user (uuid) {
-        #[max_length = 255]
-        uuid -> Varchar,
-        created_at -> Timestamptz,
-        updated_at -> Nullable<Timestamptz>,
-        #[max_length = 255]
-        username -> Nullable<Varchar>,
-        #[max_length = 255]
-        email -> Nullable<Varchar>,
-        email_verified -> Bool,
-        #[max_length = 255]
-        oauth_provider -> Varchar,
-        #[max_length = 255]
-        oauth_profile_id -> Varchar,
-    }
-}
-
-diesel::table! {
     user (id) {
         id -> Int4,
         created_at -> Timestamptz,
@@ -158,8 +140,6 @@ diesel::table! {
         profile_picture -> Nullable<Varchar>,
         #[max_length = 255]
         description -> Nullable<Varchar>,
-        #[max_length = 255]
-        google_profile_id -> Nullable<Varchar>,
         auto_login_token -> Nullable<Text>,
         organization_id -> Int4,
         access_level_id -> Int4,
@@ -251,7 +231,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     session,
     sim_card,
     spatial_ref_sys,
-    unregistered_user,
     user,
     vehicle,
     vehicle_tracker,
