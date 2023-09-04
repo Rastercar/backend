@@ -22,7 +22,7 @@ pub struct RegisterOrganization {
     #[validate(email)]
     pub email: String,
 
-    #[validate(length(min = 5, max = 60))]
+    #[validate(length(min = 5, max = 120))]
     #[validate(regex(
         path = "REGEX_CONTAINS_NUMBER",
         message = "password must contain a number"
