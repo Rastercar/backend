@@ -22,39 +22,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    master_access_level (id) {
-        id -> Int4,
-        created_at -> Timestamptz,
-        updated_at -> Nullable<Timestamptz>,
-        #[max_length = 255]
-        name -> Varchar,
-        #[max_length = 255]
-        description -> Varchar,
-        is_fixed -> Bool,
-        permissions -> Array<Nullable<Text>>,
-    }
-}
-
-diesel::table! {
-    master_user (id) {
-        id -> Int4,
-        created_at -> Timestamptz,
-        updated_at -> Nullable<Timestamptz>,
-        #[max_length = 255]
-        username -> Varchar,
-        #[max_length = 255]
-        email -> Varchar,
-        email_verified -> Bool,
-        #[max_length = 255]
-        password -> Varchar,
-        reset_password_token -> Nullable<Text>,
-        confirm_email_token -> Nullable<Text>,
-        access_level_id -> Nullable<Int4>,
-        master_access_level_id -> Int4,
-    }
-}
-
-diesel::table! {
     organization (id) {
         id -> Int4,
         created_at -> Timestamptz,
@@ -141,7 +108,7 @@ diesel::table! {
         #[max_length = 255]
         description -> Nullable<Varchar>,
         auto_login_token -> Nullable<Text>,
-        organization_id -> Int4,
+        organization_id -> Nullable<Int4>,
         access_level_id -> Int4,
     }
 }
@@ -212,8 +179,6 @@ diesel::table! {
 }
 
 diesel::joinable!(access_level -> organization (organization_id));
-diesel::joinable!(master_user -> access_level (access_level_id));
-diesel::joinable!(master_user -> master_access_level (master_access_level_id));
 diesel::joinable!(session -> user (user_id));
 diesel::joinable!(sim_card -> organization (organization_id));
 diesel::joinable!(sim_card -> vehicle_tracker (tracker_id));
@@ -225,8 +190,6 @@ diesel::joinable!(vehicle_tracker_last_location -> vehicle_tracker (tracker_id))
 
 diesel::allow_tables_to_appear_in_same_query!(
     access_level,
-    master_access_level,
-    master_user,
     organization,
     session,
     sim_card,

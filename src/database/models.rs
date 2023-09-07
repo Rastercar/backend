@@ -17,34 +17,6 @@ pub struct AccessLevel {
     pub organization_id: Option<i32>,
 }
 
-#[derive(Queryable, Debug, Identifiable)]
-#[diesel(table_name = crate::database::schema::master_access_level)]
-pub struct MasterAccessLevel {
-    pub id: i32,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: Option<DateTime<Utc>>,
-    pub name: String,
-    pub description: String,
-    pub is_fixed: bool,
-    pub permissions: Vec<Option<String>>,
-}
-
-#[derive(Queryable, Debug, Identifiable)]
-#[diesel(table_name = crate::database::schema::master_user)]
-pub struct MasterUser {
-    pub id: i32,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: Option<DateTime<Utc>>,
-    pub username: String,
-    pub email: String,
-    pub email_verified: bool,
-    pub password: String,
-    pub reset_password_token: Option<String>,
-    pub confirm_email_token: Option<String>,
-    pub access_level_id: Option<i32>,
-    pub master_access_level_id: i32,
-}
-
 #[derive(Queryable, Debug, Identifiable, Selectable)]
 #[diesel(table_name = crate::database::schema::organization)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
@@ -93,7 +65,7 @@ pub struct User {
     pub profile_picture: Option<String>,
     pub description: Option<String>,
     pub auto_login_token: Option<String>,
-    pub organization_id: i32,
+    pub organization_id: Option<i32>,
     pub access_level_id: i32,
 }
 

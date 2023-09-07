@@ -1,13 +1,3 @@
-create table "master_access_level" (
-    "id" serial primary key,
-    "created_at" timestamptz(0) not null default now(),
-    "updated_at" timestamptz(0) null,
-    "name" varchar(255) not null,
-    "description" varchar(255) not null,
-    "is_fixed" boolean not null,
-    "permissions" text [] not null default '{}'
-);
-
 create table "organization" (
     "id" serial primary key,
     "created_at" timestamptz(0) not null default now(),
@@ -42,7 +32,7 @@ create table "user" (
     "profile_picture" varchar(255) null,
     "description" varchar(255) null,
     "auto_login_token" text null,
-    "organization_id" int not null,
+    "organization_id" int,
     "access_level_id" int not null
 );
 
@@ -50,6 +40,11 @@ alter table
     "user"
 add
     constraint "user_email_unique" unique ("email");
+
+alter table
+    "user"
+add
+    constraint "user_username_unique" unique ("username");
 
 alter table
     "user"
@@ -71,35 +66,6 @@ create table "access_level" (
     "permissions" text [] not null default '{}',
     "organization_id" int null
 );
-
-create table "master_user" (
-    "id" serial primary key,
-    "created_at" timestamptz(0) not null default now(),
-    "updated_at" timestamptz(0) null,
-    "username" varchar(255) not null,
-    "email" varchar(255) not null,
-    "email_verified" boolean not null default false,
-    "password" varchar(255) not null,
-    "reset_password_token" text null,
-    "confirm_email_token" text null,
-    "access_level_id" int null,
-    "master_access_level_id" int not null
-);
-
-alter table
-    "master_user"
-add
-    constraint "master_user_email_unique" unique ("email");
-
-alter table
-    "master_user"
-add
-    constraint "master_user_reset_password_token_unique" unique ("reset_password_token");
-
-alter table
-    "master_user"
-add
-    constraint "master_user_confirm_email_token_unique" unique ("confirm_email_token");
 
 create table "vehicle" (
     "id" serial primary key,
@@ -220,18 +186,6 @@ add
     constraint "access_level_organization_id_foreign" foreign key ("organization_id") references "organization" ("id") on update cascade on delete
 set
     null;
-
-alter table
-    "master_user"
-add
-    constraint "master_user_access_level_id_foreign" foreign key ("access_level_id") references "access_level" ("id") on update cascade on delete
-set
-    null;
-
-alter table
-    "master_user"
-add
-    constraint "master_user_master_access_level_id_foreign" foreign key ("master_access_level_id") references "master_access_level" ("id") on update cascade;
 
 alter table
     "vehicle"

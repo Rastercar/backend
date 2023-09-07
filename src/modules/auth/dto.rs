@@ -11,18 +11,24 @@ lazy_static! {
     static ref REGEX_CONTAINS_UPPERCASE_CHARACTER: Regex = Regex::new(r"[A-Z]").unwrap();
     static ref REGEX_CONTAINS_LOWERCASE_CHARACTER: Regex = Regex::new(r"[a-z]").unwrap();
     static ref REGEX_CONTAINS_SYMBOLIC_CHARACTER: Regex = Regex::new(r"[#?!@$%^&*-]").unwrap();
+    static ref REGEX_IS_LOWERCASE_ALPHANUMERIC_WITH_UNDERSCORES: Regex =
+        Regex::new(r"^[a-z0-9_]+$").unwrap();
 }
 
 #[derive(Deserialize, Serialize, Validate, Debug, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct RegisterOrganization {
-    #[validate(length(min = 5, max = 60))]
+    #[validate(regex(
+        path = "REGEX_IS_LOWERCASE_ALPHANUMERIC_WITH_UNDERSCORES",
+        message = "username must contain only lowercase alphanumeric characters and underscores"
+    ))]
+    #[validate(length(min = 5, max = 32))]
     pub username: String,
 
     #[validate(email)]
     pub email: String,
 
-    #[validate(length(min = 5, max = 120))]
+    #[validate(length(min = 5, max = 128))]
     #[validate(regex(
         path = "REGEX_CONTAINS_NUMBER",
         message = "password must contain a number"
@@ -69,7 +75,7 @@ pub struct UserDto {
     pub email_verified: bool,
     pub profile_picture: Option<String>,
     pub description: Option<String>,
-    pub organization_id: i32,
+    pub organization_id: Option<i32>,
     pub access_level_id: i32,
 }
 

@@ -1,7 +1,7 @@
 use super::constants::Permission;
 use super::dto;
 use crate::database::models;
-use crate::database::schema::{access_level, master_user, organization, session, user};
+use crate::database::schema::{access_level, organization, session, user};
 use crate::modules::auth::session::{SessionToken, SESSION_DAYS_DURATION};
 use anyhow::Result;
 use bcrypt::{hash, verify, DEFAULT_COST};
@@ -128,7 +128,7 @@ impl AuthService {
         }
     }
 
-    /// checks if a email is in use by a organization, master user or a user
+    /// checks if a email is in use by a organization or a user
     pub async fn check_email_in_use(&self, email: String) -> Result<bool> {
         let conn = &mut self.db_conn_pool.get().await?;
 
@@ -143,17 +143,6 @@ impl AuthService {
             return Ok(true);
         }
 
-        let master_user_id: Option<i32> = master_user::dsl::master_user
-            .select(master_user::dsl::id)
-            .filter(master_user::dsl::email.eq(&email))
-            .first(conn)
-            .await
-            .optional()?;
-
-        if master_user_id.is_some() {
-            return Ok(true);
-        }
-
         let user_id: Option<i32> = user::dsl::user
             .select(user::dsl::id)
             .filter(user::dsl::email.eq(&email))
@@ -162,6 +151,19 @@ impl AuthService {
             .optional()?;
 
         return Ok(user_id.is_some());
+    }
+
+    pub async fn get_user_id_by_username(&self, username: String) -> Result<Option<i32>> {
+        let conn = &mut self.db_conn_pool.get().await?;
+
+        let user_id: Option<i32> = user::dsl::user
+            .select(user::dsl::id)
+            .filter(user::dsl::username.eq(&username))
+            .first(conn)
+            .await
+            .optional()?;
+
+        return Ok(user_id);
     }
 
     /// creates a new user and his organization, as well as a root access level for said org

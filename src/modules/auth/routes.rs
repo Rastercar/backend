@@ -291,14 +291,13 @@ pub async fn sign_up(
     TypedHeader(user_agent): TypedHeader<UserAgent>,
     ValidatedJson(payload): ValidatedJson<dto::RegisterOrganization>,
 ) -> Result<(HeaderMap, Json<dto::SignInResponse>), (StatusCode, SimpleError)> {
-    let internal_server_error_response =
-        (StatusCode::INTERNAL_SERVER_ERROR, SimpleError::internal());
+    let internal_err_res = (StatusCode::INTERNAL_SERVER_ERROR, SimpleError::internal());
 
     let email_in_use = state
         .auth_service
         .check_email_in_use(payload.email.clone())
         .await
-        .or(Err(internal_server_error_response.clone()))?;
+        .or(Err(internal_err_res.clone()))?;
 
     if email_in_use {
         return Err((
@@ -307,11 +306,25 @@ pub async fn sign_up(
         ));
     }
 
+    let username_in_use = state
+        .auth_service
+        .get_user_id_by_username(payload.username.clone())
+        .await
+        .or(Err(internal_err_res.clone()))?
+        .is_some();
+
+    if username_in_use {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            SimpleError::from(error_codes::USERNAME_IN_USE),
+        ));
+    }
+
     let created_user = state
         .auth_service
         .register_user_and_organization(payload)
         .await
-        .or(Err(internal_server_error_response))?;
+        .or(Err(internal_err_res))?;
 
     let session_token = state
         .auth_service
