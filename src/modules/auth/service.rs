@@ -39,14 +39,13 @@ impl AuthService {
     /// generates a new session token and creates a new session record on the DB for the user
     pub async fn new_session(
         &self,
-        db_conn_pool: Pool<AsyncPgConnection>,
         user_identifier: i32,
         client_ip: IpAddr,
         client_user_agent: String,
     ) -> Result<SessionToken> {
         use crate::database::schema::session::dsl::*;
 
-        let conn = &mut db_conn_pool.get().await?;
+        let conn = &mut self.db_conn_pool.get().await?;
 
         let ses_token = SessionToken::generate_new(&mut self.rng.lock().unwrap());
 
@@ -98,16 +97,18 @@ impl AuthService {
     pub async fn get_user_from_credentials(
         &self,
         user_email: String,
-        password: String,
+        user_password: String,
     ) -> Result<models::User, UserFromCredentialsError> {
+        use crate::database::schema::user::dsl::*;
+
         let conn = &mut self
             .db_conn_pool
             .get()
             .await
             .or(Err(UserFromCredentialsError::InternalError))?;
 
-        let user_model: Option<models::User> = user::dsl::user
-            .filter(user::dsl::email.eq(&user_email))
+        let user_model: Option<models::User> = user
+            .filter(email.eq(&user_email))
             .first(conn)
             .await
             .optional()
@@ -115,10 +116,10 @@ impl AuthService {
 
         match user_model {
             Some(usr) => {
-                let password_is_valid = verify(password, &usr.password)
+                let pass_is_valid = verify(user_password, &usr.password)
                     .or(Err(UserFromCredentialsError::InternalError))?;
 
-                if password_is_valid {
+                if pass_is_valid {
                     Ok(usr)
                 } else {
                     Err(UserFromCredentialsError::InvalidPassword)
@@ -154,6 +155,20 @@ impl AuthService {
     }
 
     pub async fn get_user_id_by_username(&self, username: String) -> Result<Option<i32>> {
+        let conn = &mut self.db_conn_pool.get().await?;
+
+        let user_id: Option<i32> = user::dsl::user
+            .select(user::dsl::id)
+            .filter(user::dsl::username.eq(&username))
+            .first(conn)
+            .await
+            .optional()?;
+
+        return Ok(user_id);
+    }
+
+    // TODO:
+    pub async fn set_user_reset_password_token(&self, username: String) -> Result<Option<i32>> {
         let conn = &mut self.db_conn_pool.get().await?;
 
         let user_id: Option<i32> = user::dsl::user

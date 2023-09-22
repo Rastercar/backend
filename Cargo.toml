@@ -37,3 +37,12 @@ utoipa = { version = "3.5.0", features = ["chrono", "uuid"] }
 utoipa-swagger-ui = { version = "3.1.5", features = ["axum"] }
 utoipa-rapidoc = { version = "0.1.0", features = ["axum"] }
 tower-http = { version = "0.4.3", features = ["cors"] }
+lapin = "2.3.1"
+tokio-executor-trait = "2.1.1"
+tokio-reactor-trait = "1.1.0"
+signal-hook = "0.3.17"
+deadpool-lapin = "0.10.0"
+deadpool = "0.9.5"
+uuid = { version = "1.4.1", features = ["v4", "serde"] }
+serde_json = "1.0.107"
+jsonwebtoken = "8.3.0"

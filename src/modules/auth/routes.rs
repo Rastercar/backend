@@ -1,4 +1,5 @@
 use super::dto::{self, UserDto};
+use super::jwt::Claims;
 use super::middleware::RequestUser;
 use super::session::{OptionalSessionToken, SessionToken};
 use crate::database::models::{self};
@@ -28,6 +29,7 @@ pub fn create_auth_router(state: AppState) -> Router<AppState> {
         ))
         .route("/sign-up", post(sign_up))
         .route("/sign-in", post(sign_in))
+        .route("/recover-password", post(recover_password))
 }
 
 fn sign_in_or_up_response(
@@ -243,12 +245,7 @@ pub async fn sign_in(
 
     let session_token = state
         .auth_service
-        .new_session(
-            state.db_conn_pool,
-            user.id,
-            client_ip.0,
-            user_agent.to_string(),
-        )
+        .new_session(user.id, client_ip.0, user_agent.to_string())
         .await
         .or(Err((
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -328,12 +325,7 @@ pub async fn sign_up(
 
     let session_token = state
         .auth_service
-        .new_session(
-            state.db_conn_pool,
-            created_user.id,
-            client_ip.0,
-            user_agent.to_string(),
-        )
+        .new_session(created_user.id, client_ip.0, user_agent.to_string())
         .await
         .or(Err((
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -342,3 +334,89 @@ pub async fn sign_up(
 
     Ok(sign_in_or_up_response(created_user, session_token))
 }
+
+/// Recover password by email
+///
+/// Sends a reset password email to the provided email address if
+/// a active account exists with it.
+#[utoipa::path(
+    post,
+    path = "/auth/recover-password",
+    tag = "auth",
+    request_body = ForgotPassword,
+    responses(
+        (
+            status = OK,
+            description = "password recovery email queued to be sent successfully",
+            body = String,
+        ),
+        (
+            status = BAD_REQUEST,
+            description = "invalid dto error message",
+            body = SimpleError,
+        ),
+    ),
+)]
+pub async fn recover_password(
+    State(state): State<AppState>,
+    ValidatedJson(payload): ValidatedJson<dto::ForgotPassword>,
+) -> Result<String, (StatusCode, SimpleError)> {
+    let internal_err_res = (StatusCode::INTERNAL_SERVER_ERROR, SimpleError::internal());
+
+    // TODO: move this code elsewhere
+
+    let conn = &mut state
+        .db_conn_pool
+        .get()
+        .await
+        .or(Err(internal_err_res.clone()))?;
+
+    let maybe_user: Option<models::User> = {
+        use crate::database::schema::user::dsl::*;
+        use diesel::prelude::*;
+        use diesel_async::RunQueryDsl;
+
+        user.filter(email.eq(&payload.email))
+            .select(models::User::as_select())
+            .first::<models::User>(conn)
+            .await
+            .optional()
+            .or(Err(internal_err_res))?
+    };
+
+    match maybe_user {
+        Some(usr) => {
+            let token = jsonwebtoken::encode(
+                &jsonwebtoken::Header::default(),
+                &Claims {
+                    aud: String::from("rastercar.com (TODO: finish me !)"),
+                    exp: todo!(),
+                    iat: todo!(),
+                    iss: todo!(),
+                    sub: todo!(),
+                },
+                &jsonwebtoken::EncodingKey::from_secret("secret".as_ref()),
+            )
+            .or(Err(internal_err_res.clone()))?;
+
+            Ok(String::from(usr.email))
+        }
+        None => Err((
+            StatusCode::NOT_FOUND,
+            SimpleError::from("user not found with this email"),
+        )),
+    }
+}
+
+// TODO: reset password route
+// @Post('send-forgot-password-email')
+// async sendForgotPasswordEmail(@Body() forgotPasswordDto: ForgotPasswordDTO) {
+//   const user = await this.authTokenService.getUserOrMasterUserByEmail(forgotPasswordDto.email)
+//   if (!user) throw new NotFoundException(`User not found with email ${forgotPasswordDto.email}`)
+
+//   const token = await this.authService.setUserResetPasswordToken(user)
+
+//   const emailUuid = this.authMailerService.sendForgotPasswordEmail(user, token)
+
+//   return { message: 'forgot password email requested', emailUuid }
+// }

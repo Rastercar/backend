@@ -8,7 +8,7 @@ pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("./migrations");
 ///
 /// # PANICS
 /// panics if the tokyo runtime is never specified, this should never happen
-pub async fn get_connection_pool(database_url: &String) -> Pool<AsyncPgConnection> {
+pub async fn get_connection_pool(database_url: &str) -> Pool<AsyncPgConnection> {
     let config = AsyncDieselConnectionManager::<diesel_async::AsyncPgConnection>::new(database_url);
 
     Pool::builder(config)
@@ -23,7 +23,7 @@ pub async fn get_connection_pool(database_url: &String) -> Pool<AsyncPgConnectio
 ///
 /// # PANICS
 /// panics when failing to connect to the database or when running the migrations returns a error
-pub fn run_migrations(database_url: &String) {
+pub fn run_migrations(database_url: &str) {
     use diesel::prelude::*;
 
     let mut connection = PgConnection::establish(&database_url)

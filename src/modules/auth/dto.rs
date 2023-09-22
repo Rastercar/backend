@@ -15,7 +15,7 @@ lazy_static! {
         Regex::new(r"^[a-z0-9_]+$").unwrap();
 }
 
-#[derive(Deserialize, Serialize, Validate, Debug, ToSchema)]
+#[derive(Deserialize, Serialize, Validate, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct RegisterOrganization {
     #[validate(regex(
@@ -48,12 +48,18 @@ pub struct RegisterOrganization {
     pub password: String,
 }
 
-#[derive(Deserialize, Serialize, Validate, Debug, ToSchema)]
+#[derive(Deserialize, Serialize, Validate, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct SignIn {
     #[validate(length(min = 5, max = 400))]
     pub password: String,
 
+    #[validate(email)]
+    pub email: String,
+}
+
+#[derive(Deserialize, Serialize, Validate, ToSchema)]
+pub struct ForgotPassword {
     #[validate(email)]
     pub email: String,
 }

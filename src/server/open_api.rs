@@ -13,6 +13,7 @@ use utoipa_swagger_ui::SwaggerUi;
         common::responses::SimpleError,
         auth::dto::RegisterOrganization,
         auth::dto::SignInResponse,
+        auth::dto::ForgotPassword,
         auth::dto::UserDto,
         auth::dto::SignIn
     )),
@@ -22,6 +23,7 @@ use utoipa_swagger_ui::SwaggerUi;
         auth::routes::sign_up,
         auth::routes::sign_in,
         auth::routes::sign_out,
+        auth::routes::recover_password,
         auth::routes::sign_out_session_by_id,
     ),
     modifiers(&SessionIdCookieSecurityScheme),

@@ -14,6 +14,10 @@ fn def_db_url() -> String {
     String::from("postgres://raster_user:raster_pass@localhost/raster_dev")
 }
 
+fn def_rmq_uri() -> String {
+    String::from("amqp://localhost:5672")
+}
+
 lazy_static! {
     pub static ref ENV_DEVELOPMENT: bool = env::var("APP_DEVELOPMENT")
         .unwrap_or(def_app_development().to_string())
@@ -23,15 +27,21 @@ lazy_static! {
 
 #[derive(Deserialize, Debug)]
 pub struct AppConfig {
-    /// If the application is running in `development` mode
+    /// if the application is running in `development` mode
     #[serde(default = "def_app_development")]
     pub app_development: bool,
 
+    /// http port the api will listen for requests on
     #[serde(default = "def_http_port")]
     pub http_port: u16,
 
+    /// postgres URL
     #[serde(default = "def_db_url")]
     pub db_url: String,
+
+    /// rabbitmq uri
+    #[serde(default = "def_rmq_uri")]
+    pub rmq_uri: String,
 }
 
 impl AppConfig {
