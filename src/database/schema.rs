@@ -107,7 +107,6 @@ diesel::table! {
         profile_picture -> Nullable<Varchar>,
         #[max_length = 255]
         description -> Nullable<Varchar>,
-        auto_login_token -> Nullable<Text>,
         organization_id -> Nullable<Int4>,
         access_level_id -> Int4,
     }

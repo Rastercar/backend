@@ -1,11 +1,12 @@
 use super::constants::Permission;
 use super::dto;
+use super::jwt::Claims;
 use crate::database::models;
 use crate::database::schema::{access_level, organization, session, user};
 use crate::modules::auth::session::{SessionToken, SESSION_DAYS_DURATION};
 use anyhow::Result;
 use bcrypt::{hash, verify, DEFAULT_COST};
-use chrono::Utc;
+use chrono::{Duration, Utc};
 use diesel::prelude::*;
 use diesel_async::scoped_futures::ScopedFutureExt;
 use diesel_async::{
@@ -151,7 +152,7 @@ impl AuthService {
             .await
             .optional()?;
 
-        return Ok(user_id.is_some());
+        Ok(user_id.is_some())
     }
 
     pub async fn get_user_id_by_username(&self, username: String) -> Result<Option<i32>> {
@@ -164,21 +165,38 @@ impl AuthService {
             .await
             .optional()?;
 
-        return Ok(user_id);
+        Ok(user_id)
     }
 
-    // TODO:
-    pub async fn set_user_reset_password_token(&self, username: String) -> Result<Option<i32>> {
+    pub async fn gen_and_set_user_reset_password_token(&self, user_id: i32) -> Result<String> {
+        use crate::database::schema::user::dsl::*;
+
+        let now = Utc::now();
+
+        let exp = (now + Duration::hours(8)).timestamp() as usize;
+        let iat = now.timestamp() as usize;
+
+        let token = jsonwebtoken::encode(
+            &jsonwebtoken::Header::default(),
+            &Claims {
+                exp,
+                iat,
+                sub: String::from("restore password token"),
+                aud: format!("user:{}", user_id),
+                iss: String::from("rastercar API"),
+            },
+            &jsonwebtoken::EncodingKey::from_secret("secret".as_ref()),
+        )?;
+
         let conn = &mut self.db_conn_pool.get().await?;
 
-        let user_id: Option<i32> = user::dsl::user
-            .select(user::dsl::id)
-            .filter(user::dsl::username.eq(&username))
-            .first(conn)
-            .await
-            .optional()?;
+        diesel::update(user)
+            .filter(id.eq(user_id))
+            .set(reset_password_token.eq(&token))
+            .execute(conn)
+            .await?;
 
-        return Ok(user_id);
+        Ok(token)
     }
 
     /// creates a new user and his organization, as well as a root access level for said org

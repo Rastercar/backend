@@ -64,7 +64,6 @@ pub struct User {
     pub confirm_email_token: Option<String>,
     pub profile_picture: Option<String>,
     pub description: Option<String>,
-    pub auto_login_token: Option<String>,
     pub organization_id: Option<i32>,
     pub access_level_id: i32,
 }

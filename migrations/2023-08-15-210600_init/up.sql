@@ -31,7 +31,6 @@ create table "user" (
     "confirm_email_token" text null,
     "profile_picture" varchar(255) null,
     "description" varchar(255) null,
-    "auto_login_token" text null,
     "organization_id" int,
     "access_level_id" int not null
 );

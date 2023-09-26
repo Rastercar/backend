@@ -16,6 +16,7 @@ use axum::{
     Extension, Json, Router, TypedHeader,
 };
 use axum_client_ip::SecureClientIp;
+use chrono::{Duration, Utc};
 use http::HeaderMap;
 
 pub fn create_auth_router(state: AppState) -> Router<AppState> {
@@ -364,7 +365,6 @@ pub async fn recover_password(
     let internal_err_res = (StatusCode::INTERNAL_SERVER_ERROR, SimpleError::internal());
 
     // TODO: move this code elsewhere
-
     let conn = &mut state
         .db_conn_pool
         .get()
@@ -381,25 +381,20 @@ pub async fn recover_password(
             .first::<models::User>(conn)
             .await
             .optional()
-            .or(Err(internal_err_res))?
+            .or(Err(internal_err_res.clone()))?
     };
 
     match maybe_user {
         Some(usr) => {
-            let token = jsonwebtoken::encode(
-                &jsonwebtoken::Header::default(),
-                &Claims {
-                    aud: String::from("rastercar.com (TODO: finish me !)"),
-                    exp: todo!(),
-                    iat: todo!(),
-                    iss: todo!(),
-                    sub: todo!(),
-                },
-                &jsonwebtoken::EncodingKey::from_secret("secret".as_ref()),
-            )
-            .or(Err(internal_err_res.clone()))?;
+            let token = state
+                .auth_service
+                .gen_and_set_user_reset_password_token(usr.id)
+                .await
+                .or(Err(internal_err_res))?;
 
-            Ok(String::from(usr.email))
+            // TODO: call the mailer service to send the restore password email with the token !
+
+            Ok(token)
         }
         None => Err((
             StatusCode::NOT_FOUND,
