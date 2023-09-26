@@ -1,6 +1,11 @@
 use deadpool_lapin::{Manager, Pool};
 use lapin::ConnectionProperties;
 
+/// the default rabbitmq exchange, (yes its a empty string)
+///
+/// see: https://www.rabbitmq.com/tutorials/amqp-concepts.html
+pub static DEFAULT_EXCHANGE: &str = "";
+
 /// creates a connection pool
 ///
 /// # PANICS

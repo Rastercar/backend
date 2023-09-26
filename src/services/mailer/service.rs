@@ -1,14 +1,10 @@
 use super::dto::SendEmailIn;
+use crate::rabbitmq::DEFAULT_EXCHANGE;
 use anyhow::Result;
 use deadpool_lapin::Pool;
 use lapin::{
     options::BasicPublishOptions, publisher_confirm::PublisherConfirm, BasicProperties, Channel,
 };
-
-/// the default rabbitmq exchange, (yes its a empty string)
-///
-/// see: https://www.rabbitmq.com/tutorials/amqp-concepts.html
-static DEFAULT_EXCHANGE: &str = "";
 
 /// rabbitmq queue to publish RPC requests to the mailer service
 static MAILER_QUEUE: &str = "mailer";

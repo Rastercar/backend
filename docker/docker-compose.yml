@@ -6,7 +6,7 @@ volumes:
 services:
   postgres:
     image: timescale/timescaledb-ha:pg14-latest
-    container_name: raster-db
+    container_name: rastercar-db
     env_file:
       - ../env/.development.env
     ports:
@@ -17,7 +17,7 @@ services:
       - postgres:/var/lib/postgresql/data
 
   rabbitmq:
-    container_name: raster-rmq
+    container_name: rastercar-rmq
     image: rabbitmq:3.10.1-management
     ports:
       - 5672:5672
@@ -26,7 +26,7 @@ services:
       - ../env/.development.env
 
   jaeger:
-    container_name: raster-jaeger
+    container_name: rastercar-jaeger
     image: "jaegertracing/all-in-one:latest"
     ports:
       - "5775:5775/udp"
