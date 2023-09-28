@@ -1,12 +1,12 @@
-use lazy_static::lazy_static;
 use serde::Deserialize;
-use std::env;
+use std::sync::OnceLock;
+use url::Url;
 
 fn def_http_port() -> u16 {
     3000
 }
 
-fn def_app_development() -> bool {
+fn def_is_development() -> bool {
     false
 }
 
@@ -18,18 +18,15 @@ fn def_rmq_uri() -> String {
     String::from("amqp://localhost:5672")
 }
 
-lazy_static! {
-    pub static ref ENV_DEVELOPMENT: bool = env::var("APP_DEVELOPMENT")
-        .unwrap_or(def_app_development().to_string())
-        .parse::<bool>()
-        .unwrap_or(def_app_development());
+fn def_frontend_url() -> Url {
+    Url::parse("http://localhost:5173").expect("[CFG] invalid value for env var FRONTEND_URL")
 }
 
 #[derive(Deserialize, Debug)]
 pub struct AppConfig {
     /// if the application is running in `development` mode
-    #[serde(default = "def_app_development")]
-    pub app_development: bool,
+    #[serde(default = "def_is_development")]
+    pub is_development: bool,
 
     /// http port the api will listen for requests on
     #[serde(default = "def_http_port")]
@@ -42,6 +39,10 @@ pub struct AppConfig {
     /// rabbitmq uri
     #[serde(default = "def_rmq_uri")]
     pub rmq_uri: String,
+
+    /// rastercar frontend url, eg: https://rastercar.homolog.com for homolog environments etc
+    #[serde(default = "def_frontend_url")]
+    pub frontend_url: Url,
 }
 
 impl AppConfig {
@@ -55,7 +56,7 @@ impl AppConfig {
     pub fn from_env() -> AppConfig {
         match envy::from_env::<AppConfig>() {
             Ok(config) => {
-                if config.app_development {
+                if config.is_development {
                     println!("[CFG] {:#?}", config);
                 }
 
@@ -63,8 +64,14 @@ impl AppConfig {
             }
 
             Err(error) => {
-                panic!("[ENV] failed to load application config, {:#?}", error)
+                panic!("[CFG] failed to load application config, {:#?}", error)
             }
         }
     }
+}
+
+/// returns a global read only reference to the app configuration
+pub fn app_config() -> &'static AppConfig {
+    static INSTANCE: OnceLock<AppConfig> = OnceLock::new();
+    INSTANCE.get_or_init(|| AppConfig::from_env())
 }

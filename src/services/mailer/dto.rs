@@ -16,15 +16,6 @@ pub struct EmailRecipient {
     pub replacements: Option<HashMap<String, String>>,
 }
 
-impl EmailRecipient {
-    pub fn from(email: &str) -> EmailRecipient {
-        EmailRecipient {
-            email: String::from(email),
-            replacements: None,
-        }
-    }
-}
-
 #[derive(Default, Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SendEmailIn {
@@ -32,7 +23,9 @@ pub struct SendEmailIn {
     /// his side and use this identifier on future requests, such as getting metrics for this uuid
     pub uuid: Option<uuid::Uuid>,
 
-    /// The RFC5322 email address to be used to send the email, if None the service default address is used
+    /// The RFC5322 email address to be used to send the email, if None the service default address is used.
+    ///
+    /// only email addresses that are registered in the AWS SES can be used here, in case of doubt, leave as `None`
     pub sender: Option<String>,
 
     /// List of recipients for the email
@@ -56,21 +49,13 @@ pub struct SendEmailIn {
 }
 
 impl SendEmailIn {
-    pub fn with_sender(mut self, sender: &str) -> SendEmailIn {
-        self.sender = Some(String::from(sender));
-        self
-    }
-
     pub fn with_body_html(mut self, html: &str) -> SendEmailIn {
         self.body_html = Some(String::from(html));
         self
     }
 
-    pub fn with_to_from_emails(mut self, recipients: Vec<&str>) -> SendEmailIn {
-        self.to = recipients
-            .into_iter()
-            .map(|email_address| EmailRecipient::from(email_address))
-            .collect();
+    pub fn with_to(mut self, recipients: Vec<EmailRecipient>) -> SendEmailIn {
+        self.to = recipients;
         self
     }
 

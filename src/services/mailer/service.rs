@@ -1,5 +1,9 @@
-use super::dto::SendEmailIn;
-use crate::rabbitmq::DEFAULT_EXCHANGE;
+use std::fs;
+
+use super::{dto::SendEmailIn, templates::ResetPasswordReplacements};
+use crate::{
+    config::app_config, rabbitmq::DEFAULT_EXCHANGE, services::mailer::dto::EmailRecipient,
+};
 use anyhow::Result;
 use deadpool_lapin::Pool;
 use lapin::{
@@ -59,5 +63,31 @@ impl MailerService {
         Ok(self
             .publish_to_mailer_service(serde_json::to_string(&input)?.as_bytes(), OP_SEND_EMAIL)
             .await?)
+    }
+
+    pub async fn send_recover_password_email(
+        &self,
+        email_address: String,
+        reset_password_token: String,
+        username: String,
+    ) -> Result<PublisherConfirm> {
+        let html_template = fs::read_to_string("templates/recover-password.hbs")?;
+
+        let mut link = app_config().frontend_url.join("auth/change-password")?;
+
+        link.set_query(Some(format!("token={}", reset_password_token).as_str()));
+
+        let email = SendEmailIn::default()
+            .with_subject("recover password")
+            .with_body_html(&html_template)
+            .with_to(vec![EmailRecipient {
+                email: email_address,
+                replacements: Some(Into::into(ResetPasswordReplacements {
+                    username,
+                    reset_password_link: link.into(),
+                })),
+            }]);
+
+        Ok(self.send_email(email).await?)
     }
 }

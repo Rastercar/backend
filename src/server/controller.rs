@@ -3,13 +3,17 @@ use crate::{
     modules::{
         auth::routes::create_auth_router,
         auth::service::{new_auth_service, AuthService},
+        common::responses::SimpleError,
     },
-    services::mailer::{dto::SendEmailIn, service::MailerService},
+    services::mailer::service::MailerService,
 };
-use axum::{extract::State, routing::get, Router};
+use axum::{routing::get, Router};
 use axum_client_ip::SecureClientIpSource;
 use deadpool_lapin::Pool as RmqPool;
-use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection};
+use diesel_async::{
+    pooled_connection::{deadpool::Pool, AsyncDieselConnectionManager},
+    AsyncPgConnection,
+};
 use http::{header, HeaderValue, Method, StatusCode};
 use rand_chacha::ChaCha8Rng;
 use rand_core::{OsRng, RngCore, SeedableRng};
@@ -20,6 +24,20 @@ pub struct AppState {
     pub auth_service: AuthService,
     pub mailer_service: MailerService,
     pub db_conn_pool: Pool<AsyncPgConnection>,
+}
+
+impl AppState {
+    pub async fn get_db_conn(
+        &self,
+    ) -> Result<
+        deadpool::managed::Object<AsyncDieselConnectionManager<AsyncPgConnection>>,
+        (StatusCode, SimpleError),
+    > {
+        Ok(self.db_conn_pool.get().await.or(Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            SimpleError::internal(),
+        )))?)
+    }
 }
 
 /// Creates the main axum router/controller to be served over https
@@ -49,7 +67,6 @@ pub fn new(db_conn_pool: Pool<AsyncPgConnection>, rmq_conn_pool: RmqPool) -> Rou
 
     Router::new()
         .route("/healthcheck", get(healthcheck))
-        .route("/dev", get(dev))
         .merge(open_api::create_openapi_router())
         .nest("/auth", create_auth_router(state.clone()))
         .layer(SecureClientIpSource::ConnectInfo.into_extension())
@@ -64,22 +81,5 @@ pub fn new(db_conn_pool: Pool<AsyncPgConnection>, rmq_conn_pool: RmqPool) -> Rou
     responses((status = OK)),
 )]
 pub async fn healthcheck() -> StatusCode {
-    StatusCode::OK
-}
-
-// TODO: use this test email to create a recover password route
-// TODO: remove this test route
-// make this call the mailer service publish email method, the method
-pub async fn dev(State(state): State<AppState>) -> StatusCode {
-    println!("DEV");
-
-    let email = SendEmailIn::default()
-        .with_sender("rastercar.tests.001@gmail.com")
-        .with_subject("test 123 !")
-        .with_body_html("<h1>abc2</h1>")
-        .with_to_from_emails(vec!["rastercar.tests.002@gmail.com"]);
-
-    state.mailer_service.send_email(email).await.unwrap();
-
     StatusCode::OK
 }

@@ -1,9 +1,11 @@
 use super::dto::{self, UserDto};
-use super::jwt::Claims;
 use super::middleware::RequestUser;
 use super::session::{OptionalSessionToken, SessionToken};
 use crate::database::models::{self};
 use crate::modules::common::extractors::ValidatedJson;
+use crate::modules::common::responses::{
+    internal_error_response, internal_error_response_with_msg,
+};
 use crate::modules::common::{error_codes, responses::SimpleError};
 use crate::server::controller::AppState;
 use anyhow::Result;
@@ -16,7 +18,8 @@ use axum::{
     Extension, Json, Router, TypedHeader,
 };
 use axum_client_ip::SecureClientIp;
-use chrono::{Duration, Utc};
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 use http::HeaderMap;
 
 pub fn create_auth_router(state: AppState) -> Router<AppState> {
@@ -152,10 +155,7 @@ async fn sign_out_session_by_id(
         .auth_service
         .get_user_from_session_token(session_to_delete)
         .await
-        .or(Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            SimpleError::internal(),
-        )))?;
+        .or(Err(internal_error_response()))?;
 
     match maybe_user_on_session_to_delete {
         None => Err((
@@ -237,7 +237,7 @@ pub async fn sign_in(
         .await
         .map_err(|e| match e {
             Err::NotFound => (StatusCode::NOT_FOUND, SimpleError::from("user not found")),
-            Err::InternalError => (StatusCode::INTERNAL_SERVER_ERROR, SimpleError::internal()),
+            Err::InternalError => internal_error_response(),
             Err::InvalidPassword => (
                 StatusCode::UNAUTHORIZED,
                 SimpleError::from("invalid password"),
@@ -289,13 +289,11 @@ pub async fn sign_up(
     TypedHeader(user_agent): TypedHeader<UserAgent>,
     ValidatedJson(payload): ValidatedJson<dto::RegisterOrganization>,
 ) -> Result<(HeaderMap, Json<dto::SignInResponse>), (StatusCode, SimpleError)> {
-    let internal_err_res = (StatusCode::INTERNAL_SERVER_ERROR, SimpleError::internal());
-
     let email_in_use = state
         .auth_service
         .check_email_in_use(payload.email.clone())
         .await
-        .or(Err(internal_err_res.clone()))?;
+        .or(Err(internal_error_response()))?;
 
     if email_in_use {
         return Err((
@@ -308,7 +306,7 @@ pub async fn sign_up(
         .auth_service
         .get_user_id_by_username(payload.username.clone())
         .await
-        .or(Err(internal_err_res.clone()))?
+        .or(Err(internal_error_response()))?
         .is_some();
 
     if username_in_use {
@@ -322,15 +320,14 @@ pub async fn sign_up(
         .auth_service
         .register_user_and_organization(payload)
         .await
-        .or(Err(internal_err_res))?;
+        .or(Err(internal_error_response()))?;
 
     let session_token = state
         .auth_service
         .new_session(created_user.id, client_ip.0, user_agent.to_string())
         .await
-        .or(Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            SimpleError::from("failed to create session"),
+        .or(Err(internal_error_response_with_msg(
+            "failed to create session",
         )))?;
 
     Ok(sign_in_or_up_response(created_user, session_token))
@@ -362,26 +359,14 @@ pub async fn recover_password(
     State(state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<dto::ForgotPassword>,
 ) -> Result<String, (StatusCode, SimpleError)> {
-    let internal_err_res = (StatusCode::INTERNAL_SERVER_ERROR, SimpleError::internal());
-
-    // TODO: move this code elsewhere
-    let conn = &mut state
-        .db_conn_pool
-        .get()
-        .await
-        .or(Err(internal_err_res.clone()))?;
+    let conn = &mut state.get_db_conn().await?;
 
     let maybe_user: Option<models::User> = {
-        use crate::database::schema::user::dsl::*;
-        use diesel::prelude::*;
-        use diesel_async::RunQueryDsl;
-
-        user.filter(email.eq(&payload.email))
-            .select(models::User::as_select())
+        models::User::by_email(&payload.email)
             .first::<models::User>(conn)
             .await
             .optional()
-            .or(Err(internal_err_res.clone()))?
+            .or(Err(internal_error_response()))?
     };
 
     match maybe_user {
@@ -390,11 +375,15 @@ pub async fn recover_password(
                 .auth_service
                 .gen_and_set_user_reset_password_token(usr.id)
                 .await
-                .or(Err(internal_err_res))?;
+                .or(Err(internal_error_response()))?;
 
-            // TODO: call the mailer service to send the restore password email with the token !
+            state
+                .mailer_service
+                .send_recover_password_email(payload.email, token, usr.username)
+                .await
+                .or(Err(internal_error_response()))?;
 
-            Ok(token)
+            Ok(String::from("xd ! "))
         }
         None => Err((
             StatusCode::NOT_FOUND,
@@ -402,16 +391,3 @@ pub async fn recover_password(
         )),
     }
 }
-
-// TODO: reset password route
-// @Post('send-forgot-password-email')
-// async sendForgotPasswordEmail(@Body() forgotPasswordDto: ForgotPasswordDTO) {
-//   const user = await this.authTokenService.getUserOrMasterUserByEmail(forgotPasswordDto.email)
-//   if (!user) throw new NotFoundException(`User not found with email ${forgotPasswordDto.email}`)
-
-//   const token = await this.authService.setUserResetPasswordToken(user)
-
-//   const emailUuid = this.authMailerService.sendForgotPasswordEmail(user, token)
-
-//   return { message: 'forgot password email requested', emailUuid }
-// }

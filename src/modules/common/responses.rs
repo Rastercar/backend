@@ -3,6 +3,7 @@ use axum::{
     Json,
 };
 use chrono::{DateTime, Utc};
+use http::StatusCode;
 use serde::Serialize;
 use utoipa::ToSchema;
 use validator::ValidationErrors;
@@ -61,4 +62,12 @@ impl From<&str> for SimpleError {
     fn from(v: &str) -> Self {
         SimpleError::from(String::from(v))
     }
+}
+
+pub fn internal_error_response() -> (StatusCode, SimpleError) {
+    (StatusCode::INTERNAL_SERVER_ERROR, SimpleError::internal())
+}
+
+pub fn internal_error_response_with_msg(msg: &str) -> (StatusCode, SimpleError) {
+    (StatusCode::INTERNAL_SERVER_ERROR, SimpleError::from(msg))
 }

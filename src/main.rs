@@ -6,7 +6,7 @@ mod scheduled;
 mod server;
 mod services;
 
-use config::AppConfig;
+use config::app_config;
 use scheduled::cronjobs;
 use signal_hook::{
     consts::{SIGINT, SIGTERM},
@@ -16,7 +16,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 #[tokio::main]
 async fn main() {
-    let cfg = AppConfig::from_env();
+    let cfg = app_config();
 
     println!("[DB] running migrations");
     database::db::run_migrations(&cfg.db_url);
