@@ -1,16 +1,34 @@
+use jsonwebtoken::{Algorithm, DecodingKey, TokenData, Validation};
 use serde::{Deserialize, Serialize};
+
+use crate::config::app_config;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    // Optional. Audience
+    // Audience
     pub aud: String,
-    // Optional. Issued at (as UTC timestamp)
+    // Issued at (as UTC timestamp)
     pub iat: usize,
-    // Optional. Issuer
+    // Issuer
     pub iss: String,
-    // Optional. Subject (whom token refers to)
+    // Subject (whom token refers to)
     pub sub: String,
-    // TODO: check validation
-    // Required. (validate_exp defaults to true in validation). Expiration time (as UTC timestamp)
+    // Expiration time (as UTC timestamp, validate_exp defaults to true in validation).
     pub exp: usize,
+}
+
+pub fn encode(claims: &Claims) -> Result<String, jsonwebtoken::errors::Error> {
+    jsonwebtoken::encode(
+        &jsonwebtoken::Header::default(),
+        &claims,
+        &jsonwebtoken::EncodingKey::from_secret(app_config().jwt_secret.as_ref()),
+    )
+}
+
+pub fn decode(jwt: &str) -> Result<TokenData<Claims>, jsonwebtoken::errors::Error> {
+    jsonwebtoken::decode::<Claims>(
+        jwt,
+        &DecodingKey::from_secret(app_config().jwt_secret.as_ref()),
+        &Validation::new(Algorithm::HS256),
+    )
 }

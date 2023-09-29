@@ -1,5 +1,9 @@
 .PHONY: docker_run_deps docker_stop_deps run_dev
 
+# [PROD-TODO] remove me
+lazy:
+	git add . && git commit -m "." && git push origin master
+
 run_dev:
 	IS_DEVELOPMENT=true cargo watch -x run
 

@@ -15,7 +15,9 @@ lazy_static! {
         Regex::new(r"^[a-z0-9_]+$").unwrap();
 }
 
-#[derive(Deserialize, Serialize, Validate, ToSchema)]
+// --- INPUT
+
+#[derive(Deserialize, Validate, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct RegisterOrganization {
     #[validate(regex(
@@ -48,21 +50,48 @@ pub struct RegisterOrganization {
     pub password: String,
 }
 
-#[derive(Deserialize, Serialize, Validate, ToSchema)]
+#[derive(Deserialize, Validate, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct SignIn {
-    #[validate(length(min = 5, max = 400))]
+    #[validate(length(min = 5, max = 128))]
     pub password: String,
 
     #[validate(email)]
     pub email: String,
 }
 
-#[derive(Deserialize, Serialize, Validate, ToSchema)]
+#[derive(Deserialize, Validate, ToSchema)]
 pub struct ForgotPassword {
     #[validate(email)]
     pub email: String,
 }
+
+#[derive(Deserialize, Validate, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ResetPassword {
+    #[validate(length(min = 5, max = 128))]
+    #[validate(regex(
+        path = "REGEX_CONTAINS_NUMBER",
+        message = "new password must contain a number"
+    ))]
+    #[validate(regex(
+        path = "REGEX_CONTAINS_SYMBOLIC_CHARACTER",
+        message = "new password must contain a symbol in: #?!@$%^&*-"
+    ))]
+    #[validate(regex(
+        path = "REGEX_CONTAINS_UPPERCASE_CHARACTER",
+        message = "new password must contain a uppercase character"
+    ))]
+    #[validate(regex(
+        path = "REGEX_CONTAINS_LOWERCASE_CHARACTER",
+        message = "new password must contain a lowercase character"
+    ))]
+    pub new_password: String,
+
+    pub password_reset_token: String,
+}
+
+// --- OUTPUT
 
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]

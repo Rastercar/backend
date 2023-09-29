@@ -22,6 +22,10 @@ fn def_frontend_url() -> Url {
     Url::parse("http://localhost:5173").expect("[CFG] invalid value for env var FRONTEND_URL")
 }
 
+fn def_jwt_secret() -> String {
+    String::from("b6d870d5f22658902bdcd4799d47ea72ed8e3d091287313483df2545069aaee1")
+}
+
 #[derive(Deserialize, Debug)]
 pub struct AppConfig {
     /// if the application is running in `development` mode
@@ -43,6 +47,10 @@ pub struct AppConfig {
     /// rastercar frontend url, eg: https://rastercar.homolog.com for homolog environments etc
     #[serde(default = "def_frontend_url")]
     pub frontend_url: Url,
+
+    /// 256 bit secret used to generate Json Web Tokens
+    #[serde(default = "def_jwt_secret")]
+    pub jwt_secret: String,
 }
 
 impl AppConfig {

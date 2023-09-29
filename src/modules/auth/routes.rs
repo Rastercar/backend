@@ -1,7 +1,9 @@
 use super::dto::{self, UserDto};
+use super::jwt;
 use super::middleware::RequestUser;
 use super::session::{OptionalSessionToken, SessionToken};
 use crate::database::models::{self};
+use crate::database::schema::user::{self};
 use crate::modules::common::extractors::ValidatedJson;
 use crate::modules::common::responses::{
     internal_error_response, internal_error_response_with_msg,
@@ -18,6 +20,7 @@ use axum::{
     Extension, Json, Router, TypedHeader,
 };
 use axum_client_ip::SecureClientIp;
+use bcrypt::{hash, DEFAULT_COST};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use http::HeaderMap;
@@ -34,6 +37,10 @@ pub fn create_auth_router(state: AppState) -> Router<AppState> {
         .route("/sign-up", post(sign_up))
         .route("/sign-in", post(sign_in))
         .route("/recover-password", post(recover_password))
+        .route(
+            "/change-password-by-recovery-token",
+            post(change_password_by_recovery_token),
+        )
 }
 
 fn sign_in_or_up_response(
@@ -291,7 +298,7 @@ pub async fn sign_up(
 ) -> Result<(HeaderMap, Json<dto::SignInResponse>), (StatusCode, SimpleError)> {
     let email_in_use = state
         .auth_service
-        .check_email_in_use(payload.email.clone())
+        .check_email_in_use(&payload.email)
         .await
         .or(Err(internal_error_response()))?;
 
@@ -304,7 +311,7 @@ pub async fn sign_up(
 
     let username_in_use = state
         .auth_service
-        .get_user_id_by_username(payload.username.clone())
+        .get_user_id_by_username(&payload.username)
         .await
         .or(Err(internal_error_response()))?
         .is_some();
@@ -345,8 +352,9 @@ pub async fn sign_up(
     responses(
         (
             status = OK,
-            description = "password recovery email queued to be sent successfully",
-            body = String,
+            description = "success message",
+            body = Json<String>,
+            example = json!("password recovery email queued to be sent successfully"),
         ),
         (
             status = BAD_REQUEST,
@@ -358,16 +366,14 @@ pub async fn sign_up(
 pub async fn recover_password(
     State(state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<dto::ForgotPassword>,
-) -> Result<String, (StatusCode, SimpleError)> {
+) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
     let conn = &mut state.get_db_conn().await?;
 
-    let maybe_user: Option<models::User> = {
-        models::User::by_email(&payload.email)
-            .first::<models::User>(conn)
-            .await
-            .optional()
-            .or(Err(internal_error_response()))?
-    };
+    let maybe_user = models::User::by_email(&payload.email)
+        .first::<models::User>(conn)
+        .await
+        .optional()
+        .or(Err(internal_error_response()))?;
 
     match maybe_user {
         Some(usr) => {
@@ -383,11 +389,80 @@ pub async fn recover_password(
                 .await
                 .or(Err(internal_error_response()))?;
 
-            Ok(String::from("xd ! "))
+            Ok(Json("password recovery email queued successfully"))
         }
         None => Err((
             StatusCode::NOT_FOUND,
             SimpleError::from("user not found with this email"),
+        )),
+    }
+}
+
+/// Recover password by token
+///
+/// Sets a new password for the account in the recover password JWT.
+#[utoipa::path(
+    post,
+    path = "/auth/change-password-by-recovery-token",
+    tag = "auth",
+    request_body = ResetPassword,
+    responses(
+        (
+            status = OK,
+            description = "success message",
+            body = Json<String>,
+            example = json!("password recovery email queued to be sent successfully"),
+        ),
+        (
+            status = UNAUTHORIZED,
+            description = "expired or invalid token",
+            body = SimpleError,
+        ),
+        (
+            status = BAD_REQUEST,
+            description = "new password too weak",
+            body = SimpleError,
+        ),
+    ),
+)]
+pub async fn change_password_by_recovery_token(
+    State(state): State<AppState>,
+    ValidatedJson(payload): ValidatedJson<dto::ResetPassword>,
+) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
+    let conn = &mut state.get_db_conn().await?;
+
+    jwt::decode(&payload.password_reset_token).or(Err((
+        StatusCode::UNAUTHORIZED,
+        SimpleError::from("invalid token"),
+    )))?;
+
+    let maybe_user = models::User::all()
+        .filter(user::dsl::reset_password_token.eq(&payload.password_reset_token))
+        .first::<models::User>(conn)
+        .await
+        .optional()
+        .or(Err(internal_error_response()))?;
+
+    match maybe_user {
+        Some(usr) => {
+            let new_password_hash =
+                hash(&payload.new_password, DEFAULT_COST).or(Err(internal_error_response()))?;
+
+            diesel::update(user::dsl::user)
+                .filter(user::dsl::id.eq(usr.id))
+                .set((
+                    user::dsl::reset_password_token.eq::<Option<String>>(None),
+                    user::dsl::password.eq(new_password_hash),
+                ))
+                .execute(conn)
+                .await
+                .or(Err(internal_error_response()))?;
+
+            Ok(Json("password changed successfully"))
+        }
+        None => Err((
+            StatusCode::NOT_FOUND,
+            SimpleError::from("user not found with this reset password token"),
         )),
     }
 }

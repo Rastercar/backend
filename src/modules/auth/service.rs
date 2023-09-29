@@ -1,6 +1,6 @@
 use super::constants::Permission;
 use super::dto;
-use super::jwt::Claims;
+use super::jwt::{self, Claims};
 use crate::database::models;
 use crate::database::schema::{access_level, organization, session, user};
 use crate::modules::auth::session::{SessionToken, SESSION_DAYS_DURATION};
@@ -95,6 +95,7 @@ impl AuthService {
         Ok(maybe_user)
     }
 
+    /// finds a user from email and plain text password, verifying the password
     pub async fn get_user_from_credentials(
         &self,
         user_email: String,
@@ -131,7 +132,7 @@ impl AuthService {
     }
 
     /// checks if a email is in use by a organization or a user
-    pub async fn check_email_in_use(&self, email: String) -> Result<bool> {
+    pub async fn check_email_in_use(&self, email: &str) -> Result<bool> {
         let conn = &mut self.db_conn_pool.get().await?;
 
         let organization_id: Option<i32> = organization::dsl::organization
@@ -155,7 +156,7 @@ impl AuthService {
         Ok(user_id.is_some())
     }
 
-    pub async fn get_user_id_by_username(&self, username: String) -> Result<Option<i32>> {
+    pub async fn get_user_id_by_username(&self, username: &str) -> Result<Option<i32>> {
         let conn = &mut self.db_conn_pool.get().await?;
 
         let user_id: Option<i32> = user::dsl::user
@@ -176,17 +177,13 @@ impl AuthService {
         let exp = (now + Duration::hours(8)).timestamp() as usize;
         let iat = now.timestamp() as usize;
 
-        let token = jsonwebtoken::encode(
-            &jsonwebtoken::Header::default(),
-            &Claims {
-                exp,
-                iat,
-                sub: String::from("restore password token"),
-                aud: format!("user:{}", user_id),
-                iss: String::from("rastercar API"),
-            },
-            &jsonwebtoken::EncodingKey::from_secret("secret".as_ref()),
-        )?;
+        let token = jwt::encode(&Claims {
+            exp,
+            iat,
+            aud: format!("user:{}", user_id),
+            iss: String::from("rastercar API"),
+            sub: String::from("restore password token"),
+        })?;
 
         let conn = &mut self.db_conn_pool.get().await?;
 
