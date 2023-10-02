@@ -26,6 +26,7 @@ use utoipa_swagger_ui::SwaggerUi;
         auth::routes::sign_out,
         auth::routes::recover_password,
         auth::routes::sign_out_session_by_id,
+        auth::routes::change_password_by_recovery_token,
     ),
     modifiers(&SessionIdCookieSecurityScheme),
 )]
