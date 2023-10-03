@@ -4,8 +4,9 @@ use diesel::{Identifiable, Queryable, Selectable};
 use diesel_geometry::sql_types::*;
 use ipnetwork::IpNetwork;
 
-#[derive(Queryable, Debug, Identifiable)]
+#[derive(Queryable, Debug, Identifiable, Selectable)]
 #[diesel(table_name = crate::database::schema::access_level)]
+#[diesel(belongs_to(Organization))]
 pub struct AccessLevel {
     pub id: i32,
     pub created_at: DateTime<Utc>,
@@ -13,13 +14,16 @@ pub struct AccessLevel {
     pub name: String,
     pub description: String,
     pub is_fixed: bool,
+    // TODO: why is this Vec<Option<String>> instead of Vec<String>?
     pub permissions: Vec<Option<String>>,
+    /// FK to the organization that created/owns this access level, if none
+    /// this access level is to control admin users (users that do not belong to any organization)
     pub organization_id: Option<i32>,
 }
 
 #[derive(Queryable, Debug, Identifiable, Selectable)]
 #[diesel(table_name = crate::database::schema::organization)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
+#[diesel(belongs_to(Organization))]
 pub struct Organization {
     pub id: i32,
     pub created_at: DateTime<Utc>,
@@ -33,6 +37,7 @@ pub struct Organization {
 
 #[derive(Queryable, Debug, Identifiable)]
 #[diesel(table_name = crate::database::schema::sim_card)]
+#[diesel(belongs_to(Organization))]
 pub struct SimCard {
     pub id: i32,
     pub created_at: DateTime<Utc>,
@@ -52,6 +57,7 @@ pub struct SimCard {
 
 #[derive(Queryable, Debug, Identifiable, Selectable, Clone)]
 #[diesel(table_name = crate::database::schema::user)]
+#[diesel(belongs_to(Organization))]
 pub struct User {
     pub id: i32,
     pub created_at: DateTime<Utc>,
@@ -70,6 +76,7 @@ pub struct User {
 
 #[derive(Queryable, Debug, Identifiable)]
 #[diesel(table_name = crate::database::schema::vehicle)]
+#[diesel(belongs_to(Organization))]
 pub struct Vehicle {
     pub id: i32,
     pub created_at: DateTime<Utc>,
@@ -90,6 +97,7 @@ pub struct Vehicle {
 
 #[derive(Queryable, Debug, Identifiable)]
 #[diesel(table_name = crate::database::schema::vehicle_tracker)]
+#[diesel(belongs_to(Organization))]
 pub struct VehicleTracker {
     pub id: i32,
     pub created_at: DateTime<Utc>,

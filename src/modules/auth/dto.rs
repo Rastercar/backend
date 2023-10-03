@@ -99,7 +99,32 @@ pub struct SignInResponse {
     pub user: UserDto,
 }
 
-#[derive(Serialize, ToSchema)]
+#[derive(Serialize, Clone, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AccessLevelDto {
+    pub id: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: Option<DateTime<Utc>>,
+    pub name: String,
+    pub description: String,
+    pub is_fixed: bool,
+    pub permissions: Vec<Option<String>>,
+    pub organization_id: Option<i32>,
+}
+
+#[derive(Serialize, Clone, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct OrganizationDto {
+    pub id: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: Option<DateTime<Utc>>,
+    pub billing_email: String,
+    pub blocked: bool,
+    pub billing_email_verified: bool,
+}
+
+// TODO: this probably belongs to the middleware module, but is also a DTO, what to name it ?
+#[derive(Serialize, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UserDto {
     pub id: i32,
@@ -110,23 +135,34 @@ pub struct UserDto {
     pub email_verified: bool,
     pub profile_picture: Option<String>,
     pub description: Option<String>,
-    pub organization_id: Option<i32>,
-    pub access_level_id: i32,
+    pub organization: Option<OrganizationDto>,
+    pub access_level: AccessLevelDto,
 }
 
-impl From<models::User> for UserDto {
-    fn from(value: models::User) -> Self {
+impl From<models::Organization> for OrganizationDto {
+    fn from(m: models::Organization) -> Self {
         Self {
-            id: value.id,
-            created_at: value.created_at,
-            updated_at: value.updated_at,
-            username: value.username,
-            email: value.email,
-            email_verified: value.email_verified,
-            profile_picture: value.profile_picture,
-            description: value.description,
-            organization_id: value.organization_id,
-            access_level_id: value.access_level_id,
+            id: m.id,
+            created_at: m.created_at,
+            updated_at: m.updated_at,
+            billing_email: m.billing_email,
+            blocked: m.blocked,
+            billing_email_verified: m.billing_email_verified,
+        }
+    }
+}
+
+impl From<models::AccessLevel> for AccessLevelDto {
+    fn from(m: models::AccessLevel) -> Self {
+        Self {
+            id: m.id,
+            created_at: m.created_at,
+            updated_at: m.updated_at,
+            name: m.name,
+            description: m.description,
+            is_fixed: m.is_fixed,
+            permissions: m.permissions,
+            organization_id: m.organization_id,
         }
     }
 }

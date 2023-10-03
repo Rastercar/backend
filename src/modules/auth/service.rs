@@ -1,5 +1,5 @@
 use super::constants::Permission;
-use super::dto;
+use super::dto::{self, OrganizationDto};
 use super::jwt::{self, Claims};
 use crate::database::models;
 use crate::database::schema::{access_level, organization, session, user};
@@ -80,19 +80,52 @@ impl AuthService {
     pub async fn get_user_from_session_token(
         &self,
         token: SessionToken,
-    ) -> Result<Option<models::User>> {
+    ) -> Result<Option<dto::UserDto>> {
         let conn = &mut self.db_conn_pool.get().await?;
 
-        let maybe_user = session::table
-            .inner_join(user::table)
+        let user_with_org_and_access_level = user::table
+            .inner_join(session::table)
+            .inner_join(access_level::table)
+            .left_join(organization::table)
             .filter(session::dsl::session_token.eq(token.into_database_value()))
             .filter(session::dsl::expires_at.gt(Utc::now()))
-            .select(models::User::as_select())
-            .first::<models::User>(conn)
+            .select((
+                models::User::as_select(),
+                models::AccessLevel::as_select(),
+                Option::<models::Organization>::as_select(),
+            ))
+            .first::<(
+                models::User,
+                models::AccessLevel,
+                Option<models::Organization>,
+            )>(conn)
             .await
             .optional()?;
 
-        Ok(maybe_user)
+        match user_with_org_and_access_level {
+            None => Ok(None),
+            Some(x) => {
+                // type hints for shitty LSP
+                let (usr, access_level, usr_org) = x as (
+                    models::User,
+                    models::AccessLevel,
+                    Option<models::Organization>,
+                );
+
+                Ok(Some(dto::UserDto {
+                    id: usr.id,
+                    created_at: usr.created_at,
+                    updated_at: usr.updated_at,
+                    username: usr.username,
+                    email: usr.email,
+                    email_verified: usr.email_verified,
+                    profile_picture: usr.profile_picture,
+                    description: usr.description,
+                    organization: usr_org.map(|u| OrganizationDto::from(u)),
+                    access_level: Into::into(access_level),
+                }))
+            }
+        }
     }
 
     /// finds a user from email and plain text password, verifying the password

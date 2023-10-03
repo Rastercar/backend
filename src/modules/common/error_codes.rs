@@ -13,3 +13,7 @@ pub static NO_SID_COOKIE: &str = "NO_SID_COOKIE";
 /// a request to a endpoint was not authorized because
 /// the session on the session id cookie is expired or does not exist
 pub static INVALID_SESSION: &str = "INVALID_SESSION";
+
+/// a request to a endpoint was not authorized because
+/// the organization the user belongs to was blocked
+pub static ORGANIZATION_BLOCKED: &str = "ORGANIZATION_BLOCKED";

@@ -1,10 +1,9 @@
-use super::session::get_session_id_from_request_headers;
+use super::{dto, session::get_session_id_from_request_headers};
 use crate::{
-    database,
     modules::{
         auth::session::SessionToken,
         common::{
-            error_codes::{INVALID_SESSION, NO_SID_COOKIE},
+            error_codes::{INVALID_SESSION, NO_SID_COOKIE, ORGANIZATION_BLOCKED},
             responses::SimpleError,
         },
     },
@@ -15,7 +14,7 @@ use http::StatusCode;
 
 #[derive(Clone)]
 /// Simple extractor for routes that are only allowed for regular users
-pub struct RequestUser(pub database::models::User);
+pub struct RequestUser(pub dto::UserDto);
 
 /// middleware for routes that require a normal user, this queries the DB to get the request user by his session ID cookie,
 /// so use it only within routes that need the user data, adds the following extensions:
@@ -39,9 +38,22 @@ pub async fn user_only_route<B>(
 
         req.extensions_mut().insert(session_token);
 
+        // TODO: were 300 levels nested, this sucks
         match user {
             Ok(maybe_user) => match maybe_user {
                 Some(user) => {
+                    match user.organization.clone() {
+                        Some(org) => {
+                            if org.blocked {
+                                return Err((
+                                    StatusCode::UNAUTHORIZED,
+                                    SimpleError::from(ORGANIZATION_BLOCKED),
+                                ));
+                            }
+                        }
+                        None => {}
+                    }
+
                     req.extensions_mut().insert(RequestUser(user));
                     Ok(next.run(req).await)
                 }

@@ -77,19 +77,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    spatial_ref_sys (srid) {
-        srid -> Int4,
-        #[max_length = 256]
-        auth_name -> Nullable<Varchar>,
-        auth_srid -> Nullable<Int4>,
-        #[max_length = 2048]
-        srtext -> Nullable<Varchar>,
-        #[max_length = 2048]
-        proj4text -> Nullable<Varchar>,
-    }
-}
-
-diesel::table! {
     user (id) {
         id -> Int4,
         created_at -> Timestamptz,
@@ -182,6 +169,7 @@ diesel::joinable!(session -> user (user_id));
 diesel::joinable!(sim_card -> organization (organization_id));
 diesel::joinable!(sim_card -> vehicle_tracker (tracker_id));
 diesel::joinable!(user -> access_level (access_level_id));
+diesel::joinable!(user -> organization (organization_id));
 diesel::joinable!(vehicle -> organization (organization_id));
 diesel::joinable!(vehicle_tracker -> organization (organization_id));
 diesel::joinable!(vehicle_tracker -> vehicle (vehicle_id));
@@ -192,7 +180,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     organization,
     session,
     sim_card,
-    spatial_ref_sys,
     user,
     vehicle,
     vehicle_tracker,

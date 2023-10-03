@@ -44,16 +44,14 @@ pub fn create_auth_router(state: AppState) -> Router<AppState> {
 }
 
 fn sign_in_or_up_response(
-    user: models::User,
+    user: dto::UserDto,
     ses_token: SessionToken,
 ) -> (HeaderMap, Json<dto::SignInResponse>) {
     let mut headers = HeaderMap::new();
 
     headers.insert("Set-Cookie", ses_token.into_set_cookie_header());
 
-    let res_body = dto::SignInResponse {
-        user: dto::UserDto::from(user),
-    };
+    let res_body = dto::SignInResponse { user };
 
     (headers, Json(res_body))
 }
@@ -264,7 +262,12 @@ pub async fn sign_in(
         state.auth_service.delete_session(old_ses_token).await.ok();
     }
 
-    Ok(sign_in_or_up_response(user, session_token))
+    // TODO: we need to return the full user here, but get_user_from_credentials returns only the user model
+    // unlike get_user_from_session_token, however instead of duplicating code we should probably abstract
+    // the query with joins as a method of the User model struct, ideally this methods takes a query, adds the joins and returns the
+    // UserDTO
+    todo!();
+    // Ok(sign_in_or_up_response(user, session_token))
 }
 
 /// Signs up a new user rastercar user
@@ -337,7 +340,9 @@ pub async fn sign_up(
             "failed to create session",
         )))?;
 
-    Ok(sign_in_or_up_response(created_user, session_token))
+    // TODO:
+    todo!();
+    // Ok(sign_in_or_up_response(created_user, session_token))
 }
 
 /// Recover password by email
