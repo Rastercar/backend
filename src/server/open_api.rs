@@ -15,6 +15,8 @@ use utoipa_swagger_ui::SwaggerUi;
         auth::dto::SignInResponse,
         auth::dto::ForgotPassword,
         auth::dto::ResetPassword,
+        auth::dto::OrganizationDto,
+        auth::dto::AccessLevelDto,
         auth::dto::UserDto,
         auth::dto::SignIn
     )),

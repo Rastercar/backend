@@ -1,5 +1,5 @@
 use super::constants::Permission;
-use super::dto::{self, OrganizationDto};
+use super::dto::{self, OrganizationDto, UserDto};
 use super::jwt::{self, Claims};
 use crate::database::models;
 use crate::database::schema::{access_level, organization, session, user};
@@ -83,7 +83,7 @@ impl AuthService {
     ) -> Result<Option<dto::UserDto>> {
         let conn = &mut self.db_conn_pool.get().await?;
 
-        let user_with_org_and_access_level = user::table
+        let user_with_org_and_access_level: Option<UserDtoEntities> = user::table
             .inner_join(session::table)
             .inner_join(access_level::table)
             .left_join(organization::table)
@@ -94,38 +94,11 @@ impl AuthService {
                 models::AccessLevel::as_select(),
                 Option::<models::Organization>::as_select(),
             ))
-            .first::<(
-                models::User,
-                models::AccessLevel,
-                Option<models::Organization>,
-            )>(conn)
+            .first::<UserDtoEntities>(conn)
             .await
             .optional()?;
 
-        match user_with_org_and_access_level {
-            None => Ok(None),
-            Some(x) => {
-                // type hints for shitty LSP
-                let (usr, access_level, usr_org) = x as (
-                    models::User,
-                    models::AccessLevel,
-                    Option<models::Organization>,
-                );
-
-                Ok(Some(dto::UserDto {
-                    id: usr.id,
-                    created_at: usr.created_at,
-                    updated_at: usr.updated_at,
-                    username: usr.username,
-                    email: usr.email,
-                    email_verified: usr.email_verified,
-                    profile_picture: usr.profile_picture,
-                    description: usr.description,
-                    organization: usr_org.map(|u| OrganizationDto::from(u)),
-                    access_level: Into::into(access_level),
-                }))
-            }
-        }
+        Ok(user_with_org_and_access_level.map(|x| UserDto::from(x)))
     }
 
     /// finds a user from email and plain text password, verifying the password
@@ -133,29 +106,34 @@ impl AuthService {
         &self,
         user_email: String,
         user_password: String,
-    ) -> Result<models::User, UserFromCredentialsError> {
-        use crate::database::schema::user::dsl::*;
-
+    ) -> Result<dto::UserDto, UserFromCredentialsError> {
         let conn = &mut self
             .db_conn_pool
             .get()
             .await
             .or(Err(UserFromCredentialsError::InternalError))?;
 
-        let user_model: Option<models::User> = user
-            .filter(email.eq(&user_email))
-            .first(conn)
+        let user_model: Option<UserDtoEntities> = user::table
+            .inner_join(access_level::table)
+            .left_join(organization::table)
+            .filter(user::email.eq(&user_email))
+            .select((
+                models::User::as_select(),
+                models::AccessLevel::as_select(),
+                Option::<models::Organization>::as_select(),
+            ))
+            .first::<UserDtoEntities>(conn)
             .await
             .optional()
             .or(Err(UserFromCredentialsError::InternalError))?;
 
         match user_model {
             Some(usr) => {
-                let pass_is_valid = verify(user_password, &usr.password)
+                let pass_is_valid = verify(user_password, &usr.0.password)
                     .or(Err(UserFromCredentialsError::InternalError))?;
 
                 if pass_is_valid {
-                    Ok(usr)
+                    Ok(UserDto::from(usr))
                 } else {
                     Err(UserFromCredentialsError::InvalidPassword)
                 }
@@ -233,10 +211,10 @@ impl AuthService {
     pub async fn register_user_and_organization(
         &self,
         dto: dto::RegisterOrganization,
-    ) -> Result<models::User> {
+    ) -> Result<dto::UserDto> {
         let conn = &mut self.db_conn_pool.get().await?;
 
-        let created_user = conn
+        let user_dto = conn
             .transaction::<_, anyhow::Error, _>(|conn| {
                 async move {
                     let created_organization = diesel::insert_into(organization::dsl::organization)
@@ -278,12 +256,42 @@ impl AuthService {
                         .execute(conn)
                         .await?;
 
-                    Ok(created_user)
+                    Ok(UserDto::from((
+                        created_user,
+                        created_access_level,
+                        Some(created_organization),
+                    )))
                 }
                 .scope_boxed()
             })
             .await?;
 
-        Ok(created_user)
+        Ok(user_dto)
+    }
+}
+
+/// tuple with relevant relationships (`access_level` and `organization`) to create a user dto
+pub type UserDtoEntities = (
+    models::User,
+    models::AccessLevel,
+    Option<models::Organization>,
+);
+
+impl From<UserDtoEntities> for UserDto {
+    fn from(m: UserDtoEntities) -> Self {
+        let (user, access_level, org) = m;
+
+        Self {
+            id: user.id,
+            created_at: user.created_at,
+            updated_at: user.updated_at,
+            username: user.username,
+            email: user.email,
+            email_verified: user.email_verified,
+            profile_picture: user.profile_picture,
+            description: user.description,
+            organization: org.map(|o| OrganizationDto::from(o)),
+            access_level: Into::into(access_level),
+        }
     }
 }

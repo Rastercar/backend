@@ -109,7 +109,6 @@ pub struct AccessLevelDto {
     pub description: String,
     pub is_fixed: bool,
     pub permissions: Vec<Option<String>>,
-    pub organization_id: Option<i32>,
 }
 
 #[derive(Serialize, Clone, ToSchema)]
@@ -120,10 +119,11 @@ pub struct OrganizationDto {
     pub updated_at: Option<DateTime<Utc>>,
     pub billing_email: String,
     pub blocked: bool,
+    pub name: String,
     pub billing_email_verified: bool,
 }
 
-// TODO: this probably belongs to the middleware module, but is also a DTO, what to name it ?
+/// A rastercar user with his organization and access level
 #[derive(Serialize, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UserDto {
@@ -146,6 +146,7 @@ impl From<models::Organization> for OrganizationDto {
             created_at: m.created_at,
             updated_at: m.updated_at,
             billing_email: m.billing_email,
+            name: m.name,
             blocked: m.blocked,
             billing_email_verified: m.billing_email_verified,
         }
@@ -162,7 +163,6 @@ impl From<models::AccessLevel> for AccessLevelDto {
             description: m.description,
             is_fixed: m.is_fixed,
             permissions: m.permissions,
-            organization_id: m.organization_id,
         }
     }
 }

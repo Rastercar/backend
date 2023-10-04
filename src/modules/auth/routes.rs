@@ -262,12 +262,7 @@ pub async fn sign_in(
         state.auth_service.delete_session(old_ses_token).await.ok();
     }
 
-    // TODO: we need to return the full user here, but get_user_from_credentials returns only the user model
-    // unlike get_user_from_session_token, however instead of duplicating code we should probably abstract
-    // the query with joins as a method of the User model struct, ideally this methods takes a query, adds the joins and returns the
-    // UserDTO
-    todo!();
-    // Ok(sign_in_or_up_response(user, session_token))
+    Ok(sign_in_or_up_response(user, session_token))
 }
 
 /// Signs up a new user rastercar user
@@ -340,9 +335,7 @@ pub async fn sign_up(
             "failed to create session",
         )))?;
 
-    // TODO:
-    todo!();
-    // Ok(sign_in_or_up_response(created_user, session_token))
+    Ok(sign_in_or_up_response(created_user, session_token))
 }
 
 /// Recover password by email

@@ -14,8 +14,12 @@ pub struct AccessLevel {
     pub name: String,
     pub description: String,
     pub is_fixed: bool,
-    // TODO: why is this Vec<Option<String>> instead of Vec<String>?
+
+    /// permissions a user with this access level have
+    ///
+    /// unfortunately postgres arrays items are nullable so this is `Vec<Option<String>>` instead of `Vec<String>`
     pub permissions: Vec<Option<String>>,
+
     /// FK to the organization that created/owns this access level, if none
     /// this access level is to control admin users (users that do not belong to any organization)
     pub organization_id: Option<i32>,
