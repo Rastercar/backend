@@ -1,4 +1,5 @@
 use super::dto::{self, UserDto};
+use super::error_codes::EMAIL_ALREADY_VERIFIED;
 use super::jwt;
 use super::middleware::RequestUser;
 use super::session::{OptionalSessionToken, SessionToken};
@@ -36,10 +37,21 @@ pub fn create_auth_router(state: AppState) -> Router<AppState> {
         ))
         .route("/sign-up", post(sign_up))
         .route("/sign-in", post(sign_in))
-        .route("/recover-password", post(recover_password))
+        .route(
+            "/request-recover-password-email",
+            post(request_recover_password_email),
+        )
+        .route(
+            "/request-email-address-confirmation",
+            post(request_email_address_confirmation),
+        )
         .route(
             "/change-password-by-recovery-token",
             post(change_password_by_recovery_token),
+        )
+        .route(
+            "/confirm-email-address-by-token",
+            post(confirm_email_address_by_token),
         )
 }
 
@@ -338,15 +350,15 @@ pub async fn sign_up(
     Ok(sign_in_or_up_response(created_user, session_token))
 }
 
-/// Recover password by email
+/// Requests a password reset email
 ///
 /// Sends a reset password email to the provided email address if
 /// a active account exists with it.
 #[utoipa::path(
     post,
-    path = "/auth/recover-password",
+    path = "/auth/request-recover-password-email",
     tag = "auth",
-    request_body = ForgotPassword,
+    request_body = EmailAddress,
     responses(
         (
             status = OK,
@@ -355,15 +367,20 @@ pub async fn sign_up(
             example = json!("password recovery email queued to be sent successfully"),
         ),
         (
+            status = NOT_FOUND,
+            description = "the is no active user with the email address",
+            body = SimpleError,
+        ),
+        (
             status = BAD_REQUEST,
             description = "invalid dto error message",
             body = SimpleError,
         ),
     ),
 )]
-pub async fn recover_password(
+pub async fn request_recover_password_email(
     State(state): State<AppState>,
-    ValidatedJson(payload): ValidatedJson<dto::ForgotPassword>,
+    ValidatedJson(payload): ValidatedJson<dto::EmailAddress>,
 ) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
     let conn = &mut state.get_db_conn().await?;
 
@@ -373,27 +390,95 @@ pub async fn recover_password(
         .optional()
         .or(Err(internal_error_response()))?;
 
-    match maybe_user {
-        Some(usr) => {
-            let token = state
-                .auth_service
-                .gen_and_set_user_reset_password_token(usr.id)
-                .await
-                .or(Err(internal_error_response()))?;
+    if let Some(usr) = maybe_user {
+        let token = state
+            .auth_service
+            .gen_and_set_user_reset_password_token(usr.id)
+            .await
+            .or(Err(internal_error_response()))?;
 
-            state
-                .mailer_service
-                .send_recover_password_email(payload.email, token, usr.username)
-                .await
-                .or(Err(internal_error_response()))?;
+        state
+            .mailer_service
+            .send_recover_password_email(payload.email, token, usr.username)
+            .await
+            .or(Err(internal_error_response()))?;
 
-            Ok(Json("password recovery email queued successfully"))
-        }
-        None => Err((
-            StatusCode::NOT_FOUND,
-            SimpleError::from("user not found with this email"),
-        )),
+        return Ok(Json("password recovery email queued successfully"));
     }
+
+    Err((
+        StatusCode::NOT_FOUND,
+        SimpleError::from("user not found with this email"),
+    ))
+}
+
+/// Requests a email address confirmation email
+///
+/// Sends a email address confirmation email to the provided email address if there
+/// is a user with said unconfirmed address
+#[utoipa::path(
+    post,
+    path = "/auth/request-email-address-confirmation",
+    tag = "auth",
+    request_body = EmailAddress,
+    responses(
+        (
+            status = OK,
+            description = "success message",
+            body = Json<String>,
+            example = json!("a confirmation email was sent"),
+        ),
+        (
+            status = NOT_FOUND,
+            description = "the is no active user with the email address",
+            body = SimpleError,
+        ),
+        (
+            status = BAD_REQUEST,
+            description = "invalid dto error message / EMAIL_ALREADY_CONFIRMED",
+            body = SimpleError,
+        ),
+    ),
+)]
+pub async fn request_email_address_confirmation(
+    State(state): State<AppState>,
+    ValidatedJson(payload): ValidatedJson<dto::EmailAddress>,
+) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
+    let conn = &mut state.get_db_conn().await?;
+
+    let maybe_user = models::User::by_email(&payload.email)
+        .first::<models::User>(conn)
+        .await
+        .optional()
+        .or(Err(internal_error_response()))?;
+
+    if let Some(usr) = maybe_user {
+        if usr.email_verified {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                SimpleError::from(EMAIL_ALREADY_VERIFIED),
+            ));
+        }
+
+        let token = state
+            .auth_service
+            .gen_and_set_user_confirm_email_token(usr.id)
+            .await
+            .or(Err(internal_error_response()))?;
+
+        state
+            .mailer_service
+            .send_confirm_email_address_email(payload.email, token)
+            .await
+            .or(Err(internal_error_response()))?;
+
+        return Ok(Json("email address confirmation email queued successfully"));
+    }
+
+    Err((
+        StatusCode::NOT_FOUND,
+        SimpleError::from("user not found with this email"),
+    ))
 }
 
 /// Recover password by token
@@ -441,26 +526,97 @@ pub async fn change_password_by_recovery_token(
         .optional()
         .or(Err(internal_error_response()))?;
 
-    match maybe_user {
-        Some(usr) => {
-            let new_password_hash =
-                hash(&payload.new_password, DEFAULT_COST).or(Err(internal_error_response()))?;
+    if let Some(usr) = maybe_user {
+        let new_password_hash =
+            hash(&payload.new_password, DEFAULT_COST).or(Err(internal_error_response()))?;
 
-            diesel::update(user::dsl::user)
-                .filter(user::dsl::id.eq(usr.id))
-                .set((
-                    user::dsl::reset_password_token.eq::<Option<String>>(None),
-                    user::dsl::password.eq(new_password_hash),
-                ))
-                .execute(conn)
-                .await
-                .or(Err(internal_error_response()))?;
+        diesel::update(user::dsl::user)
+            .filter(user::dsl::id.eq(usr.id))
+            .set((
+                user::dsl::reset_password_token.eq::<Option<String>>(None),
+                user::dsl::password.eq(new_password_hash),
+            ))
+            .execute(conn)
+            .await
+            .or(Err(internal_error_response()))?;
 
-            Ok(Json("password changed successfully"))
-        }
-        None => Err((
-            StatusCode::NOT_FOUND,
-            SimpleError::from("user not found with this reset password token"),
-        )),
+        return Ok(Json("password changed successfully"));
     }
+
+    Err((
+        StatusCode::NOT_FOUND,
+        SimpleError::from("user not found with this reset password token"),
+    ))
+}
+
+/// Confirm email address by token
+///
+/// Confirms the email address of the user with this token
+#[utoipa::path(
+    post,
+    path = "/auth/confirm-email-address-by-token",
+    tag = "auth",
+    request_body = Token,
+    responses(
+        (
+            status = OK,
+            description = "success message",
+            body = Json<String>,
+            example = json!("password recovery email queued to be sent successfully"),
+        ),
+        (
+            status = UNAUTHORIZED,
+            description = "expired or invalid token",
+            body = SimpleError,
+        ),
+        (
+            status = BAD_REQUEST,
+            description = "invalid dto error message / EMAIL_ALREADY_CONFIRMED",
+            body = SimpleError,
+        ),
+    ),
+)]
+pub async fn confirm_email_address_by_token(
+    State(state): State<AppState>,
+    ValidatedJson(payload): ValidatedJson<dto::Token>,
+) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
+    let conn = &mut state.get_db_conn().await?;
+
+    jwt::decode(&payload.token).or(Err((
+        StatusCode::UNAUTHORIZED,
+        SimpleError::from("invalid token"),
+    )))?;
+
+    let maybe_user = models::User::all()
+        .filter(user::dsl::confirm_email_token.eq(&payload.token))
+        .first::<models::User>(conn)
+        .await
+        .optional()
+        .or(Err(internal_error_response()))?;
+
+    if let Some(usr) = maybe_user {
+        if usr.email_verified {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                SimpleError::from(EMAIL_ALREADY_VERIFIED),
+            ));
+        }
+
+        diesel::update(user::dsl::user)
+            .filter(user::dsl::id.eq(usr.id))
+            .set((
+                user::dsl::email_verified.eq(true),
+                user::dsl::confirm_email_token.eq::<Option<String>>(None),
+            ))
+            .execute(conn)
+            .await
+            .or(Err(internal_error_response()))?;
+
+        return Ok(Json("email confirmed successfully"));
+    }
+
+    Err((
+        StatusCode::NOT_FOUND,
+        SimpleError::from("user not found with this reset password token"),
+    ))
 }

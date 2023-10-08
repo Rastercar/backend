@@ -13,8 +13,7 @@ diesel::table! {
         updated_at -> Nullable<Timestamptz>,
         #[max_length = 255]
         name -> Varchar,
-        #[max_length = 255]
-        description -> Varchar,
+        description -> Text,
         is_fixed -> Bool,
         permissions -> Array<Nullable<Text>>,
         organization_id -> Nullable<Int4>,
@@ -92,8 +91,7 @@ diesel::table! {
         confirm_email_token -> Nullable<Text>,
         #[max_length = 255]
         profile_picture -> Nullable<Varchar>,
-        #[max_length = 255]
-        description -> Nullable<Varchar>,
+        description -> Nullable<Text>,
         organization_id -> Nullable<Int4>,
         access_level_id -> Int4,
     }

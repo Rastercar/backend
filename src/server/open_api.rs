@@ -11,9 +11,10 @@ use utoipa_swagger_ui::SwaggerUi;
 #[openapi(
     components(schemas(
         common::responses::SimpleError,
+        auth::dto::Token,
         auth::dto::RegisterOrganization,
         auth::dto::SignInResponse,
-        auth::dto::ForgotPassword,
+        auth::dto::EmailAddress,
         auth::dto::ResetPassword,
         auth::dto::OrganizationDto,
         auth::dto::AccessLevelDto,
@@ -26,9 +27,10 @@ use utoipa_swagger_ui::SwaggerUi;
         auth::routes::sign_up,
         auth::routes::sign_in,
         auth::routes::sign_out,
-        auth::routes::recover_password,
         auth::routes::sign_out_session_by_id,
+        auth::routes::request_recover_password_email,
         auth::routes::change_password_by_recovery_token,
+        auth::routes::request_email_address_confirmation,
     ),
     modifiers(&SessionIdCookieSecurityScheme),
 )]

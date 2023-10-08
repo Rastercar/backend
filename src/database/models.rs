@@ -70,8 +70,19 @@ pub struct User {
     pub email: String,
     pub email_verified: bool,
     pub password: String,
+
+    /// JWT to be used to reset the user password
+    ///
+    /// note: this is stored in the database because this token needs to be one time
+    /// use only and a simple solution is to clear this column after the token is used
     pub reset_password_token: Option<String>,
+
+    /// JWT to be used to confirm the user email address
+    ///
+    /// note: this is stored in the database because this token needs to be one time
+    /// use only and a simple solution is to clear this column after the token is used
     pub confirm_email_token: Option<String>,
+
     pub profile_picture: Option<String>,
     pub description: Option<String>,
     pub organization_id: Option<i32>,

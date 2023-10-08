@@ -1,6 +1,9 @@
 use std::fs;
 
-use super::{dto::SendEmailIn, templates::ResetPasswordReplacements};
+use super::{
+    dto::SendEmailIn,
+    templates::{ConfirmEmailReplacements, RecoverPasswordReplacements},
+};
 use crate::{
     config::app_config, rabbitmq::DEFAULT_EXCHANGE, services::mailer::dto::EmailRecipient,
 };
@@ -9,6 +12,7 @@ use deadpool_lapin::Pool;
 use lapin::{
     options::BasicPublishOptions, publisher_confirm::PublisherConfirm, BasicProperties, Channel,
 };
+use url;
 
 /// rabbitmq queue to publish RPC requests to the mailer service
 static MAILER_QUEUE: &str = "mailer";
@@ -65,29 +69,63 @@ impl MailerService {
             .await?)
     }
 
+    // TODO: args as struct ? (sequential strings are error prone and suck)
     pub async fn send_recover_password_email(
         &self,
-        email_address: String,
+        email: String,
         reset_password_token: String,
         username: String,
     ) -> Result<PublisherConfirm> {
-        let html_template = fs::read_to_string("templates/recover-password.hbs")?;
-
-        let mut link = app_config().frontend_url.join("auth/change-password")?;
-
+        let mut link = create_frontend_link("auth/change-password")?;
         link.set_query(Some(format!("token={}", reset_password_token).as_str()));
 
+        let replacements = Some(Into::into(RecoverPasswordReplacements {
+            username,
+            reset_password_link: link.into(),
+        }));
+
         let email = SendEmailIn::default()
-            .with_subject("recover password")
-            .with_body_html(&html_template)
+            .with_subject("Rastercar: recover password")
+            .with_body_html(&read_template("recover-password")?)
             .with_to(vec![EmailRecipient {
-                email: email_address,
-                replacements: Some(Into::into(ResetPasswordReplacements {
-                    username,
-                    reset_password_link: link.into(),
-                })),
+                email,
+                replacements,
             }]);
 
         Ok(self.send_email(email).await?)
     }
+
+    // TODO: args as struct ? (sequential strings are error prone and suck)
+    pub async fn send_confirm_email_address_email(
+        &self,
+        email: String,
+        reset_password_token: String,
+    ) -> Result<PublisherConfirm> {
+        let mut link = create_frontend_link("auth/confirm-email-address")?;
+        link.set_query(Some(format!("token={}", reset_password_token).as_str()));
+
+        let replacements = Some(Into::into(ConfirmEmailReplacements {
+            confirmation_link: link.into(),
+        }));
+
+        let email = SendEmailIn::default()
+            .with_subject("Rastercar: confirm email")
+            .with_body_html(&read_template("confirm-email")?)
+            .with_to(vec![EmailRecipient {
+                email,
+                replacements,
+            }]);
+
+        Ok(self.send_email(email).await?)
+    }
+}
+
+/// creates a link to the rastercar frontend
+fn create_frontend_link(path: &str) -> Result<url::Url, url::ParseError> {
+    Ok(app_config().frontend_url.join(path)?)
+}
+
+/// creates a link to the rastercar frontend
+fn read_template(template: &str) -> std::io::Result<String> {
+    Ok(fs::read_to_string(format!("templates/{}.hbs", template))?)
 }

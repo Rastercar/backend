@@ -30,7 +30,7 @@ create table "user" (
     "reset_password_token" text null,
     "confirm_email_token" text null,
     "profile_picture" varchar(255) null,
-    "description" varchar(255) null,
+    "description" text null,
     "organization_id" int,
     "access_level_id" int not null
 );
@@ -60,7 +60,7 @@ create table "access_level" (
     "created_at" timestamptz(0) not null default now(),
     "updated_at" timestamptz(0) null,
     "name" varchar(255) not null,
-    "description" varchar(255) not null,
+    "description" text not null,
     "is_fixed" boolean not null,
     "permissions" text [] not null default '{}',
     "organization_id" int null

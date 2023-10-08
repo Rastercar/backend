@@ -54,7 +54,7 @@ impl AuthService {
             .values((
                 ip.eq(IpNetwork::from(client_ip)),
                 user_agent.eq(client_user_agent),
-                expires_at.eq(Utc::now() + chrono::Duration::days(SESSION_DAYS_DURATION)),
+                expires_at.eq(Utc::now() + Duration::days(SESSION_DAYS_DURATION)),
                 user_id.eq(user_identifier),
                 session_token.eq(ses_token.into_database_value()),
             ))
@@ -183,24 +183,41 @@ impl AuthService {
     pub async fn gen_and_set_user_reset_password_token(&self, user_id: i32) -> Result<String> {
         use crate::database::schema::user::dsl::*;
 
-        let now = Utc::now();
+        let mut claims = Claims::default();
 
-        let exp = (now + Duration::hours(8)).timestamp() as usize;
-        let iat = now.timestamp() as usize;
+        claims.set_expiration_in(Duration::minutes(15));
+        claims.aud = format!("user:{}", user_id);
+        claims.sub = String::from("restore password token");
 
-        let token = jwt::encode(&Claims {
-            exp,
-            iat,
-            aud: format!("user:{}", user_id),
-            iss: String::from("rastercar API"),
-            sub: String::from("restore password token"),
-        })?;
+        let token = jwt::encode(&claims)?;
 
         let conn = &mut self.db_conn_pool.get().await?;
 
         diesel::update(user)
             .filter(id.eq(user_id))
             .set(reset_password_token.eq(&token))
+            .execute(conn)
+            .await?;
+
+        Ok(token)
+    }
+
+    pub async fn gen_and_set_user_confirm_email_token(&self, user_id: i32) -> Result<String> {
+        use crate::database::schema::user::dsl::*;
+
+        let mut claims = Claims::default();
+
+        claims.set_expiration_in(Duration::hours(8));
+        claims.aud = format!("user:{}", user_id);
+        claims.sub = String::from("confirm email address token");
+
+        let token = jwt::encode(&claims)?;
+
+        let conn = &mut self.db_conn_pool.get().await?;
+
+        diesel::update(user)
+            .filter(id.eq(user_id))
+            .set(confirm_email_token.eq(&token))
             .execute(conn)
             .await?;
 

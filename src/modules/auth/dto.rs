@@ -61,9 +61,15 @@ pub struct SignIn {
 }
 
 #[derive(Deserialize, Validate, ToSchema)]
-pub struct ForgotPassword {
+pub struct EmailAddress {
     #[validate(email)]
     pub email: String,
+}
+
+#[derive(Deserialize, Validate, ToSchema)]
+pub struct Token {
+    #[validate(length(min = 5))]
+    pub token: String,
 }
 
 #[derive(Deserialize, Validate, ToSchema)]
