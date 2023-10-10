@@ -37,6 +37,7 @@ diesel::table! {
 
 diesel::table! {
     session (session_token) {
+        public_id -> Int4,
         session_token -> Bytea,
         created_at -> Timestamptz,
         expires_at -> Timestamptz,

@@ -154,7 +154,7 @@ create table "vehicle_tracker_location" (
 );
 
 create table "session" (
-    "public_id" serial primary key,
+    "public_id" serial unique,
     "session_token" BYTEA PRIMARY KEY,
     "created_at" timestamptz(0) not null default now(),
     "expires_at" timestamptz(0) not null,

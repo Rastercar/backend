@@ -31,7 +31,7 @@ pub fn create_auth_router(state: AppState) -> Router<AppState> {
         .route("/me", get(me))
         .route("/sessions", get(list_sessions))
         .route("/sign-out", post(sign_out))
-        .route("/sign-out/:session-id", post(sign_out_session_by_id))
+        .route("/sign-out/:public-session-id", post(sign_out_session_by_id))
         .layer(axum::middleware::from_fn_with_state(
             state,
             super::middleware::user_only_route,
@@ -191,13 +191,13 @@ pub async fn sign_out(
 
 /// Signs out of a session by its id
 ///
-/// deletes the user session with the provided ID
+/// deletes the user session with the provided public ID, a public id can be found on any endpoint that list sessions
 #[utoipa::path(
     post,
-    path = "/auth/sign-out/{session_id}",
+    path = "/auth/sign-out/{public_session_id}",
     tag = "auth",
     params(
-        ("session_id" = u128, Path, description = "id of the session to delete"),
+        ("session_id" = u128, Path, description = "public id of the session to delete"),
     ),
     security(("session_id" = [])),
     responses(
@@ -216,10 +216,12 @@ pub async fn sign_out(
 async fn sign_out_session_by_id(
     req_user: Extension<RequestUser>,
     req_user_session: Extension<SessionToken>,
-    Path(session_id): Path<u128>,
+    Path(public_session_id): Path<u128>,
     State(state): State<AppState>,
 ) -> Result<(StatusCode, HeaderMap), (StatusCode, SimpleError)> {
-    let session_to_delete = SessionToken::from(session_id);
+    // TODO: get session by public id
+
+    let session_to_delete = SessionToken::from(public_session_id);
     let request_user = req_user.0 .0;
 
     let maybe_user_on_session_to_delete = state
@@ -228,37 +230,36 @@ async fn sign_out_session_by_id(
         .await
         .or(Err(internal_error_response()))?;
 
-    match maybe_user_on_session_to_delete {
-        None => Err((
-            StatusCode::BAD_REQUEST,
-            SimpleError::from("session does not exist"),
-        )),
-        Some(user_on_session_to_delete) => {
-            if user_on_session_to_delete.id != request_user.id {
-                return Err((
-                    StatusCode::UNAUTHORIZED,
-                    SimpleError::from("session does not belong to the request user"),
-                ));
-            }
-
-            state
-                .auth_service
-                .delete_session(session_to_delete)
-                .await
-                .or(Err((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    SimpleError::from("failed to delete session"),
-                )))?;
-
-            let mut headers = HeaderMap::new();
-
-            if req_user_session.get_id() == session_to_delete.get_id() {
-                headers.insert("Set-Cookie", session_to_delete.into_delete_cookie_header());
-            }
-
-            Ok((StatusCode::OK, headers))
+    if let Some(user_on_session_to_delete) = maybe_user_on_session_to_delete {
+        if user_on_session_to_delete.id != request_user.id {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                SimpleError::from("session does not belong to the request user"),
+            ));
         }
+
+        state
+            .auth_service
+            .delete_session(session_to_delete)
+            .await
+            .or(Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                SimpleError::from("failed to delete session"),
+            )))?;
+
+        let mut headers = HeaderMap::new();
+
+        if req_user_session.get_id() == session_to_delete.get_id() {
+            headers.insert("Set-Cookie", session_to_delete.into_delete_cookie_header());
+        }
+
+        return Ok((StatusCode::OK, headers));
     }
+
+    Err((
+        StatusCode::BAD_REQUEST,
+        SimpleError::from("session does not exist"),
+    ))
 }
 
 /// Signs in

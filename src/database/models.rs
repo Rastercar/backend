@@ -146,7 +146,14 @@ pub struct VehicleTrackerLocation {
 #[diesel(primary_key(session_token))]
 #[diesel(table_name = crate::database::schema::session)]
 pub struct Session {
+    /// A id that is safe to be exposed as its not used to authenticate a user.
+    ///
+    /// this can be used delete/list sessions
+    pub public_id: i32,
+
+    /// The u128 session id as vector of bytes to avoid leaking session ids
     pub session_token: Vec<u8>,
+
     pub created_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     pub user_agent: String,
