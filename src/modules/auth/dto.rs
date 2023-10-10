@@ -105,6 +105,18 @@ pub struct SignInResponse {
     pub user: UserDto,
 }
 
+#[derive(Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionDto {
+    pub ip: String,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub user_agent: String,
+
+    /// if this session is the same that was used on the request that is returning this
+    pub same_as_from_request: bool,
+}
+
 #[derive(Serialize, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AccessLevelDto {
@@ -155,6 +167,18 @@ impl From<models::Organization> for OrganizationDto {
             name: m.name,
             blocked: m.blocked,
             billing_email_verified: m.billing_email_verified,
+        }
+    }
+}
+
+impl From<models::Session> for SessionDto {
+    fn from(m: models::Session) -> Self {
+        Self {
+            ip: m.ip.to_string(),
+            user_agent: m.user_agent,
+            created_at: m.created_at,
+            expires_at: m.expires_at,
+            same_as_from_request: false,
         }
     }
 }

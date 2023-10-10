@@ -64,6 +64,22 @@ impl AuthService {
         Ok(ses_token)
     }
 
+    /// lists all sessions belonging to a user
+    pub async fn get_active_user_sessions(&self, user_id: &i32) -> Result<Vec<models::Session>> {
+        let conn = &mut self.db_conn_pool.get().await?;
+
+        let sessions: Vec<models::Session> = session::dsl::session
+            .inner_join(user::table)
+            // do not return expired sessions as they are soon to be deleted by a cron job
+            .filter(session::dsl::expires_at.gt(Utc::now()))
+            .filter(session::dsl::user_id.eq(user_id))
+            .select(models::Session::as_select())
+            .load(conn)
+            .await?;
+
+        Ok(sessions)
+    }
+
     /// deletes a session by its token
     pub async fn delete_session(&self, token: SessionToken) -> Result<()> {
         use crate::database::schema::session::dsl::*;

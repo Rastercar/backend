@@ -1,4 +1,4 @@
-use super::dto::{self, UserDto};
+use super::dto::{self, SessionDto, UserDto};
 use super::error_codes::EMAIL_ALREADY_VERIFIED;
 use super::jwt;
 use super::middleware::RequestUser;
@@ -29,6 +29,7 @@ use http::HeaderMap;
 pub fn create_auth_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/me", get(me))
+        .route("/sessions", get(list_sessions))
         .route("/sign-out", post(sign_out))
         .route("/sign-out/:session-id", post(sign_out_session_by_id))
         .layer(axum::middleware::from_fn_with_state(
@@ -90,6 +91,59 @@ fn sign_in_or_up_response(
 )]
 pub async fn me(req_user: Extension<RequestUser>) -> Json<UserDto> {
     Json(UserDto::from(req_user.0 .0))
+}
+
+/// List all sessions for the request user
+#[utoipa::path(
+    get,
+    path = "/auth/me",
+    tag = "auth",
+    security(("session_id" = [])),
+    responses(
+        (
+            status = OK,
+            body = Vec<SessionDto>,
+        ),
+        (
+            status = UNAUTHORIZED,
+            description = "session not found",
+            body = SimpleError,
+        ),
+    ),
+)]
+pub async fn list_sessions(
+    session: Extension<SessionToken>,
+    req_user: Extension<RequestUser>,
+    State(state): State<AppState>,
+) -> Result<Json<Vec<SessionDto>>, (StatusCode, SimpleError)> {
+    let current_session_id = session.0.get_id();
+
+    let sessions = state
+        .auth_service
+        .get_active_user_sessions(&req_user.0 .0.id)
+        .await
+        .or(Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            SimpleError::from("failed to list sessions"),
+        )))?
+        .iter()
+        .map(|s| {
+            let mut session_dto = SessionDto::from(s.clone());
+
+            // TODO: this is SHIT !, find a sane way to convert the model session token to a u128 to easily compare
+            if current_session_id
+                .to_ne_bytes()
+                .to_vec()
+                .eq(&s.session_token)
+            {
+                session_dto.same_as_from_request = true
+            }
+
+            session_dto
+        })
+        .collect();
+
+    Ok(Json(sessions))
 }
 
 /// Signs out of the current user session

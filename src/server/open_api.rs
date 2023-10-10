@@ -11,15 +11,16 @@ use utoipa_swagger_ui::SwaggerUi;
 #[openapi(
     components(schemas(
         common::responses::SimpleError,
-        auth::dto::Token,
         auth::dto::RegisterOrganization,
-        auth::dto::SignInResponse,
-        auth::dto::EmailAddress,
-        auth::dto::ResetPassword,
         auth::dto::OrganizationDto,
+        auth::dto::SignInResponse,
         auth::dto::AccessLevelDto,
+        auth::dto::ResetPassword,
+        auth::dto::EmailAddress,
+        auth::dto::SessionDto,
         auth::dto::UserDto,
-        auth::dto::SignIn
+        auth::dto::SignIn,
+        auth::dto::Token,
     )),
     paths(
         controller::healthcheck,
@@ -27,6 +28,7 @@ use utoipa_swagger_ui::SwaggerUi;
         auth::routes::sign_up,
         auth::routes::sign_in,
         auth::routes::sign_out,
+        auth::routes::list_sessions,
         auth::routes::sign_out_session_by_id,
         auth::routes::request_recover_password_email,
         auth::routes::change_password_by_recovery_token,

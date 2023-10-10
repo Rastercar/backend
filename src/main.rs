@@ -36,13 +36,15 @@ async fn main() {
 
     tokio::spawn(async move {
         for sig in signals.forever() {
-            println!("\n[APP] received signal: {}, shutting down", sig);
+            if !cfg.is_development {
+                println!("\n[APP] received signal: {}, shutting down", sig);
 
-            println!("[APP] closing rabbitmq connections");
-            rmq_connection_pool_shutdown_ref.close();
+                println!("[APP] closing rabbitmq connections");
+                rmq_connection_pool_shutdown_ref.close();
 
-            println!("[APP] closing postgres connections");
-            db_connection_pool_shutdown_ref.close();
+                println!("[APP] closing postgres connections");
+                db_connection_pool_shutdown_ref.close();
+            }
 
             std::process::exit(sig)
         }
