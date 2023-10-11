@@ -3,7 +3,7 @@ use super::dto::{self, OrganizationDto, UserDto};
 use super::jwt::{self, Claims};
 use crate::database::models;
 use crate::database::schema::{access_level, organization, session, user};
-use crate::modules::auth::session::{SessionToken, SESSION_DAYS_DURATION};
+use crate::modules::auth::session::{SessionId, SESSION_DAYS_DURATION};
 use anyhow::Result;
 use bcrypt::{hash, verify, DEFAULT_COST};
 use chrono::{Duration, Utc};
@@ -43,12 +43,12 @@ impl AuthService {
         user_identifier: i32,
         client_ip: IpAddr,
         client_user_agent: String,
-    ) -> Result<SessionToken> {
+    ) -> Result<SessionId> {
         use crate::database::schema::session::dsl::*;
 
         let conn = &mut self.db_conn_pool.get().await?;
 
-        let ses_token = SessionToken::generate_new(&mut self.rng.lock().unwrap());
+        let ses_token = SessionId::generate_new(&mut self.rng.lock().unwrap());
 
         diesel::insert_into(session)
             .values((
@@ -81,22 +81,19 @@ impl AuthService {
     }
 
     /// deletes a session by its token
-    pub async fn delete_session(&self, token: SessionToken) -> Result<()> {
+    pub async fn delete_session(&self, session_id: &SessionId) -> Result<()> {
         use crate::database::schema::session::dsl::*;
 
         let conn = &mut self.db_conn_pool.get().await?;
 
-        let delete_query = session.filter(session_token.eq(token.into_database_value()));
+        let delete_query = session.filter(session_token.eq(session_id.into_database_value()));
         diesel::delete(delete_query).execute(conn).await?;
 
         Ok(())
     }
 
     /// gets the user from the session token if the session is not expired
-    pub async fn get_user_from_session_token(
-        &self,
-        token: SessionToken,
-    ) -> Result<Option<dto::UserDto>> {
+    pub async fn get_user_from_session_id(&self, token: SessionId) -> Result<Option<dto::UserDto>> {
         let conn = &mut self.db_conn_pool.get().await?;
 
         let user_with_org_and_access_level: Option<UserDtoEntities> = user::table

@@ -63,14 +63,7 @@ impl AppConfig {
     /// ENV_VAR_THAT_SHOULD_BE_BOOL=not_a_bool
     pub fn from_env() -> AppConfig {
         match envy::from_env::<AppConfig>() {
-            Ok(config) => {
-                if config.is_development {
-                    println!("[CFG] {:#?}", config);
-                }
-
-                config
-            }
-
+            Ok(config) => config,
             Err(error) => {
                 panic!("[CFG] failed to load application config, {:#?}", error)
             }

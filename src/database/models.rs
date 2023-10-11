@@ -145,6 +145,7 @@ pub struct VehicleTrackerLocation {
 #[derive(Queryable, Debug, Identifiable, Selectable, Clone)]
 #[diesel(primary_key(session_token))]
 #[diesel(table_name = crate::database::schema::session)]
+#[diesel(belongs_to(User))]
 pub struct Session {
     /// A id that is safe to be exposed as its not used to authenticate a user.
     ///

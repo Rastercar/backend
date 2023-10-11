@@ -109,6 +109,7 @@ pub struct SignInResponse {
 #[serde(rename_all = "camelCase")]
 pub struct SessionDto {
     pub ip: String,
+    pub public_id: i32,
     pub created_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     pub user_agent: String,
@@ -175,6 +176,7 @@ impl From<models::Session> for SessionDto {
     fn from(m: models::Session) -> Self {
         Self {
             ip: m.ip.to_string(),
+            public_id: m.public_id,
             user_agent: m.user_agent,
             created_at: m.created_at,
             expires_at: m.expires_at,

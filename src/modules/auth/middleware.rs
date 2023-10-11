@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     modules::{
-        auth::session::SessionToken,
+        auth::session::SessionId,
         common::{
             error_codes::{INVALID_SESSION, NO_SID_COOKIE, ORGANIZATION_BLOCKED},
             responses::{internal_error_response_with_msg, SimpleError},
@@ -50,7 +50,7 @@ fn handle_fetch_user_result(
 /// so use it only within routes that need the user data, adds the following extensions:
 ///
 /// - `RequestUser`
-/// - `SessionToken`
+/// - `SessionId`
 pub async fn user_only_route<B>(
     State(state): State<AppState>,
     mut req: http::Request<B>,
@@ -59,11 +59,11 @@ pub async fn user_only_route<B>(
     let mut headers = req.headers().clone();
 
     if let Some(session_id) = get_session_id_from_request_headers(&mut headers) {
-        let session_token = SessionToken::from(session_id);
+        let session_token = SessionId::from(session_id);
 
         let user_fetch_result = state
             .auth_service
-            .get_user_from_session_token(session_token)
+            .get_user_from_session_id(session_token)
             .await;
 
         let user = handle_fetch_user_result(user_fetch_result)?;

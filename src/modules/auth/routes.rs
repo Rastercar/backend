@@ -2,8 +2,9 @@ use super::dto::{self, SessionDto, UserDto};
 use super::error_codes::EMAIL_ALREADY_VERIFIED;
 use super::jwt;
 use super::middleware::RequestUser;
-use super::session::{OptionalSessionToken, SessionToken};
+use super::session::{OptionalSessionId, SessionId};
 use crate::database::models::{self};
+use crate::database::schema::session;
 use crate::database::schema::user::{self};
 use crate::modules::common::extractors::ValidatedJson;
 use crate::modules::common::responses::{
@@ -17,7 +18,7 @@ use axum::headers::UserAgent;
 use axum::{
     extract::State,
     http::StatusCode,
-    routing::{get, post},
+    routing::{delete, get, post},
     Extension, Json, Router, TypedHeader,
 };
 use axum_client_ip::SecureClientIp;
@@ -31,7 +32,10 @@ pub fn create_auth_router(state: AppState) -> Router<AppState> {
         .route("/me", get(me))
         .route("/sessions", get(list_sessions))
         .route("/sign-out", post(sign_out))
-        .route("/sign-out/:public-session-id", post(sign_out_session_by_id))
+        .route(
+            "/sign-out/:public-session-id",
+            delete(sign_out_session_by_id),
+        )
         .layer(axum::middleware::from_fn_with_state(
             state,
             super::middleware::user_only_route,
@@ -58,7 +62,7 @@ pub fn create_auth_router(state: AppState) -> Router<AppState> {
 
 fn sign_in_or_up_response(
     user: dto::UserDto,
-    ses_token: SessionToken,
+    ses_token: SessionId,
 ) -> (HeaderMap, Json<dto::SignInResponse>) {
     let mut headers = HeaderMap::new();
 
@@ -112,7 +116,7 @@ pub async fn me(req_user: Extension<RequestUser>) -> Json<UserDto> {
     ),
 )]
 pub async fn list_sessions(
-    session: Extension<SessionToken>,
+    session: Extension<SessionId>,
     req_user: Extension<RequestUser>,
     State(state): State<AppState>,
 ) -> Result<Json<Vec<SessionDto>>, (StatusCode, SimpleError)> {
@@ -130,12 +134,11 @@ pub async fn list_sessions(
         .map(|s| {
             let mut session_dto = SessionDto::from(s.clone());
 
-            // TODO: this is SHIT !, find a sane way to convert the model session token to a u128 to easily compare
-            if current_session_id
-                .to_ne_bytes()
-                .to_vec()
-                .eq(&s.session_token)
-            {
+            let session_id = SessionId::from_database_value(s.session_token.clone())
+                .expect("failed convert session id from database value")
+                .get_id();
+
+            if current_session_id == session_id {
                 session_dto.same_as_from_request = true
             }
 
@@ -169,14 +172,14 @@ pub async fn list_sessions(
     ),
 )]
 pub async fn sign_out(
-    session: Extension<SessionToken>,
+    session: Extension<SessionId>,
     State(state): State<AppState>,
 ) -> Result<(StatusCode, HeaderMap), (StatusCode, SimpleError)> {
     let session_token = session.0;
 
     state
         .auth_service
-        .delete_session(session_token)
+        .delete_session(&session_token)
         .await
         .or(Err((
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -189,11 +192,11 @@ pub async fn sign_out(
     Ok((StatusCode::OK, headers))
 }
 
-/// Signs out of a session by its id
+/// Signs out of a session by its public id
 ///
 /// deletes the user session with the provided public ID, a public id can be found on any endpoint that list sessions
 #[utoipa::path(
-    post,
+    delete,
     path = "/auth/sign-out/{public_session_id}",
     tag = "auth",
     params(
@@ -215,32 +218,36 @@ pub async fn sign_out(
 )]
 async fn sign_out_session_by_id(
     req_user: Extension<RequestUser>,
-    req_user_session: Extension<SessionToken>,
-    Path(public_session_id): Path<u128>,
+    req_user_session: Extension<SessionId>,
+    Path(public_session_id): Path<i32>,
     State(state): State<AppState>,
 ) -> Result<(StatusCode, HeaderMap), (StatusCode, SimpleError)> {
-    // TODO: get session by public id
+    let conn = &mut state.get_db_conn().await?;
 
-    let session_to_delete = SessionToken::from(public_session_id);
-    let request_user = req_user.0 .0;
-
-    let maybe_user_on_session_to_delete = state
-        .auth_service
-        .get_user_from_session_token(session_to_delete)
+    let maybe_session_to_delete: Option<models::Session> = session::dsl::session
+        .select(models::Session::as_select())
+        .filter(session::dsl::public_id.eq(&public_session_id))
+        .first::<models::Session>(conn)
         .await
+        .optional()
         .or(Err(internal_error_response()))?;
 
-    if let Some(user_on_session_to_delete) = maybe_user_on_session_to_delete {
-        if user_on_session_to_delete.id != request_user.id {
+    if let Some(session_to_delete) = maybe_session_to_delete {
+        let request_user = req_user.0 .0;
+
+        if session_to_delete.user_id != request_user.id {
             return Err((
                 StatusCode::UNAUTHORIZED,
                 SimpleError::from("session does not belong to the request user"),
             ));
         }
 
+        let session_to_delete_id = SessionId::from_database_value(session_to_delete.session_token)
+            .expect("failed to convert session id from database");
+
         state
             .auth_service
-            .delete_session(session_to_delete)
+            .delete_session(&session_to_delete_id)
             .await
             .or(Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -249,8 +256,11 @@ async fn sign_out_session_by_id(
 
         let mut headers = HeaderMap::new();
 
-        if req_user_session.get_id() == session_to_delete.get_id() {
-            headers.insert("Set-Cookie", session_to_delete.into_delete_cookie_header());
+        if req_user_session.get_id() == session_to_delete_id.get_id() {
+            headers.insert(
+                "Set-Cookie",
+                session_to_delete_id.into_delete_cookie_header(),
+            );
         }
 
         return Ok((StatusCode::OK, headers));
@@ -296,7 +306,7 @@ async fn sign_out_session_by_id(
 )]
 pub async fn sign_in(
     client_ip: SecureClientIp,
-    old_session_token: OptionalSessionToken,
+    old_session_token: OptionalSessionId,
     State(state): State<AppState>,
     TypedHeader(user_agent): TypedHeader<UserAgent>,
     ValidatedJson(payload): ValidatedJson<dto::SignIn>,
@@ -326,7 +336,7 @@ pub async fn sign_in(
         )))?;
 
     if let Some(old_ses_token) = old_session_token.get_value() {
-        state.auth_service.delete_session(old_ses_token).await.ok();
+        state.auth_service.delete_session(&old_ses_token).await.ok();
     }
 
     Ok(sign_in_or_up_response(user, session_token))
