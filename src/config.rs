@@ -1,5 +1,8 @@
+use aws_config::SdkConfig;
+use aws_sdk_s3::config::Region;
 use serde::Deserialize;
 use std::sync::OnceLock;
+use tokio::sync::OnceCell;
 use url::Url;
 
 fn def_http_port() -> u16 {
@@ -8,6 +11,10 @@ fn def_http_port() -> u16 {
 
 fn def_is_development() -> bool {
     false
+}
+
+fn def_tenant_slug() -> String {
+    String::from("rastercar")
 }
 
 fn def_db_url() -> String {
@@ -26,11 +33,23 @@ fn def_jwt_secret() -> String {
     String::from("b6d870d5f22658902bdcd4799d47ea72ed8e3d091287313483df2545069aaee1")
 }
 
+fn def_aws_region() -> String {
+    String::from("us-east-1")
+}
+
+fn def_aws_uploads_bucket_name() -> String {
+    String::from("rastercar-uploads")
+}
+
 #[derive(Deserialize, Debug)]
 pub struct AppConfig {
     /// if the application is running in `development` mode
     #[serde(default = "def_is_development")]
     pub is_development: bool,
+
+    /// the application tenant
+    #[serde(default = "def_tenant_slug")]
+    pub tenant_slug: String,
 
     /// http port the api will listen for requests on
     #[serde(default = "def_http_port")]
@@ -51,6 +70,14 @@ pub struct AppConfig {
     /// 256 bit secret used to generate Json Web Tokens
     #[serde(default = "def_jwt_secret")]
     pub jwt_secret: String,
+
+    /// AWS region
+    #[serde(default = "def_aws_region")]
+    pub aws_region: String,
+
+    /// AWS S3 bucket used for all uploads by the API
+    #[serde(default = "def_aws_uploads_bucket_name")]
+    pub aws_uploads_bucket_name: String,
 }
 
 impl AppConfig {
@@ -71,8 +98,21 @@ impl AppConfig {
     }
 }
 
+async fn get_aws_config() -> SdkConfig {
+    aws_config::from_env()
+        .region(Region::new(&app_config().aws_region))
+        .load()
+        .await
+}
+
 /// returns a global read only reference to the app configuration
 pub fn app_config() -> &'static AppConfig {
     static INSTANCE: OnceLock<AppConfig> = OnceLock::new();
     INSTANCE.get_or_init(|| AppConfig::from_env())
+}
+
+/// returns a global read only reference to the aws configuration
+pub async fn aws_config() -> &'static SdkConfig {
+    static INSTANCE: OnceCell<SdkConfig> = OnceCell::const_new();
+    INSTANCE.get_or_init(get_aws_config).await
 }

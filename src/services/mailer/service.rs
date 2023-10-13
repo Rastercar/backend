@@ -69,7 +69,6 @@ impl MailerService {
             .await?)
     }
 
-    // TODO: args as struct ? (sequential strings are error prone and suck)
     pub async fn send_recover_password_email(
         &self,
         email: String,
@@ -95,7 +94,6 @@ impl MailerService {
         Ok(self.send_email(email).await?)
     }
 
-    // TODO: args as struct ? (sequential strings are error prone and suck)
     pub async fn send_confirm_email_address_email(
         &self,
         email: String,

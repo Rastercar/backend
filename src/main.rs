@@ -6,6 +6,7 @@ mod scheduled;
 mod server;
 mod services;
 
+use crate::services::s3::S3;
 use config::app_config;
 use scheduled::cronjobs;
 use signal_hook::{
@@ -24,8 +25,7 @@ async fn main() {
     let db_connection_pool = database::db::get_connection_pool(&cfg.db_url).await;
     let rmq_connection_pool = rabbitmq::get_connection_pool(&cfg.rmq_uri);
 
-    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), cfg.http_port);
-    println!("[WEB] listening on {}", addr);
+    let s3 = S3::new().await;
 
     cronjobs::start_clear_sessions_cronjob(db_connection_pool.clone());
 
@@ -50,9 +50,12 @@ async fn main() {
         }
     });
 
+    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), cfg.http_port);
+    println!("[WEB] listening on {}", addr);
+
     axum::Server::bind(&addr)
         .serve(
-            server::controller::new(db_connection_pool, rmq_connection_pool)
+            server::controller::new(db_connection_pool, rmq_connection_pool, s3)
                 .into_make_service_with_connect_info::<SocketAddr>(),
         )
         .await
