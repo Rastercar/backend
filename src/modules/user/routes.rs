@@ -12,7 +12,7 @@ use crate::{
 };
 use axum::{
     extract::State,
-    routing::{get, put},
+    routing::{delete, get, put},
     Extension, Json, Router,
 };
 use axum_typed_multipart::TypedMultipart;
@@ -25,6 +25,7 @@ pub fn create_user_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/me", get(me))
         .route("/me/profile-picture", put(put_profile_picture))
+        .route("/me/profile-picture", delete(delete_profile_picture))
         .layer(axum::middleware::from_fn_with_state(
             state,
             auth::middleware::user_only_route,
@@ -125,19 +126,59 @@ async fn put_profile_picture(
             .or(Err(internal_error_response()))?;
     }
 
-    if let Some(old_user_profile_picture_key) = request_user.profile_picture {
-        if state
-            .s3
-            .delete(&old_user_profile_picture_key)
-            .await
-            .is_err()
-        {
-            error!(
-                "[] failed to delete S3 object: {}",
-                old_user_profile_picture_key
-            );
+    if let Some(old_profile_pic) = request_user.profile_picture {
+        if state.s3.delete(&old_profile_pic).await.is_err() {
+            error!("[] failed to delete S3 object: {}", old_profile_pic);
         }
     }
 
     Ok(Json("profile picture updated successfully"))
+}
+
+/// Removes a user profile picture
+#[utoipa::path(
+    delete,
+    path = "/user/profile-picture",
+    tag = "user",
+    security(("session_id" = [])),
+    responses(
+        (
+            status = OK,
+            body = String,
+            content_type = "application/json",
+            example = json!("profile picture removed successfully"),
+        ),
+        (
+            status = UNAUTHORIZED,
+            description = "session not found",
+            body = SimpleError,
+        ),
+    ),
+)]
+async fn delete_profile_picture(
+    State(state): State<AppState>,
+    req_user: Extension<RequestUser>,
+) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
+    let conn = &mut state.get_db_conn().await?;
+
+    let request_user = req_user.0 .0;
+
+    if let Some(old_profile_pic) = request_user.profile_picture {
+        use crate::database::schema::user::dsl::*;
+
+        diesel::update(user)
+            .filter(id.eq(request_user.id))
+            .set(profile_picture.eq::<Option<String>>(None))
+            .execute(conn)
+            .await
+            .or(Err(internal_error_response()))?;
+
+        if state.s3.delete(&old_profile_pic).await.is_err() {
+            error!("failed to delete S3 object: {}", old_profile_pic);
+        }
+
+        return Ok(Json("profile picture removed successfully"));
+    }
+
+    Ok(Json("user does not have a profile picture to remove"))
 }
