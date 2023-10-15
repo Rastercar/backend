@@ -1,4 +1,4 @@
-use crate::modules::{auth, common};
+use crate::modules::{auth, common, user};
 use crate::server::controller;
 use axum::Router;
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
@@ -24,7 +24,7 @@ use utoipa_swagger_ui::SwaggerUi;
     )),
     paths(
         controller::healthcheck,
-        auth::routes::me,
+        user::routes::me,
         auth::routes::sign_up,
         auth::routes::sign_in,
         auth::routes::sign_out,

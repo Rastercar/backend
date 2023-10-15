@@ -9,7 +9,7 @@ use utoipa::ToSchema;
 use validator::ValidationErrors;
 
 /// A struct for simple API error responses, contains a timestamp from the moment
-/// of its creation, a flag for easy type checking for clients and a error message
+/// of its creation and a error message
 ///
 /// its meant to be sent as JSON so its `IntoResponse` implementation will set the
 /// response body to JSON

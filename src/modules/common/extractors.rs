@@ -27,7 +27,7 @@ where
         match Json::<T>::from_request(req, state).await {
             Ok(payload) => match payload.validate() {
                 Ok(_) => Ok(ValidatedJson(payload.0)),
-                Err(e) => Err(((StatusCode::BAD_REQUEST), SimpleError::from(e))),
+                Err(e) => Err((StatusCode::BAD_REQUEST, SimpleError::from(e))),
             },
             Err(rejection) => Err((rejection.status(), SimpleError::from(rejection.to_string()))),
         }

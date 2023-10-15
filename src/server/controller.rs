@@ -3,18 +3,13 @@ use crate::{
     config::app_config,
     modules::{
         auth::routes::create_auth_router,
-        auth::{
-            middleware::RequestUser,
-            service::{new_auth_service, AuthService},
-        },
+        auth::service::{new_auth_service, AuthService},
         common::responses::SimpleError,
+        user::routes::create_user_router,
     },
-    services::{
-        mailer::service::MailerService,
-        s3::{S3Key, S3},
-    },
+    services::{mailer::service::MailerService, s3::S3},
 };
-use axum::{extract::State, routing::get, Extension, Router};
+use axum::{routing::get, Router};
 use axum_client_ip::SecureClientIpSource;
 use deadpool_lapin::Pool as RmqPool;
 use diesel_async::{
@@ -79,11 +74,10 @@ pub fn new(db_conn_pool: Pool<AsyncPgConnection>, rmq_conn_pool: RmqPool, s3: S3
         .allow_headers([header::ACCEPT, header::AUTHORIZATION, header::CONTENT_TYPE]);
 
     Router::new()
-        // TODO: remove mock route
-        .route("/upload", post(upload))
         .route("/healthcheck", get(healthcheck))
         .merge(open_api::create_openapi_router())
         .nest("/auth", create_auth_router(state.clone()))
+        .nest("/user", create_user_router(state.clone()))
         .layer(SecureClientIpSource::ConnectInfo.into_extension())
         .layer(cors)
         .with_state(state)
@@ -97,60 +91,4 @@ pub fn new(db_conn_pool: Pool<AsyncPgConnection>, rmq_conn_pool: RmqPool, s3: S3
 )]
 pub async fn healthcheck() -> StatusCode {
     StatusCode::OK
-}
-
-use axum::{extract::Multipart, routing::post};
-
-async fn upload(
-    State(state): State<AppState>,
-    req_user: Extension<RequestUser>,
-    mut multipart: Multipart,
-) -> Result<String, (StatusCode, SimpleError)> {
-    // TODO: it would be very cool to have a field extractor or a typed extractor, also remove unwrap
-    while let Some(file) = multipart.next_field().await.unwrap() {
-        // this is the name which is sent in form data from frontend or whoever called the api, i am
-        // using it as category, we can get the filename from file data
-        let category = file.name().unwrap().to_string();
-
-        // name of the file with extension
-        let filename = file.file_name().unwrap().to_string();
-
-        // TODO: accept png, jpeg, webp
-        let content_type = file.content_type().unwrap().to_string();
-
-        // file data
-        let data = file.bytes().await.unwrap();
-
-        println!(
-            "Length is {} bytes of category: {}, type: {}",
-            data.len(),
-            category,
-            content_type
-        );
-
-        let user = req_user.0 .0;
-
-        let folder = match user.organization {
-            Some(org) => format!("organization/{}/user/{}", org.id, user.id),
-            None => format!("user/{}", user.id),
-        };
-
-        let key = S3Key { folder, filename };
-
-        return state
-            .s3
-            .upload(key, data)
-            .await
-            .map(|_| String::from("profile pic changed successfully"))
-            .map_err(|_| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    SimpleError::from("failed to upload new profile picture"),
-                )
-            });
-
-        // TODO: update profile picture on the DB!
-    }
-
-    Ok(String::from("xd/??"))
 }

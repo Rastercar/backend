@@ -4,11 +4,20 @@ use axum::body::Bytes;
 use http::Response;
 use s3::{
     error::SdkError,
-    operation::put_object::{PutObjectError, PutObjectOutput},
+    operation::{
+        delete_object::{DeleteObjectError, DeleteObjectOutput},
+        put_object::{PutObjectError, PutObjectOutput},
+    },
     primitives::SdkBody,
     Client,
 };
 
+/// a AWS S3 key to store rastercar objects
+///
+/// this is primarily used to create a tenant aware S3 object key in the format:
+///
+/// `tenant`/`folder`/`filename` where for now tenant is always rastercar
+#[derive(Clone)]
 pub struct S3Key {
     /// the "folder" a file using this key will be stored into
     ///
@@ -54,6 +63,18 @@ impl S3 {
             .bucket(&self.uploads_bucket)
             .key(String::from(key))
             .body(data.into())
+            .send()
+            .await
+    }
+
+    pub async fn delete(
+        &self,
+        key: String,
+    ) -> Result<DeleteObjectOutput, SdkError<DeleteObjectError, Response<SdkBody>>> {
+        self.client
+            .delete_object()
+            .bucket(&self.uploads_bucket)
+            .key(String::from(key))
             .send()
             .await
     }

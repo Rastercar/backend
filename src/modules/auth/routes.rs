@@ -29,7 +29,6 @@ use http::HeaderMap;
 
 pub fn create_auth_router(state: AppState) -> Router<AppState> {
     Router::new()
-        .route("/me", get(me))
         .route("/sessions", get(list_sessions))
         .route("/sign-out", post(sign_out))
         .route(
@@ -71,30 +70,6 @@ fn sign_in_or_up_response(
     let res_body = dto::SignInResponse { user };
 
     (headers, Json(res_body))
-}
-
-/// Returns the request user
-///
-/// the request user is the user that owns the session on the session id (sid) cookie
-#[utoipa::path(
-    get,
-    path = "/auth/me",
-    tag = "auth",
-    security(("session_id" = [])),
-    responses(
-        (
-            status = OK,
-            body = User,
-        ),
-        (
-            status = UNAUTHORIZED,
-            description = "session not found",
-            body = SimpleError,
-        ),
-    ),
-)]
-pub async fn me(req_user: Extension<RequestUser>) -> Json<UserDto> {
-    Json(UserDto::from(req_user.0 .0))
 }
 
 /// List all sessions for the request user
