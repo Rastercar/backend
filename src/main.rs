@@ -14,12 +14,15 @@ use signal_hook::{
     iterator::Signals,
 };
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use tracing::info;
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt().with_target(false).init();
+
     let cfg = app_config();
 
-    println!("[DB] running migrations");
+    info!("[DB] running migrations");
     database::db::run_migrations(&cfg.db_url);
 
     let db_connection_pool = database::db::get_connection_pool(&cfg.db_url).await;
@@ -37,12 +40,12 @@ async fn main() {
     tokio::spawn(async move {
         for sig in signals.forever() {
             if !cfg.is_development {
-                println!("\n[APP] received signal: {}, shutting down", sig);
+                info!("[APP] received signal: {}, shutting down", sig);
 
-                println!("[APP] closing rabbitmq connections");
+                info!("[APP] closing rabbitmq connections");
                 rmq_connection_pool_shutdown_ref.close();
 
-                println!("[APP] closing postgres connections");
+                info!("[APP] closing postgres connections");
                 db_connection_pool_shutdown_ref.close();
             }
 
@@ -51,7 +54,7 @@ async fn main() {
     });
 
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), cfg.http_port);
-    println!("[WEB] listening on {}", addr);
+    info!("[WEB] listening on {}", addr);
 
     axum::Server::bind(&addr)
         .serve(

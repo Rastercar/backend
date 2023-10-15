@@ -2,12 +2,13 @@ use chrono::Utc;
 use diesel::prelude::*;
 use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection, RunQueryDsl};
 use std::time::Duration;
+use tracing::info;
 
 /// starts a tokio task that deletes all the expired user sessions every five minutes
 pub fn start_clear_sessions_cronjob(db_conn_pool: Pool<AsyncPgConnection>) {
     use crate::database::schema::session::dsl::*;
 
-    println!("[CRON] clearing expired sessions every 5 minutes");
+    info!("[CRON] clearing expired sessions every 5 minutes");
 
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(5 * 60));

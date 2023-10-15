@@ -11,6 +11,7 @@ use utoipa_swagger_ui::SwaggerUi;
 #[openapi(
     components(schemas(
         common::responses::SimpleError,
+        user::dto::ProfilePicDto,
         auth::dto::RegisterOrganization,
         auth::dto::OrganizationDto,
         auth::dto::SignInResponse,
@@ -25,6 +26,7 @@ use utoipa_swagger_ui::SwaggerUi;
     paths(
         controller::healthcheck,
         user::routes::me,
+        user::routes::put_profile_picture,
         auth::routes::sign_up,
         auth::routes::sign_in,
         auth::routes::sign_out,

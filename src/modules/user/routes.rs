@@ -19,11 +19,12 @@ use axum_typed_multipart::TypedMultipart;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use http::StatusCode;
+use tracing::error;
 
 pub fn create_user_router(state: AppState) -> Router<AppState> {
     Router::new()
-        .route("/met", get(me))
-        .route("/me/profile-picture", put(update_profile_picture))
+        .route("/me", get(me))
+        .route("/me/profile-picture", put(put_profile_picture))
         .layer(axum::middleware::from_fn_with_state(
             state,
             auth::middleware::user_only_route,
@@ -54,12 +55,37 @@ pub async fn me(req_user: Extension<RequestUser>) -> Json<UserDto> {
     Json(UserDto::from(req_user.0 .0))
 }
 
-// TODO: open api
-async fn update_profile_picture(
+/// Replaces the request user profile picture
+#[utoipa::path(
+    put,
+    path = "/user/profile-picture",
+    tag = "user",
+    security(("session_id" = [])),
+    request_body(content = ProfilePicDto, description = "New post data", content_type = "multipart/form-data"),
+    responses(
+        (
+            status = OK,
+            body = String,
+            content_type = "application/json",
+            example = json!("profile picture updated successfully"),
+        ),
+        (
+            status = UNAUTHORIZED,
+            description = "session not found",
+            body = SimpleError,
+        ),
+        (
+            status = BAD_REQUEST,
+            description = "invalid file",
+            body = SimpleError,
+        ),
+    ),
+)]
+async fn put_profile_picture(
     State(state): State<AppState>,
     req_user: Extension<RequestUser>,
     TypedMultipart(ProfilePicDto { image }): TypedMultipart<ProfilePicDto>,
-) -> Result<String, (StatusCode, SimpleError)> {
+) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
     let img_extension =
         multipart_form_data::get_image_extension_from_field_or_fail_request(&image)?;
 
@@ -100,11 +126,18 @@ async fn update_profile_picture(
     }
 
     if let Some(old_user_profile_picture_key) = request_user.profile_picture {
-        if let Err(deletion_error) = state.s3.delete(old_user_profile_picture_key).await {
-            // TODO: !
-            dbg!(deletion_error);
+        if state
+            .s3
+            .delete(&old_user_profile_picture_key)
+            .await
+            .is_err()
+        {
+            error!(
+                "[] failed to delete S3 object: {}",
+                old_user_profile_picture_key
+            );
         }
     }
 
-    Ok(String::from("profile picture updated successfully"))
+    Ok(Json("profile picture updated successfully"))
 }

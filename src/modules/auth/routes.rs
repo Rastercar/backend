@@ -1,4 +1,4 @@
-use super::dto::{self, SessionDto, UserDto};
+use super::dto::{self, SessionDto};
 use super::error_codes::EMAIL_ALREADY_VERIFIED;
 use super::jwt;
 use super::middleware::RequestUser;
@@ -403,7 +403,8 @@ pub async fn sign_up(
         (
             status = OK,
             description = "success message",
-            body = Json<String>,
+            body = String,
+            content_type = "application/json",
             example = json!("password recovery email queued to be sent successfully"),
         ),
         (
@@ -465,7 +466,8 @@ pub async fn request_recover_password_email(
         (
             status = OK,
             description = "success message",
-            body = Json<String>,
+            body = String,
+            content_type = "application/json",
             example = json!("a confirmation email was sent"),
         ),
         (
@@ -533,7 +535,8 @@ pub async fn request_email_address_confirmation(
         (
             status = OK,
             description = "success message",
-            body = Json<String>,
+            body = String,
+            content_type = "application/json",
             example = json!("password recovery email queued to be sent successfully"),
         ),
         (
@@ -601,7 +604,8 @@ pub async fn change_password_by_recovery_token(
         (
             status = OK,
             description = "success message",
-            body = Json<String>,
+            body = String,
+            content_type = "application/json",
             example = json!("password recovery email queued to be sent successfully"),
         ),
         (

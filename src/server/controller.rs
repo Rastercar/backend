@@ -9,17 +9,22 @@ use crate::{
     },
     services::{mailer::service::MailerService, s3::S3},
 };
-use axum::{routing::get, Router};
+use axum::{body::Body, routing::get, Router};
 use axum_client_ip::SecureClientIpSource;
 use deadpool_lapin::Pool as RmqPool;
 use diesel_async::{
     pooled_connection::{deadpool::Pool, AsyncDieselConnectionManager},
     AsyncPgConnection,
 };
-use http::{header, HeaderValue, Method, StatusCode};
+use http::{header, HeaderValue, Method, Request, StatusCode};
 use rand_chacha::ChaCha8Rng;
 use rand_core::{OsRng, RngCore, SeedableRng};
-use tower_http::cors::CorsLayer;
+use tower::ServiceBuilder;
+use tower_http::{
+    cors::CorsLayer,
+    trace::{DefaultOnResponse, TraceLayer},
+};
+use tracing::{Level, Span};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -73,13 +78,26 @@ pub fn new(db_conn_pool: Pool<AsyncPgConnection>, rmq_conn_pool: RmqPool, s3: S3
         .allow_credentials(true)
         .allow_headers([header::ACCEPT, header::AUTHORIZATION, header::CONTENT_TYPE]);
 
+    let ip_extractor_layer = SecureClientIpSource::ConnectInfo.into_extension();
+
+    // TODO: env var based filtering (study RUST_LOG)
+    let tracing_layer = TraceLayer::new_for_http()
+        .on_request(|request: &Request<Body>, _span: &Span| {
+            tracing::info!("request: {} {}", request.method(), request.uri().path())
+        })
+        .on_response(DefaultOnResponse::new().level(Level::INFO));
+
     Router::new()
         .route("/healthcheck", get(healthcheck))
         .merge(open_api::create_openapi_router())
         .nest("/auth", create_auth_router(state.clone()))
         .nest("/user", create_user_router(state.clone()))
-        .layer(SecureClientIpSource::ConnectInfo.into_extension())
-        .layer(cors)
+        .layer(
+            ServiceBuilder::new()
+                .layer(ip_extractor_layer)
+                .layer(tracing_layer)
+                .layer(cors),
+        )
         .with_state(state)
 }
 

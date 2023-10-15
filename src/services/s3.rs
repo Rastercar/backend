@@ -69,12 +69,12 @@ impl S3 {
 
     pub async fn delete(
         &self,
-        key: String,
+        key: &str,
     ) -> Result<DeleteObjectOutput, SdkError<DeleteObjectError, Response<SdkBody>>> {
         self.client
             .delete_object()
             .bucket(&self.uploads_bucket)
-            .key(String::from(key))
+            .key(key)
             .send()
             .await
     }
