@@ -60,6 +60,8 @@ pub fn new(db_conn_pool: Pool<AsyncPgConnection>, rmq_conn_pool: RmqPool, s3: S3
         auth_service: new_auth_service(db_conn_pool.clone(), rng),
     };
 
+    // URL.to_string for some reason adds a trailing slash
+    // we need to remove it to avoid cors errors
     let mut frontend_origin = app_config().frontend_url.to_string();
     frontend_origin.pop_if_is('/');
 
@@ -80,8 +82,12 @@ pub fn new(db_conn_pool: Pool<AsyncPgConnection>, rmq_conn_pool: RmqPool, s3: S3
         .allow_credentials(true)
         .allow_headers([header::ACCEPT, header::AUTHORIZATION, header::CONTENT_TYPE]);
 
+    // extracts the client IP from the request, this is harder than it sounds and should be
+    // done by a lib to deal with edge cases such as extracting the original IP from a header
+    // set by cloudflare or other load balancers.
     let ip_extractor_layer = SecureClientIpSource::ConnectInfo.into_extension();
 
+    // [PROD-TODO] decide on useful values here
     let tracing_layer = TraceLayer::new_for_http()
         .on_request(|request: &Request<Body>, _span: &Span| {
             tracing::info!("request: {} {}", request.method(), request.uri().path())
