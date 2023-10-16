@@ -19,9 +19,7 @@ use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() {
-    // see:
-    // https://docs.aws.amazon.com/sdk-for-rust/latest/dg/logging.html
-    // https://rust-lang-nursery.github.io/rust-cookbook/development_tools/debugging/config_log.html
+    // see the project readme for more info on how tracing is configured
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .with_target(false)
@@ -32,17 +30,15 @@ async fn main() {
     info!("[DB] running migrations");
     database::db::run_migrations(&cfg.db_url);
 
-    let db_connection_pool = database::db::get_connection_pool(&cfg.db_url).await;
-    let rmq_connection_pool = rabbitmq::get_connection_pool(&cfg.rmq_uri);
+    let db_conn_pool = database::db::get_connection_pool(&cfg.db_url).await;
+    let rmq_conn_pool = rabbitmq::get_connection_pool(&cfg.rmq_uri);
 
-    let s3 = S3::new().await;
-
-    cronjobs::start_clear_sessions_cronjob(db_connection_pool.clone());
+    cronjobs::start_clear_sessions_cronjob(db_conn_pool.clone());
 
     let mut signals = Signals::new(&[SIGINT, SIGTERM]).expect("failed to setup signals hook");
 
-    let db_connection_pool_shutdown_ref = db_connection_pool.clone();
-    let rmq_connection_pool_shutdown_ref = rmq_connection_pool.clone();
+    let db_conn_pool_shutdown_ref = db_conn_pool.clone();
+    let rmq_conn_pool_shutdown_ref = rmq_conn_pool.clone();
 
     tokio::spawn(async move {
         for sig in signals.forever() {
@@ -50,10 +46,10 @@ async fn main() {
                 info!("[APP] received signal: {}, shutting down", sig);
 
                 info!("[APP] closing rabbitmq connections");
-                rmq_connection_pool_shutdown_ref.close();
+                rmq_conn_pool_shutdown_ref.close();
 
                 info!("[APP] closing postgres connections");
-                db_connection_pool_shutdown_ref.close();
+                db_conn_pool_shutdown_ref.close();
             }
 
             std::process::exit(sig)
@@ -61,13 +57,12 @@ async fn main() {
     });
 
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), cfg.http_port);
-    info!("[WEB] listening on {}", addr);
+    info!("[WEB] soon listening on {}", addr);
 
-    axum::Server::bind(&addr)
-        .serve(
-            server::controller::new(db_connection_pool, rmq_connection_pool, s3)
-                .into_make_service_with_connect_info::<SocketAddr>(),
-        )
-        .await
-        .unwrap();
+    let s3 = S3::new().await;
+
+    let server = server::controller::new(db_conn_pool, rmq_conn_pool, s3)
+        .into_make_service_with_connect_info::<SocketAddr>();
+
+    axum::Server::bind(&addr).serve(server).await.unwrap();
 }

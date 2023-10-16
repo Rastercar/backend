@@ -80,24 +80,23 @@ pub fn new(db_conn_pool: Pool<AsyncPgConnection>, rmq_conn_pool: RmqPool, s3: S3
 
     let ip_extractor_layer = SecureClientIpSource::ConnectInfo.into_extension();
 
-    // TODO: env var based filtering (study RUST_LOG)
     let tracing_layer = TraceLayer::new_for_http()
         .on_request(|request: &Request<Body>, _span: &Span| {
             tracing::info!("request: {} {}", request.method(), request.uri().path())
         })
         .on_response(DefaultOnResponse::new().level(Level::INFO));
 
+    let global_middlewares = ServiceBuilder::new()
+        .layer(ip_extractor_layer)
+        .layer(tracing_layer)
+        .layer(cors);
+
     Router::new()
         .route("/healthcheck", get(healthcheck))
         .merge(open_api::create_openapi_router())
         .nest("/auth", create_auth_router(state.clone()))
         .nest("/user", create_user_router(state.clone()))
-        .layer(
-            ServiceBuilder::new()
-                .layer(ip_extractor_layer)
-                .layer(tracing_layer)
-                .layer(cors),
-        )
+        .layer(global_middlewares)
         .with_state(state)
 }
 
