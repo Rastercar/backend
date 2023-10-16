@@ -8,6 +8,9 @@ The worlds best car tracking api :car: :blue_car: :taxi: :bus:
 # run the api in development mode
 make run_dev
 
+# run the api in development mode with debug output
+make run_debug
+
 # run the api dependencies containers (database, rabbitmq, jaeger, etc)
 make docker_run_deps
 

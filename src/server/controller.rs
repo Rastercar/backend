@@ -8,6 +8,7 @@ use crate::{
         user::routes::create_user_router,
     },
     services::{mailer::service::MailerService, s3::S3},
+    utils::string::StringExt,
 };
 use axum::{body::Body, routing::get, Router};
 use axum_client_ip::SecureClientIpSource;
@@ -59,11 +60,8 @@ pub fn new(db_conn_pool: Pool<AsyncPgConnection>, rmq_conn_pool: RmqPool, s3: S3
         auth_service: new_auth_service(db_conn_pool.clone(), rng),
     };
 
-    let frontend_origin = app_config()
-        .frontend_url
-        .to_string()
-        .parse::<HeaderValue>()
-        .expect("failed to parse CORS allowed origins");
+    let mut frontend_origin = app_config().frontend_url.to_string();
+    frontend_origin.pop_if_is('/');
 
     let cors = CorsLayer::new()
         .allow_methods([
@@ -74,7 +72,11 @@ pub fn new(db_conn_pool: Pool<AsyncPgConnection>, rmq_conn_pool: RmqPool, s3: S3
             Method::DELETE,
             Method::OPTIONS,
         ])
-        .allow_origin(frontend_origin)
+        .allow_origin(
+            frontend_origin
+                .parse::<HeaderValue>()
+                .expect("failed to parse CORS allowed origins"),
+        )
         .allow_credentials(true)
         .allow_headers([header::ACCEPT, header::AUTHORIZATION, header::CONTENT_TYPE]);
 

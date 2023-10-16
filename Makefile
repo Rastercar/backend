@@ -5,7 +5,10 @@ lazy:
 	git add . && git commit -m "." && git push origin master
 
 run_dev:
-	IS_DEVELOPMENT=true AWS_PROFILE=rastercar-vitor cargo watch -x run
+	RUST_LOG=info IS_DEVELOPMENT=true AWS_PROFILE=rastercar-vitor cargo watch -x run
+
+run_debug:
+	RUST_LOG=debug IS_DEVELOPMENT=true AWS_PROFILE=rastercar-vitor cargo watch -x run
 
 docker_run_deps: 
 	docker-compose -f docker/docker-compose.yml -p rastercar_api up -d

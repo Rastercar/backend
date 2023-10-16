@@ -5,6 +5,7 @@ mod rabbitmq;
 mod scheduled;
 mod server;
 mod services;
+mod utils;
 
 use crate::services::s3::S3;
 use config::app_config;
