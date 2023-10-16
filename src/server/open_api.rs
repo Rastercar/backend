@@ -27,6 +27,7 @@ use utoipa_swagger_ui::SwaggerUi;
         controller::healthcheck,
         user::routes::me,
         user::routes::put_profile_picture,
+        user::routes::delete_profile_picture,
         auth::routes::sign_up,
         auth::routes::sign_in,
         auth::routes::sign_out,

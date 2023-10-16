@@ -135,7 +135,7 @@ async fn put_profile_picture(
     Ok(Json("profile picture updated successfully"))
 }
 
-/// Removes a user profile picture
+/// Removes the request user profile picture
 #[utoipa::path(
     delete,
     path = "/user/profile-picture",

@@ -15,10 +15,17 @@ use signal_hook::{
 };
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tracing::info;
+use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt().with_target(false).init();
+    // see:
+    // https://docs.aws.amazon.com/sdk-for-rust/latest/dg/logging.html
+    // https://rust-lang-nursery.github.io/rust-cookbook/development_tools/debugging/config_log.html
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .with_target(false)
+        .init();
 
     let cfg = app_config();
 
