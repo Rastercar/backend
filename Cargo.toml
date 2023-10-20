@@ -53,3 +53,4 @@ axum_typed_multipart = "0.10.0"
 tracing = "0.1.39"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 tower = "0.4.13"
+serde_with = "3.4.0"

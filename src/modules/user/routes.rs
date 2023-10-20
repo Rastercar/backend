@@ -1,8 +1,10 @@
-use super::dto::ProfilePicDto;
+use super::super::auth::dto as auth_dto;
+use super::dto::{self, ProfilePicDto};
 use crate::{
     modules::{
         auth::{self, dto::UserDto, middleware::RequestUser},
         common::{
+            extractors::ValidatedJson,
             multipart_form_data,
             responses::{internal_error_response, SimpleError},
         },
@@ -12,7 +14,7 @@ use crate::{
 };
 use axum::{
     extract::State,
-    routing::{delete, get, put},
+    routing::{delete, get, patch, put},
     Extension, Json, Router,
 };
 use axum_typed_multipart::TypedMultipart;
@@ -24,6 +26,7 @@ use tracing::error;
 pub fn create_user_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/me", get(me))
+        .route("/me", patch(update_me))
         .route("/me/profile-picture", put(put_profile_picture))
         .route("/me/profile-picture", delete(delete_profile_picture))
         .layer(axum::middleware::from_fn_with_state(
@@ -54,6 +57,59 @@ pub fn create_user_router(state: AppState) -> Router<AppState> {
 )]
 pub async fn me(req_user: Extension<RequestUser>) -> Json<UserDto> {
     Json(UserDto::from(req_user.0 .0))
+}
+
+/// Updates the request user
+#[utoipa::path(
+    patch,
+    path = "/user/me",
+    tag = "user",
+    security(("session_id" = [])),
+    request_body = UpdateUserDto,
+    responses(
+        (
+            status = OK,
+            description = "the updated user",
+            body = UserDto,
+        ),
+        (
+            status = UNAUTHORIZED,
+            description = "session not found",
+            body = SimpleError,
+        ),
+    ),
+)]
+pub async fn update_me(
+    State(state): State<AppState>,
+    req_user: Extension<RequestUser>,
+    ValidatedJson(payload): ValidatedJson<dto::UpdateUserDto>,
+) -> Result<Json<auth_dto::UserDto>, (StatusCode, SimpleError)> {
+    use crate::database::schema::user::dsl::*;
+
+    let conn = &mut state.get_db_conn().await?;
+
+    let mut req_user = req_user.0 .0;
+
+    diesel::update(user)
+        .filter(id.eq(&req_user.id))
+        .set(&payload)
+        .execute(conn)
+        .await
+        .or(Err(internal_error_response()))?;
+
+    if let Some(new_description) = payload.description {
+        req_user.description = new_description;
+    }
+
+    if let Some(new_username) = payload.username {
+        req_user.username = new_username;
+    }
+
+    if let Some(new_email) = payload.email {
+        req_user.email = new_email;
+    }
+
+    Ok(Json(req_user))
 }
 
 /// Replaces the request user profile picture
