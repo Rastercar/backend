@@ -59,7 +59,7 @@ pub async fn me(req_user: Extension<RequestUser>) -> Json<UserDto> {
 /// Replaces the request user profile picture
 #[utoipa::path(
     put,
-    path = "/user/profile-picture",
+    path = "/user/me/profile-picture",
     tag = "user",
     security(("session_id" = [])),
     request_body(content = ProfilePicDto, description = "New post data", content_type = "multipart/form-data"),
@@ -68,7 +68,8 @@ pub async fn me(req_user: Extension<RequestUser>) -> Json<UserDto> {
             status = OK,
             body = String,
             content_type = "application/json",
-            example = json!("profile picture updated successfully"),
+            description = "S3 object key of the new profile picture",
+            example = json!("rastercar/organization/1/user/2/profile-picture_20-10-2023_00:19:17.jpeg"),
         ),
         (
             status = UNAUTHORIZED,
@@ -86,7 +87,7 @@ async fn put_profile_picture(
     State(state): State<AppState>,
     req_user: Extension<RequestUser>,
     TypedMultipart(ProfilePicDto { image }): TypedMultipart<ProfilePicDto>,
-) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
+) -> Result<Json<String>, (StatusCode, SimpleError)> {
     let img_extension =
         multipart_form_data::get_image_extension_from_field_or_fail_request(&image)?;
 
@@ -120,7 +121,7 @@ async fn put_profile_picture(
 
         diesel::update(user)
             .filter(id.eq(request_user.id))
-            .set(profile_picture.eq(String::from(key)))
+            .set(profile_picture.eq(String::from(key.clone())))
             .execute(conn)
             .await
             .or(Err(internal_error_response()))?;
@@ -132,13 +133,13 @@ async fn put_profile_picture(
         }
     }
 
-    Ok(Json("profile picture updated successfully"))
+    Ok(Json(String::from(key)))
 }
 
 /// Removes the request user profile picture
 #[utoipa::path(
     delete,
-    path = "/user/profile-picture",
+    path = "/user/me/profile-picture",
     tag = "user",
     security(("session_id" = [])),
     responses(
