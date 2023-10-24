@@ -12,6 +12,7 @@ use utoipa_swagger_ui::SwaggerUi;
     components(schemas(
         common::responses::SimpleError,
 
+        user::dto::ChangePasswordDto,
         user::dto::ProfilePicDto,
         user::dto::UpdateUserDto,
         
@@ -31,6 +32,7 @@ use utoipa_swagger_ui::SwaggerUi;
         
         user::routes::me,
         user::routes::update_me,
+        user::routes::put_password,
         user::routes::put_profile_picture,
         user::routes::delete_profile_picture,
 

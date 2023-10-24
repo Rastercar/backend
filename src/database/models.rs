@@ -25,7 +25,7 @@ pub struct AccessLevel {
     pub organization_id: Option<i32>,
 }
 
-#[derive(Queryable, Debug, Identifiable, Selectable)]
+#[derive(Queryable, Debug, Identifiable, Selectable, Clone)]
 #[diesel(table_name = crate::database::schema::organization)]
 #[diesel(belongs_to(Organization))]
 pub struct Organization {

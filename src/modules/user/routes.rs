@@ -1,5 +1,7 @@
 use super::super::auth::dto as auth_dto;
 use super::dto::{self, ProfilePicDto};
+use crate::modules::auth::middleware::RequestUserPassword;
+use crate::modules::common::responses::internal_error_response_with_msg;
 use crate::{
     modules::{
         auth::{self, dto::UserDto, middleware::RequestUser},
@@ -18,6 +20,7 @@ use axum::{
     Extension, Json, Router,
 };
 use axum_typed_multipart::TypedMultipart;
+use bcrypt::{hash, verify, DEFAULT_COST};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use http::StatusCode;
@@ -27,6 +30,7 @@ pub fn create_user_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/me", get(me))
         .route("/me", patch(update_me))
+        .route("/me/password", put(put_password))
         .route("/me/profile-picture", put(put_profile_picture))
         .route("/me/profile-picture", delete(delete_profile_picture))
         .layer(axum::middleware::from_fn_with_state(
@@ -55,8 +59,8 @@ pub fn create_user_router(state: AppState) -> Router<AppState> {
         ),
     ),
 )]
-pub async fn me(req_user: Extension<RequestUser>) -> Json<UserDto> {
-    Json(UserDto::from(req_user.0 .0))
+pub async fn me(Extension(req_user): Extension<RequestUser>) -> Json<UserDto> {
+    Json(UserDto::from(req_user.0))
 }
 
 /// Updates the request user
@@ -81,14 +85,14 @@ pub async fn me(req_user: Extension<RequestUser>) -> Json<UserDto> {
 )]
 pub async fn update_me(
     State(state): State<AppState>,
-    req_user: Extension<RequestUser>,
+    Extension(req_user): Extension<RequestUser>,
     ValidatedJson(payload): ValidatedJson<dto::UpdateUserDto>,
 ) -> Result<Json<auth_dto::UserDto>, (StatusCode, SimpleError)> {
     use crate::database::schema::user::dsl::*;
 
     let conn = &mut state.get_db_conn().await?;
 
-    let mut req_user = req_user.0 .0;
+    let mut req_user = req_user.0;
 
     diesel::update(user)
         .filter(id.eq(&req_user.id))
@@ -110,6 +114,68 @@ pub async fn update_me(
     }
 
     Ok(Json(req_user))
+}
+
+/// Changes the user password
+#[utoipa::path(
+    put,
+    path = "/user/me/password",
+    tag = "user",
+    security(("session_id" = [])),
+    request_body(content = ChangePasswordDto),
+    responses(
+        (
+            status = OK,
+            body = String,
+            content_type = "application/json",
+            example = json!("password changed successfully"),
+        ),
+        (
+            status = UNAUTHORIZED,
+            description = "session not found",
+            body = SimpleError,
+        ),
+        (
+            status = BAD_REQUEST,
+            description = "weak password",
+            body = SimpleError,
+        ),
+    ),
+)]
+async fn put_password(
+    State(state): State<AppState>,
+    Extension(req_user): Extension<RequestUser>,
+    Extension(req_user_password): Extension<RequestUserPassword>,
+    ValidatedJson(payload): ValidatedJson<dto::ChangePasswordDto>,
+) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
+    use crate::database::schema::user::dsl::*;
+
+    let conn = &mut state.get_db_conn().await?;
+
+    let req_user = req_user.0;
+
+    let old_password_valid = verify(payload.old_password, req_user_password.0.as_str())
+        .or(Err(internal_error_response()))?;
+
+    if !old_password_valid {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            SimpleError::from("invalid password"),
+        ));
+    }
+
+    let new_password_hash = hash(payload.new_password, DEFAULT_COST).or(Err(
+        internal_error_response_with_msg("error hashing password"),
+    ))?;
+
+    diesel::update(user)
+        .filter(id.eq(&req_user.id))
+        .set(password.eq(new_password_hash))
+        .execute(conn)
+        .await
+        .or(Err(internal_error_response()))?;
+
+    Ok(Json("password changed successfully"))
 }
 
 /// Replaces the request user profile picture
@@ -141,7 +207,7 @@ pub async fn update_me(
 )]
 async fn put_profile_picture(
     State(state): State<AppState>,
-    req_user: Extension<RequestUser>,
+    Extension(req_user): Extension<RequestUser>,
     TypedMultipart(ProfilePicDto { image }): TypedMultipart<ProfilePicDto>,
 ) -> Result<Json<String>, (StatusCode, SimpleError)> {
     let img_extension =
@@ -150,7 +216,7 @@ async fn put_profile_picture(
     let timestamp = chrono::Utc::now().format("%d-%m-%Y_%H:%M:%S");
     let filename = format!("profile-picture_{}.{}", timestamp, img_extension);
 
-    let request_user = req_user.0 .0;
+    let request_user = req_user.0;
 
     let folder = match request_user.organization {
         Some(org) => format!("organization/{}/user/{}", org.id, request_user.id),
@@ -214,11 +280,11 @@ async fn put_profile_picture(
 )]
 async fn delete_profile_picture(
     State(state): State<AppState>,
-    req_user: Extension<RequestUser>,
+    Extension(req_user): Extension<RequestUser>,
 ) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
     let conn = &mut state.get_db_conn().await?;
 
-    let request_user = req_user.0 .0;
+    let request_user = req_user.0;
 
     if let Some(old_profile_pic) = request_user.profile_picture {
         use crate::database::schema::user::dsl::*;

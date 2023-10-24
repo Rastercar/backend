@@ -1,19 +1,12 @@
 use crate::database::models;
+use crate::modules::common::validators::{
+    REGEX_CONTAINS_LOWERCASE_CHARACTER, REGEX_CONTAINS_NUMBER, REGEX_CONTAINS_SYMBOLIC_CHARACTER,
+    REGEX_CONTAINS_UPPERCASE_CHARACTER, REGEX_IS_LOWERCASE_ALPHANUMERIC_WITH_UNDERSCORES,
+};
 use chrono::{DateTime, Utc};
-use lazy_static::lazy_static;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use validator::Validate;
-
-lazy_static! {
-    static ref REGEX_CONTAINS_NUMBER: Regex = Regex::new(r"[0-9]").unwrap();
-    static ref REGEX_CONTAINS_UPPERCASE_CHARACTER: Regex = Regex::new(r"[A-Z]").unwrap();
-    static ref REGEX_CONTAINS_LOWERCASE_CHARACTER: Regex = Regex::new(r"[a-z]").unwrap();
-    static ref REGEX_CONTAINS_SYMBOLIC_CHARACTER: Regex = Regex::new(r"[#?!@$%^&*-]").unwrap();
-    static ref REGEX_IS_LOWERCASE_ALPHANUMERIC_WITH_UNDERSCORES: Regex =
-        Regex::new(r"^[a-z0-9_]+$").unwrap();
-}
 
 // --- INPUT
 
@@ -30,7 +23,7 @@ pub struct RegisterOrganization {
     #[validate(email)]
     pub email: String,
 
-    #[validate(length(min = 5, max = 128))]
+    #[validate(length(min = 5, max = 256))]
     #[validate(regex(
         path = "REGEX_CONTAINS_NUMBER",
         message = "password must contain a number"
@@ -53,7 +46,7 @@ pub struct RegisterOrganization {
 #[derive(Deserialize, Validate, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct SignIn {
-    #[validate(length(min = 5, max = 128))]
+    #[validate(length(min = 5, max = 256))]
     pub password: String,
 
     #[validate(email)]
@@ -75,7 +68,7 @@ pub struct Token {
 #[derive(Deserialize, Validate, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ResetPassword {
-    #[validate(length(min = 5, max = 128))]
+    #[validate(length(min = 5, max = 256))]
     #[validate(regex(
         path = "REGEX_CONTAINS_NUMBER",
         message = "new password must contain a number"

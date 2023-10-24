@@ -93,10 +93,13 @@ impl AuthService {
     }
 
     /// gets the user from the session token if the session is not expired
-    pub async fn get_user_from_session_id(&self, token: SessionId) -> Result<Option<dto::UserDto>> {
+    pub async fn get_user_from_session_id(
+        &self,
+        token: SessionId,
+    ) -> Result<Option<UserDtoEntities>> {
         let conn = &mut self.db_conn_pool.get().await?;
 
-        let user_with_org_and_access_level: Option<UserDtoEntities> = user::table
+        Ok(user::table
             .inner_join(session::table)
             .inner_join(access_level::table)
             .left_join(organization::table)
@@ -109,9 +112,7 @@ impl AuthService {
             ))
             .first::<UserDtoEntities>(conn)
             .await
-            .optional()?;
-
-        Ok(user_with_org_and_access_level.map(|x| UserDto::from(x)))
+            .optional()?)
     }
 
     /// finds a user from email and plain text password, verifying the password
@@ -151,7 +152,7 @@ impl AuthService {
                     Err(UserFromCredentialsError::InvalidPassword)
                 }
             }
-            None => return Err(UserFromCredentialsError::NotFound),
+            None => Err(UserFromCredentialsError::NotFound),
         }
     }
 

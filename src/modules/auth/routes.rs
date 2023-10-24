@@ -91,15 +91,15 @@ fn sign_in_or_up_response(
     ),
 )]
 pub async fn list_sessions(
-    session: Extension<SessionId>,
-    req_user: Extension<RequestUser>,
+    Extension(session): Extension<SessionId>,
+    Extension(req_user): Extension<RequestUser>,
     State(state): State<AppState>,
 ) -> Result<Json<Vec<SessionDto>>, (StatusCode, SimpleError)> {
-    let current_session_id = session.0.get_id();
+    let current_session_id = session.get_id();
 
     let sessions = state
         .auth_service
-        .get_active_user_sessions(&req_user.0 .0.id)
+        .get_active_user_sessions(&req_user.0.id)
         .await
         .or(Err((
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -147,22 +147,16 @@ pub async fn list_sessions(
     ),
 )]
 pub async fn sign_out(
-    session: Extension<SessionId>,
+    Extension(session): Extension<SessionId>,
     State(state): State<AppState>,
 ) -> Result<(StatusCode, HeaderMap), (StatusCode, SimpleError)> {
-    let session_token = session.0;
-
-    state
-        .auth_service
-        .delete_session(&session_token)
-        .await
-        .or(Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            SimpleError::from("failed to delete session"),
-        )))?;
+    state.auth_service.delete_session(&session).await.or(Err((
+        StatusCode::INTERNAL_SERVER_ERROR,
+        SimpleError::from("failed to delete session"),
+    )))?;
 
     let mut headers = HeaderMap::new();
-    headers.insert("Set-Cookie", session_token.into_delete_cookie_header());
+    headers.insert("Set-Cookie", session.into_delete_cookie_header());
 
     Ok((StatusCode::OK, headers))
 }
@@ -192,8 +186,8 @@ pub async fn sign_out(
     ),
 )]
 async fn sign_out_session_by_id(
-    req_user: Extension<RequestUser>,
-    req_user_session: Extension<SessionId>,
+    Extension(req_user): Extension<RequestUser>,
+    Extension(req_user_session): Extension<SessionId>,
     Path(public_session_id): Path<i32>,
     State(state): State<AppState>,
 ) -> Result<(StatusCode, HeaderMap), (StatusCode, SimpleError)> {
@@ -208,7 +202,7 @@ async fn sign_out_session_by_id(
         .or(Err(internal_error_response()))?;
 
     if let Some(session_to_delete) = maybe_session_to_delete {
-        let request_user = req_user.0 .0;
+        let request_user = req_user.0;
 
         if session_to_delete.user_id != request_user.id {
             return Err((
