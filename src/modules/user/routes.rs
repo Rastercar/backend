@@ -35,7 +35,7 @@ pub fn create_user_router(state: AppState) -> Router<AppState> {
         .route("/me/profile-picture", delete(delete_profile_picture))
         .layer(axum::middleware::from_fn_with_state(
             state,
-            auth::middleware::user_only_route,
+            auth::middleware::require_user,
         ))
 }
 

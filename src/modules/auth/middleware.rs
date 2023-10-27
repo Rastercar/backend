@@ -1,3 +1,5 @@
+use std::future::Future;
+
 use super::{
     dto::{self, UserDto},
     service::UserDtoEntities,
@@ -14,8 +16,9 @@ use crate::{
     server::controller::AppState,
 };
 use anyhow::Error;
-use axum::{extract::State, response::Response};
+use axum::{extract::State, response::Response, Extension};
 use http::StatusCode;
+use tower::Service;
 
 /// Simple extractor for routes that are only allowed for regular users
 #[derive(Clone)]
@@ -58,7 +61,7 @@ fn handle_fetch_user_result(
 /// - `RequestUser`
 /// - `RequestUserPassword`
 /// - `SessionId`
-pub async fn user_only_route<B>(
+pub async fn require_user<B>(
     State(state): State<AppState>,
     mut req: http::Request<B>,
     next: axum::middleware::Next<B>,
@@ -88,4 +91,43 @@ pub async fn user_only_route<B>(
     }
 
     Err((StatusCode::UNAUTHORIZED, SimpleError::from(NO_SID_COOKIE)))
+}
+
+// TODO: document me
+pub async fn require_permissions<B>(
+    required_permissions: Vec<String>,
+    Extension(req_user): Extension<RequestUser>,
+    State(state): State<AppState>,
+    req: http::Request<B>,
+    next: axum::middleware::Next<B>,
+) -> Result<Response, (StatusCode, SimpleError)> {
+    if req_user.0.id == 4 {
+        return Ok(next.run(req).await);
+    }
+
+    // TODO: document lacking permissions
+    Err((
+        StatusCode::UNAUTHORIZED,
+        SimpleError::from("user lacks permissions"),
+    ))
+}
+
+pub fn create_require_permissions<'a, B: 'a>(
+    required_permissions: Vec<String>,
+) -> impl Fn(
+    Extension<RequestUser>,
+    State<AppState>,
+    http::Request<B>,
+    axum::middleware::Next<B>,
+)
+    -> std::pin::Pin<Box<dyn Future<Output = Result<Response, (StatusCode, SimpleError)>> + 'a>> {
+    move |u, s, r, n| {
+        Box::pin(require_permissions(
+            required_permissions.clone(),
+            u,
+            s,
+            r,
+            n,
+        ))
+    }
 }
