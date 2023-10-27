@@ -14,8 +14,19 @@ use crate::{
     server::controller::AppState,
 };
 use anyhow::Error;
-use axum::{extract::State, response::Response, Extension};
+use axum::{
+    body::{self, BoxBody, Bytes, HttpBody},
+    extract::State,
+    response::{IntoResponse, Response},
+    BoxError,
+};
+use futures_util::future::BoxFuture;
+use http::Request;
 use http::StatusCode;
+use std::convert::Infallible;
+use std::task::Context;
+use std::task::Poll;
+use tower::{Layer, Service};
 
 /// Simple extractor for routes that are only allowed for regular users
 #[derive(Clone)]
@@ -90,14 +101,9 @@ pub async fn require_user<B>(
     Err((StatusCode::UNAUTHORIZED, SimpleError::from(NO_SID_COOKIE)))
 }
 
-/// Checks if there is a request user that contains the required permissions
-pub async fn require_permissions<B>(
-    required_permissions: Vec<String>,
-    Extension(req_user): Extension<RequestUser>,
-    req: http::Request<B>,
-    next: axum::middleware::Next<B>,
-) -> Result<Response, (StatusCode, SimpleError)> {
-    let user_permissions: Vec<String> = req_user
+/// check if every permission on `permissions` is present in the user access level
+pub fn user_contains_permissions(user: &RequestUser, permissions: &Vec<String>) -> bool {
+    let user_permissions: Vec<String> = user
         .0
         .access_level
         .permissions
@@ -105,16 +111,93 @@ pub async fn require_permissions<B>(
         .filter_map(|e| e.to_owned())
         .collect();
 
-    let has_permissions = required_permissions
+    permissions
         .iter()
-        .all(|item| user_permissions.contains(item));
+        .all(|item| user_permissions.contains(item))
+}
 
-    if !has_permissions {
-        return Err((
-            StatusCode::UNAUTHORIZED,
-            SimpleError::from("user lacks permissions"),
-        ));
+/// A layer to be used as a middleware to authorize users.
+///
+/// this requires the `RequestUser` extension to be available for the route
+/// its protecting, otherwise the request will always fail since there is no
+/// user to check permissions against.
+#[derive(Clone)]
+pub struct AclLayer {
+    /// list of permissions the role of the request user must have
+    /// to allow the request to continue
+    required_permissions: Vec<String>,
+}
+
+impl AclLayer {
+    pub fn new(required_permissions: Vec<String>) -> Self {
+        AclLayer {
+            required_permissions,
+        }
+    }
+}
+
+impl<S> Layer<S> for AclLayer {
+    type Service = AclMiddleware<S>;
+
+    fn layer(&self, inner: S) -> Self::Service {
+        AclMiddleware {
+            inner,
+            required_permissions: self.required_permissions.clone(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct AclMiddleware<S> {
+    /// inner service to execute, normally the next middleware or the final route handler
+    inner: S,
+    required_permissions: Vec<String>,
+}
+
+impl<S, ReqBody, ResBody> Service<Request<ReqBody>> for AclMiddleware<S>
+where
+    S: Service<Request<ReqBody>, Response = Response<ResBody>, Error = Infallible>
+        + Clone
+        + Send
+        + 'static,
+    S::Future: Send + 'static,
+    ReqBody: Send + 'static,
+    Infallible: From<<S as Service<Request<ReqBody>>>::Error>,
+    ResBody: HttpBody<Data = Bytes> + Send + 'static,
+    ResBody::Error: Into<BoxError>,
+{
+    type Response = Response<BoxBody>;
+    type Error = Infallible;
+    type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
     }
 
-    Ok(next.run(req).await)
+    fn call(&mut self, req: Request<ReqBody>) -> Self::Future {
+        let maybe_not_ready_inner = self.inner.clone();
+        let mut inner = std::mem::replace(&mut self.inner, maybe_not_ready_inner);
+
+        if let Some(req_user) = req.extensions().get::<RequestUser>() {
+            let has_permissions = user_contains_permissions(req_user, &self.required_permissions);
+
+            return Box::pin(async move {
+                if has_permissions {
+                    Ok(inner.call(req).await?.map(body::boxed))
+                } else {
+                    Ok((
+                        StatusCode::UNAUTHORIZED,
+                        SimpleError::from("user lacks permissions"),
+                    )
+                        .into_response())
+                }
+            });
+        }
+
+        Box::pin(async move {
+            // this should be a internal error and not a UNAUTHORIZED response
+            // since the request user should be available on the extensions.
+            Ok(internal_error_response_with_msg("cannot check user permissions").into_response())
+        })
+    }
 }
