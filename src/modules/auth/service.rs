@@ -315,7 +315,6 @@ impl From<UserDtoEntities> for UserDto {
         Self {
             id: user.id,
             created_at: user.created_at,
-            updated_at: user.updated_at,
             username: user.username,
             email: user.email,
             email_verified: user.email_verified,

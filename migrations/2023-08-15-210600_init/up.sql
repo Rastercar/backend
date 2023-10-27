@@ -1,7 +1,6 @@
 create table "organization" (
     "id" serial primary key,
     "created_at" timestamptz(0) not null default now(),
-    "updated_at" timestamptz(0) null,
     "name" varchar(255) not null,
     "blocked" boolean not null,
     "billing_email" varchar(255) not null,
@@ -22,7 +21,6 @@ add
 create table "user" (
     "id" serial primary key,
     "created_at" timestamptz(0) not null default now(),
-    "updated_at" timestamptz(0) null,
     "username" varchar(255) not null,
     "email" varchar(255) not null,
     "email_verified" boolean not null default false,
@@ -58,7 +56,6 @@ add
 create table "access_level" (
     "id" serial primary key,
     "created_at" timestamptz(0) not null default now(),
-    "updated_at" timestamptz(0) null,
     "name" varchar(255) not null,
     "description" text not null,
     "is_fixed" boolean not null,
@@ -69,7 +66,6 @@ create table "access_level" (
 create table "vehicle" (
     "id" serial primary key,
     "created_at" timestamptz(0) not null default now(),
-    "updated_at" timestamptz(0) null,
     "plate" varchar(255) not null,
     "photo" varchar(255) null,
     "model_year" smallint null,
@@ -92,7 +88,6 @@ add
 create table "vehicle_tracker" (
     "id" serial primary key,
     "created_at" timestamptz(0) not null default now(),
-    "updated_at" timestamptz(0) null,
     "model" varchar(255) not null,
     "imei" varchar(255) not null,
     "in_maintenance" boolean not null default false,
@@ -108,7 +103,6 @@ add
 create table "sim_card" (
     "id" serial primary key,
     "created_at" timestamptz(0) not null default now(),
-    "updated_at" timestamptz(0) null,
     "phone_number" varchar(255) not null,
     "ssn" varchar(255) not null,
     "apn_address" varchar(255) not null,

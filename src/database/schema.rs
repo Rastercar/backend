@@ -10,7 +10,6 @@ diesel::table! {
     access_level (id) {
         id -> Int4,
         created_at -> Timestamptz,
-        updated_at -> Nullable<Timestamptz>,
         #[max_length = 255]
         name -> Varchar,
         description -> Text,
@@ -24,7 +23,6 @@ diesel::table! {
     organization (id) {
         id -> Int4,
         created_at -> Timestamptz,
-        updated_at -> Nullable<Timestamptz>,
         #[max_length = 255]
         name -> Varchar,
         blocked -> Bool,
@@ -52,7 +50,6 @@ diesel::table! {
     sim_card (id) {
         id -> Int4,
         created_at -> Timestamptz,
-        updated_at -> Nullable<Timestamptz>,
         #[max_length = 255]
         phone_number -> Varchar,
         #[max_length = 255]
@@ -80,7 +77,6 @@ diesel::table! {
     user (id) {
         id -> Int4,
         created_at -> Timestamptz,
-        updated_at -> Nullable<Timestamptz>,
         #[max_length = 255]
         username -> Varchar,
         #[max_length = 255]
@@ -102,7 +98,6 @@ diesel::table! {
     vehicle (id) {
         id -> Int4,
         created_at -> Timestamptz,
-        updated_at -> Nullable<Timestamptz>,
         #[max_length = 255]
         plate -> Varchar,
         #[max_length = 255]
@@ -130,7 +125,6 @@ diesel::table! {
     vehicle_tracker (id) {
         id -> Int4,
         created_at -> Timestamptz,
-        updated_at -> Nullable<Timestamptz>,
         #[max_length = 255]
         model -> Varchar,
         #[max_length = 255]

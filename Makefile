@@ -13,7 +13,7 @@ run_debug:
 
 .PHONY: docker_run_deps
 docker_run_deps: 
-	docker-compose -f docker/docker-compose.yml -p rastercar_api up -d
+	docker compose -f docker/docker-compose.yml -p rastercar_api up -d
 
 .PHONY: docker_stop_deps
 docker_stop_deps:

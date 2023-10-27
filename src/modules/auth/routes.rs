@@ -15,7 +15,6 @@ use crate::server::controller::AppState;
 use anyhow::Result;
 use axum::extract::Path;
 use axum::headers::UserAgent;
-use axum::middleware::FromFnLayer;
 use axum::{
     extract::State,
     http::StatusCode,
@@ -29,17 +28,17 @@ use diesel_async::RunQueryDsl;
 use http::HeaderMap;
 
 pub fn create_auth_router(state: AppState) -> Router<AppState> {
-    // |u, s, r, n| {
-    //     super::middleware::require_permissions(vec![String::from("!")], u, s, r, n)
-    // },
-
     Router::new()
         // TODO:
         .route("/sessions", get(list_sessions))
-        .layer(axum::middleware::from_fn_with_state(
-            state.clone(),
-            super::middleware::create_require_permissions(vec![String::from("!")]),
-        ))
+        .layer(axum::middleware::from_fn(|u, r, n| {
+            super::middleware::require_permissions(
+                vec![String::from("UPDATE_ORGANIZATION")],
+                u,
+                r,
+                n,
+            )
+        }))
         .route("/sign-out", post(sign_out))
         .route(
             "/sign-out/:public-session-id",

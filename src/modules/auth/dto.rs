@@ -116,7 +116,6 @@ pub struct SessionDto {
 pub struct AccessLevelDto {
     pub id: i32,
     pub created_at: DateTime<Utc>,
-    pub updated_at: Option<DateTime<Utc>>,
     pub name: String,
     pub description: String,
     pub is_fixed: bool,
@@ -128,7 +127,6 @@ pub struct AccessLevelDto {
 pub struct OrganizationDto {
     pub id: i32,
     pub created_at: DateTime<Utc>,
-    pub updated_at: Option<DateTime<Utc>>,
     pub billing_email: String,
     pub blocked: bool,
     pub name: String,
@@ -141,7 +139,6 @@ pub struct OrganizationDto {
 pub struct UserDto {
     pub id: i32,
     pub created_at: DateTime<Utc>,
-    pub updated_at: Option<DateTime<Utc>>,
     pub username: String,
     pub email: String,
     pub email_verified: bool,
@@ -156,7 +153,6 @@ impl From<models::Organization> for OrganizationDto {
         Self {
             id: m.id,
             created_at: m.created_at,
-            updated_at: m.updated_at,
             billing_email: m.billing_email,
             name: m.name,
             blocked: m.blocked,
@@ -183,7 +179,6 @@ impl From<models::AccessLevel> for AccessLevelDto {
         Self {
             id: m.id,
             created_at: m.created_at,
-            updated_at: m.updated_at,
             name: m.name,
             description: m.description,
             is_fixed: m.is_fixed,

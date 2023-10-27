@@ -1,5 +1,3 @@
-use std::future::Future;
-
 use super::{
     dto::{self, UserDto},
     service::UserDtoEntities,
@@ -18,7 +16,6 @@ use crate::{
 use anyhow::Error;
 use axum::{extract::State, response::Response, Extension};
 use http::StatusCode;
-use tower::Service;
 
 /// Simple extractor for routes that are only allowed for regular users
 #[derive(Clone)]
@@ -93,41 +90,31 @@ pub async fn require_user<B>(
     Err((StatusCode::UNAUTHORIZED, SimpleError::from(NO_SID_COOKIE)))
 }
 
-// TODO: document me
+/// Checks if there is a request user that contains the required permissions
 pub async fn require_permissions<B>(
     required_permissions: Vec<String>,
     Extension(req_user): Extension<RequestUser>,
-    State(state): State<AppState>,
     req: http::Request<B>,
     next: axum::middleware::Next<B>,
 ) -> Result<Response, (StatusCode, SimpleError)> {
-    if req_user.0.id == 4 {
-        return Ok(next.run(req).await);
+    let user_permissions: Vec<String> = req_user
+        .0
+        .access_level
+        .permissions
+        .iter()
+        .filter_map(|e| e.to_owned())
+        .collect();
+
+    let has_permissions = required_permissions
+        .iter()
+        .all(|item| user_permissions.contains(item));
+
+    if !has_permissions {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            SimpleError::from("user lacks permissions"),
+        ));
     }
 
-    // TODO: document lacking permissions
-    Err((
-        StatusCode::UNAUTHORIZED,
-        SimpleError::from("user lacks permissions"),
-    ))
-}
-
-pub fn create_require_permissions<'a, B: 'a>(
-    required_permissions: Vec<String>,
-) -> impl Fn(
-    Extension<RequestUser>,
-    State<AppState>,
-    http::Request<B>,
-    axum::middleware::Next<B>,
-)
-    -> std::pin::Pin<Box<dyn Future<Output = Result<Response, (StatusCode, SimpleError)>> + 'a>> {
-    move |u, s, r, n| {
-        Box::pin(require_permissions(
-            required_permissions.clone(),
-            u,
-            s,
-            r,
-            n,
-        ))
-    }
+    Ok(next.run(req).await)
 }
