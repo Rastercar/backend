@@ -26,7 +26,7 @@ use diesel_async::RunQueryDsl;
 use http::StatusCode;
 use tracing::error;
 
-pub fn create_user_router(state: AppState) -> Router<AppState> {
+pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/me", get(me))
         .route("/me", patch(update_me))

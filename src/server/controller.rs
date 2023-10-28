@@ -2,10 +2,13 @@ use super::open_api;
 use crate::{
     config::app_config,
     modules::{
-        auth::routes::create_auth_router,
-        auth::service::{new_auth_service, AuthService},
+        auth::{
+            self,
+            service::{new_auth_service, AuthService},
+        },
         common::responses::SimpleError,
-        user::routes::create_user_router,
+        organization,
+        user::{self},
     },
     services::{mailer::service::MailerService, s3::S3},
     utils::string::StringExt,
@@ -102,8 +105,12 @@ pub fn new(db_conn_pool: Pool<AsyncPgConnection>, rmq_conn_pool: RmqPool, s3: S3
     Router::new()
         .route("/healthcheck", get(healthcheck))
         .merge(open_api::create_openapi_router())
-        .nest("/auth", create_auth_router(state.clone()))
-        .nest("/user", create_user_router(state.clone()))
+        .nest("/auth", auth::routes::create_router(state.clone()))
+        .nest("/user", user::routes::create_router(state.clone()))
+        .nest(
+            "/organization",
+            organization::routes::create_router(state.clone()),
+        )
         .layer(global_middlewares)
         .with_state(state)
 }

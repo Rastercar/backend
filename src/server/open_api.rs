@@ -1,4 +1,4 @@
-use crate::modules::{auth, common, user};
+use crate::modules::{auth, common, user, organization};
 use crate::server::controller;
 use axum::Router;
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
@@ -10,6 +10,8 @@ use utoipa_swagger_ui::SwaggerUi;
 #[derive(OpenApi)]
 #[openapi(
     components(schemas(
+        organization::dto::UpdateOrganizationDto,
+        
         common::responses::SimpleError,
 
         user::dto::ChangePasswordDto,
@@ -44,6 +46,8 @@ use utoipa_swagger_ui::SwaggerUi;
         auth::routes::request_recover_password_email,
         auth::routes::change_password_by_recovery_token,
         auth::routes::request_email_address_confirmation,
+        
+        organization::routes::update_org,
     ),
     modifiers(&SessionIdCookieSecurityScheme),
 )]

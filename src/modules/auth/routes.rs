@@ -1,7 +1,7 @@
 use super::dto::{self, SessionDto};
 use super::error_codes::EMAIL_ALREADY_VERIFIED;
 use super::jwt;
-use super::middleware::{AclLayer, RequestUser};
+use super::middleware::RequestUser;
 use super::session::{OptionalSessionId, SessionId};
 use crate::database::models::{self};
 use crate::database::schema::session;
@@ -27,13 +27,9 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use http::HeaderMap;
 
-pub fn create_auth_router(state: AppState) -> Router<AppState> {
+pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/sessions", get(list_sessions))
-        // TODO: use me on org route, check dead branches for org crud ?
-        // remove dead branches from remote / local
-        // TODO: write some blog posts ?
-        .layer(AclLayer::new(vec![String::from("UPDATE_ORGANIZATION")]))
         .route("/sign-out", post(sign_out))
         .route(
             "/sign-out/:public-session-id",
