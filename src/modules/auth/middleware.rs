@@ -186,7 +186,7 @@ where
                     Ok(inner.call(req).await?.map(body::boxed))
                 } else {
                     Ok((
-                        StatusCode::UNAUTHORIZED,
+                        StatusCode::FORBIDDEN,
                         SimpleError::from("user lacks permissions"),
                     )
                         .into_response())
@@ -195,7 +195,7 @@ where
         }
 
         Box::pin(async move {
-            // this should be a internal error and not a UNAUTHORIZED response
+            // this should be a internal error and not a FORBIDDEN response
             // since the request user should be available on the extensions.
             Ok(internal_error_response_with_msg("cannot check user permissions").into_response())
         })

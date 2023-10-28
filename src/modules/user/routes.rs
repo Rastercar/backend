@@ -16,7 +16,7 @@ use crate::{
 };
 use axum::{
     extract::State,
-    routing::{delete, get, patch, put},
+    routing::{get, put},
     Extension, Json, Router,
 };
 use axum_typed_multipart::TypedMultipart;
@@ -28,11 +28,12 @@ use tracing::error;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
-        .route("/me", get(me))
-        .route("/me", patch(update_me))
+        .route("/me", get(me).patch(update_me))
         .route("/me/password", put(put_password))
-        .route("/me/profile-picture", put(put_profile_picture))
-        .route("/me/profile-picture", delete(delete_profile_picture))
+        .route(
+            "/me/profile-picture",
+            put(put_profile_picture).delete(delete_profile_picture),
+        )
         .layer(axum::middleware::from_fn_with_state(
             state,
             auth::middleware::require_user,
@@ -54,7 +55,7 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         ),
         (
             status = UNAUTHORIZED,
-            description = "session not found",
+            description = "invalid session",
             body = SimpleError,
         ),
     ),
@@ -78,7 +79,7 @@ pub async fn me(Extension(req_user): Extension<RequestUser>) -> Json<UserDto> {
         ),
         (
             status = UNAUTHORIZED,
-            description = "session not found",
+            description = "invalid session",
             body = SimpleError,
         ),
     ),
@@ -132,7 +133,7 @@ pub async fn update_me(
         ),
         (
             status = UNAUTHORIZED,
-            description = "session not found",
+            description = "invalid session",
             body = SimpleError,
         ),
         (
@@ -195,7 +196,7 @@ async fn put_password(
         ),
         (
             status = UNAUTHORIZED,
-            description = "session not found",
+            description = "invalid session",
             body = SimpleError,
         ),
         (
@@ -273,7 +274,7 @@ async fn put_profile_picture(
         ),
         (
             status = UNAUTHORIZED,
-            description = "session not found",
+            description = "invalid session",
             body = SimpleError,
         ),
     ),

@@ -51,8 +51,27 @@ impl SessionId {
         let mut cookie = Cookie::new(SESSION_ID_COOKIE_NAME, self.0.to_string());
 
         cookie.set_path("/");
+
+        // DO NOT CHANGE
+        //
+        // see: https://owasp.org/www-community/controls/SecureCookieAttribute
         cookie.set_secure(!app_config().is_development);
+
+        // DO NOT CHANGE
+        //
+        // see: https://owasp.org/www-community/HttpOnly
+        cookie.set_http_only(true);
+
+        // DO NOT CHANGE
+        //
+        // [PROD-TODO] Implement a CSRF Token layer
+        //
+        // even same site strict cookies is not enough against csrf, although it should
+        // stop most kind of attacks.
+        //
+        // see: https://portswigger.net/web-security/csrf/bypassing-samesite-restrictions
         cookie.set_same_site(SameSite::Strict);
+
         cookie.set_max_age(time::Duration::days(SESSION_DAYS_DURATION));
 
         cookie

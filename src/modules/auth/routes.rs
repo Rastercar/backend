@@ -85,7 +85,7 @@ fn sign_in_or_up_response(
         ),
         (
             status = UNAUTHORIZED,
-            description = "session not found",
+            description = "invalid session",
             body = SimpleError,
         ),
     ),
@@ -141,7 +141,7 @@ pub async fn list_sessions(
         ),
         (
             status = UNAUTHORIZED,
-            description = "session not found",
+            description = "invalid session",
             body = SimpleError,
         ),
     ),

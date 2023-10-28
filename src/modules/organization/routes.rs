@@ -29,6 +29,8 @@ pub fn create_router(state: AppState) -> Router<AppState> {
 }
 
 /// Updates the user organization
+///
+/// Required permissions: UPDATE_USER
 #[utoipa::path(
     patch,
     path = "/organization",
@@ -43,7 +45,12 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         ),
         (
             status = UNAUTHORIZED,
-            description = "session not found",
+            description = "invalid session",
+            body = SimpleError,
+        ),
+        (
+            status = FORBIDDEN,
+            description = "user lacks permissions",
             body = SimpleError,
         ),
     ),

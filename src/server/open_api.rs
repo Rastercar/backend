@@ -62,6 +62,8 @@ struct SessionIdCookieSecurityScheme;
 impl Modify for SessionIdCookieSecurityScheme {
     fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
         if let Some(components) = openapi.components.as_mut() {
+            // unfortunately as of writing this, the open api spec does not support 
+            // scopes for apiKey authentication, such as cookies.
             components.add_security_scheme(
                 "session_id",
                 SecurityScheme::ApiKey(ApiKey::Cookie(ApiKeyValue::with_description(
