@@ -10,24 +10,24 @@ use utoipa_swagger_ui::SwaggerUi;
 #[derive(OpenApi)]
 #[openapi(
     components(schemas(
-        organization::dto::UpdateOrganizationDto,
-        
-        common::responses::SimpleError,
+        common::dto::Token,
         common::dto::EmailAddress,
-
-        user::dto::ChangePasswordDto,
-        user::dto::ProfilePicDto,
-        user::dto::UpdateUserDto,
+        common::responses::SimpleError,
         
-        auth::dto::RegisterOrganization,
-        auth::dto::OrganizationDto,
+        user::dto::UpdateUserDto,
+        user::dto::ProfilePicDto,
+        user::dto::ChangePasswordDto,
+        
+        auth::dto::SignIn,
+        auth::dto::UserDto,
+        auth::dto::SessionDto,
+        auth::dto::ResetPassword,
         auth::dto::SignInResponse,
         auth::dto::AccessLevelDto,
-        auth::dto::ResetPassword,
-        auth::dto::SessionDto,
-        auth::dto::UserDto,
-        auth::dto::SignIn,
-        auth::dto::Token,
+        auth::dto::OrganizationDto,
+        auth::dto::RegisterOrganization,
+
+        organization::dto::UpdateOrganizationDto,
     )),
     paths(
         controller::healthcheck,
@@ -49,6 +49,8 @@ use utoipa_swagger_ui::SwaggerUi;
         auth::routes::change_password_by_recovery_token,
         
         organization::routes::update_org,
+        organization::routes::confirm_email_address_by_token,
+        organization::routes::request_email_address_confirmation,
     ),
     modifiers(&SessionIdCookieSecurityScheme),
 )]

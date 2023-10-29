@@ -5,6 +5,7 @@ create table "organization" (
     "blocked" boolean not null,
     "billing_email" varchar(255) not null,
     "billing_email_verified" boolean not null default false,
+    "confirm_billing_email_token" text null,
     "owner_id" int null
 );
 

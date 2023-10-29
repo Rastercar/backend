@@ -238,6 +238,28 @@ impl AuthService {
         Ok(token)
     }
 
+    pub async fn gen_and_set_org_confirm_email_token(&self, org_id: i32) -> Result<String> {
+        use crate::database::schema::organization::dsl::*;
+
+        let mut claims = Claims::default();
+
+        claims.set_expiration_in(Duration::hours(8));
+        claims.aud = format!("organization:{}", org_id);
+        claims.sub = String::from("confirm email address token");
+
+        let token = jwt::encode(&claims)?;
+
+        let conn = &mut self.db_conn_pool.get().await?;
+
+        diesel::update(organization)
+            .filter(id.eq(org_id))
+            .set(confirm_billing_email_token.eq(&token))
+            .execute(conn)
+            .await?;
+
+        Ok(token)
+    }
+
     /// creates a new user and his organization, as well as a root access level for said org
     pub async fn register_user_and_organization(
         &self,

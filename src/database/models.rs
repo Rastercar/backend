@@ -34,6 +34,7 @@ pub struct Organization {
     pub blocked: bool,
     pub billing_email: String,
     pub billing_email_verified: bool,
+    pub confirm_billing_email_token: Option<String>,
     pub owner_id: Option<i32>,
 }
 

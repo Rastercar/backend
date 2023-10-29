@@ -17,11 +17,15 @@ impl Into<HashMap<String, String>> for RecoverPasswordReplacements {
 }
 
 pub struct ConfirmEmailReplacements {
+    pub title: String,
     pub confirmation_link: String,
 }
 
 impl Into<HashMap<String, String>> for ConfirmEmailReplacements {
     fn into(self) -> HashMap<String, String> {
-        HashMap::from([(String::from("confirmationLink"), self.confirmation_link)])
+        HashMap::from([
+            (String::from("title"), self.title),
+            (String::from("confirmationLink"), self.confirmation_link),
+        ])
     }
 }

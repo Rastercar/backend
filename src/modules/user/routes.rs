@@ -3,6 +3,7 @@ use super::dto::{self, ProfilePicDto};
 use crate::modules::auth::middleware::RequestUserPassword;
 use crate::modules::common::error_codes::EMAIL_ALREADY_VERIFIED;
 use crate::modules::common::responses::internal_error_response_with_msg;
+use crate::services::mailer::service::ConfirmEmailRecipientType;
 use crate::{
     modules::{
         auth::{self, dto::UserDto, middleware::RequestUser},
@@ -358,7 +359,7 @@ pub async fn request_email_address_confirmation(
 
     state
         .mailer_service
-        .send_confirm_email_address_email(req_user.0.email, token)
+        .send_confirm_email_address_email(req_user.0.email, token, ConfirmEmailRecipientType::User)
         .await
         .or(Err(internal_error_response()))?;
 

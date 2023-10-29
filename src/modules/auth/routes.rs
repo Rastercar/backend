@@ -543,7 +543,7 @@ pub async fn change_password_by_recovery_token(
 )]
 pub async fn confirm_email_address_by_token(
     State(state): State<AppState>,
-    ValidatedJson(payload): ValidatedJson<dto::Token>,
+    ValidatedJson(payload): ValidatedJson<common::dto::Token>,
 ) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
     let conn = &mut state.get_db_conn().await?;
 

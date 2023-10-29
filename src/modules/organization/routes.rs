@@ -1,18 +1,20 @@
 use super::dto::UpdateOrganizationDto;
 use crate::{
-    database::models,
+    database::{models, schema::organization},
     modules::{
         auth::{
-            self,
+            self, jwt,
             middleware::{AclLayer, RequestUser},
         },
         common::{
+            self,
             error_codes::EMAIL_ALREADY_VERIFIED,
             extractors::ValidatedJson,
             responses::{internal_error_response, SimpleError},
         },
     },
     server::controller::AppState,
+    services::mailer::service::ConfirmEmailRecipientType,
 };
 use axum::{
     extract::State,
@@ -30,10 +32,10 @@ pub fn create_router(state: AppState) -> Router<AppState> {
             "/request-email-address-confirmation",
             post(request_email_address_confirmation),
         )
-        // .route(
-        //     "/confirm-email-address-by-token",
-        //     post(confirm_email_address_by_token),
-        // )
+        .route(
+            "/confirm-email-address-by-token",
+            post(confirm_email_address_by_token),
+        )
         .layer(AclLayer::new(vec![String::from("UPDATE_ORGANIZATION")]))
         .layer(axum::middleware::from_fn_with_state(
             state,
@@ -43,7 +45,7 @@ pub fn create_router(state: AppState) -> Router<AppState> {
 
 /// Updates the user organization
 ///
-/// Required permissions: UPDATE_USER
+/// Required permissions: UPDATE_ORGANIZATION
 #[utoipa::path(
     patch,
     path = "/organization",
@@ -94,9 +96,9 @@ pub async fn update_org(
     ))
 }
 
-/// Requests a organization email address confirmation email
+/// Requests org email address confirmation
 ///
-/// Required permissions: UPDATE_USER
+/// Required permissions: UPDATE_ORGANIZATION
 ///
 /// Sends a billing email address confirmation email to the request user organization email address
 #[utoipa::path(
@@ -135,18 +137,19 @@ pub async fn request_email_address_confirmation(
             ));
         }
 
-        // TODO: token should be set on organization table
         let token = state
             .auth_service
-            // TODO: should be org ID here
-            .gen_and_set_user_confirm_email_token(1)
+            .gen_and_set_org_confirm_email_token(user_org.id)
             .await
             .or(Err(internal_error_response()))?;
 
-        // TODO: change template !
         state
             .mailer_service
-            .send_confirm_email_address_email(user_org.billing_email, token)
+            .send_confirm_email_address_email(
+                user_org.billing_email,
+                token,
+                ConfirmEmailRecipientType::Organization,
+            )
             .await
             .or(Err(internal_error_response()))?;
 
@@ -157,4 +160,78 @@ pub async fn request_email_address_confirmation(
         StatusCode::BAD_REQUEST,
         SimpleError::from("user does not have a organization to verify emails"),
     ));
+}
+
+/// Confirm org email address by token
+///
+/// Confirms the email address of the organization with this token
+#[utoipa::path(
+    post,
+    path = "/organization/confirm-email-address-by-token",
+    tag = "organization",
+    request_body = Token,
+    responses(
+        (
+            status = OK,
+            description = "success message",
+            body = String,
+            content_type = "application/json",
+            example = json!("password recovery email queued to be sent successfully"),
+        ),
+        (
+            status = UNAUTHORIZED,
+            description = "expired or invalid token",
+            body = SimpleError,
+        ),
+        (
+            status = BAD_REQUEST,
+            description = "invalid dto error message / EMAIL_ALREADY_CONFIRMED",
+            body = SimpleError,
+        ),
+    ),
+)]
+pub async fn confirm_email_address_by_token(
+    State(state): State<AppState>,
+    ValidatedJson(payload): ValidatedJson<common::dto::Token>,
+) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
+    let conn = &mut state.get_db_conn().await?;
+
+    jwt::decode(&payload.token).or(Err((
+        StatusCode::UNAUTHORIZED,
+        SimpleError::from("invalid token"),
+    )))?;
+
+    let maybe_org = organization::table
+        .select(models::Organization::as_select())
+        .filter(organization::dsl::confirm_billing_email_token.eq(&payload.token))
+        .first::<models::Organization>(conn)
+        .await
+        .optional()
+        .or(Err(internal_error_response()))?;
+
+    if let Some(org) = maybe_org {
+        if org.billing_email_verified {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                SimpleError::from(EMAIL_ALREADY_VERIFIED),
+            ));
+        }
+
+        diesel::update(organization::dsl::organization)
+            .filter(organization::dsl::id.eq(org.id))
+            .set((
+                organization::dsl::billing_email_verified.eq(true),
+                organization::dsl::confirm_billing_email_token.eq::<Option<String>>(None),
+            ))
+            .execute(conn)
+            .await
+            .or(Err(internal_error_response()))?;
+
+        return Ok(Json("email confirmed successfully"));
+    }
+
+    Err((
+        StatusCode::NOT_FOUND,
+        SimpleError::from("user not found with this reset password token"),
+    ))
 }

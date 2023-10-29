@@ -54,12 +54,6 @@ pub struct SignIn {
 }
 
 #[derive(Deserialize, Validate, ToSchema)]
-pub struct Token {
-    #[validate(length(min = 5))]
-    pub token: String,
-}
-
-#[derive(Deserialize, Validate, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ResetPassword {
     #[validate(length(min = 5, max = 256))]

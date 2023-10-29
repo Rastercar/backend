@@ -29,6 +29,7 @@ diesel::table! {
         #[max_length = 255]
         billing_email -> Varchar,
         billing_email_verified -> Bool,
+        confirm_billing_email_token -> Nullable<Text>,
         owner_id -> Nullable<Int4>,
     }
 }
