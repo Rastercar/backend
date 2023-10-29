@@ -1,6 +1,7 @@
 use super::super::auth::dto as auth_dto;
 use super::dto::{self, ProfilePicDto};
 use crate::modules::auth::middleware::RequestUserPassword;
+use crate::modules::common::error_codes::EMAIL_ALREADY_VERIFIED;
 use crate::modules::common::responses::internal_error_response_with_msg;
 use crate::{
     modules::{
@@ -16,7 +17,7 @@ use crate::{
 };
 use axum::{
     extract::State,
-    routing::{get, put},
+    routing::{get, post, put},
     Extension, Json, Router,
 };
 use axum_typed_multipart::TypedMultipart;
@@ -33,6 +34,10 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         .route(
             "/me/profile-picture",
             put(put_profile_picture).delete(delete_profile_picture),
+        )
+        .route(
+            "/me/request-email-address-confirmation",
+            post(request_email_address_confirmation),
         )
         .layer(axum::middleware::from_fn_with_state(
             state,
@@ -305,4 +310,57 @@ async fn delete_profile_picture(
     }
 
     Ok(Json("user does not have a profile picture to remove"))
+}
+
+/// Requests a email address confirmation email
+///
+/// sends a email address confirmation email to be sent to the request user email address
+#[utoipa::path(
+    post,
+    path = "/user/me/request-email-address-confirmation",
+    tag = "user",
+    responses(
+        (
+            status = OK,
+            description = "success message",
+            body = String,
+            content_type = "application/json",
+            example = json!("a confirmation email was sent"),
+        ),
+        (
+            status = UNAUTHORIZED,
+            description = "invalid session",
+            body = SimpleError,
+        ),
+        (
+            status = BAD_REQUEST,
+            description = "invalid dto error message / EMAIL_ALREADY_CONFIRMED",
+            body = SimpleError,
+        ),
+    ),
+)]
+pub async fn request_email_address_confirmation(
+    State(state): State<AppState>,
+    Extension(req_user): Extension<RequestUser>,
+) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
+    if req_user.0.email_verified {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            SimpleError::from(EMAIL_ALREADY_VERIFIED),
+        ));
+    }
+
+    let token = state
+        .auth_service
+        .gen_and_set_user_confirm_email_token(req_user.0.id)
+        .await
+        .or(Err(internal_error_response()))?;
+
+    state
+        .mailer_service
+        .send_confirm_email_address_email(req_user.0.email, token)
+        .await
+        .or(Err(internal_error_response()))?;
+
+    Ok(Json("email address confirmation email queued successfully"))
 }

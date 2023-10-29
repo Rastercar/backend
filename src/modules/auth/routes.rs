@@ -1,11 +1,12 @@
 use super::dto::{self, SessionDto};
-use super::error_codes::EMAIL_ALREADY_VERIFIED;
 use super::jwt;
 use super::middleware::RequestUser;
 use super::session::{OptionalSessionId, SessionId};
 use crate::database::models::{self};
 use crate::database::schema::session;
 use crate::database::schema::user::{self};
+use crate::modules::common;
+use crate::modules::common::error_codes::EMAIL_ALREADY_VERIFIED;
 use crate::modules::common::extractors::ValidatedJson;
 use crate::modules::common::responses::{
     internal_error_response, internal_error_response_with_msg,
@@ -44,10 +45,6 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         .route(
             "/request-recover-password-email",
             post(request_recover_password_email),
-        )
-        .route(
-            "/request-email-address-confirmation",
-            post(request_email_address_confirmation),
         )
         .route(
             "/change-password-by-recovery-token",
@@ -387,7 +384,7 @@ pub async fn sign_up(
 /// Requests a password reset email
 ///
 /// Sends a reset password email to the provided email address if
-/// a active account exists with it.
+/// a active user account exists with it.
 #[utoipa::path(
     post,
     path = "/auth/request-recover-password-email",
@@ -415,7 +412,7 @@ pub async fn sign_up(
 )]
 pub async fn request_recover_password_email(
     State(state): State<AppState>,
-    ValidatedJson(payload): ValidatedJson<dto::EmailAddress>,
+    ValidatedJson(payload): ValidatedJson<common::dto::EmailAddress>,
 ) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
     let conn = &mut state.get_db_conn().await?;
 
@@ -439,76 +436,6 @@ pub async fn request_recover_password_email(
             .or(Err(internal_error_response()))?;
 
         return Ok(Json("password recovery email queued successfully"));
-    }
-
-    Err((
-        StatusCode::NOT_FOUND,
-        SimpleError::from("user not found with this email"),
-    ))
-}
-
-/// Requests a email address confirmation email
-///
-/// Sends a email address confirmation email to the provided email address if there
-/// is a user with said unconfirmed address
-#[utoipa::path(
-    post,
-    path = "/auth/request-email-address-confirmation",
-    tag = "auth",
-    request_body = EmailAddress,
-    responses(
-        (
-            status = OK,
-            description = "success message",
-            body = String,
-            content_type = "application/json",
-            example = json!("a confirmation email was sent"),
-        ),
-        (
-            status = NOT_FOUND,
-            description = "the is no active user with the email address",
-            body = SimpleError,
-        ),
-        (
-            status = BAD_REQUEST,
-            description = "invalid dto error message / EMAIL_ALREADY_CONFIRMED",
-            body = SimpleError,
-        ),
-    ),
-)]
-pub async fn request_email_address_confirmation(
-    State(state): State<AppState>,
-    ValidatedJson(payload): ValidatedJson<dto::EmailAddress>,
-) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
-    let conn = &mut state.get_db_conn().await?;
-
-    let maybe_user = models::User::by_email(&payload.email)
-        .first::<models::User>(conn)
-        .await
-        .optional()
-        .or(Err(internal_error_response()))?;
-
-    if let Some(usr) = maybe_user {
-        if usr.email_verified {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                SimpleError::from(EMAIL_ALREADY_VERIFIED),
-            ));
-        }
-
-        let token = state
-            .auth_service
-            .gen_and_set_user_confirm_email_token(usr.id)
-            .await
-            .or(Err(internal_error_response()))?;
-
-        state
-            .mailer_service
-            .send_confirm_email_address_email(payload.email, token)
-            .await
-            .or(Err(internal_error_response()))?;
-
-        return Ok(Json("email address confirmation email queued successfully"));
     }
 
     Err((

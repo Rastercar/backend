@@ -13,6 +13,7 @@ use utoipa_swagger_ui::SwaggerUi;
         organization::dto::UpdateOrganizationDto,
         
         common::responses::SimpleError,
+        common::dto::EmailAddress,
 
         user::dto::ChangePasswordDto,
         user::dto::ProfilePicDto,
@@ -23,7 +24,6 @@ use utoipa_swagger_ui::SwaggerUi;
         auth::dto::SignInResponse,
         auth::dto::AccessLevelDto,
         auth::dto::ResetPassword,
-        auth::dto::EmailAddress,
         auth::dto::SessionDto,
         auth::dto::UserDto,
         auth::dto::SignIn,
@@ -37,15 +37,16 @@ use utoipa_swagger_ui::SwaggerUi;
         user::routes::put_password,
         user::routes::put_profile_picture,
         user::routes::delete_profile_picture,
-
+        user::routes::request_email_address_confirmation,
+        
         auth::routes::sign_up,
         auth::routes::sign_in,
         auth::routes::sign_out,
         auth::routes::list_sessions,
         auth::routes::sign_out_session_by_id,
         auth::routes::request_recover_password_email,
+        auth::routes::confirm_email_address_by_token,
         auth::routes::change_password_by_recovery_token,
-        auth::routes::request_email_address_confirmation,
         
         organization::routes::update_org,
     ),

@@ -17,3 +17,7 @@ pub static INVALID_SESSION: &str = "INVALID_SESSION";
 /// a request to a endpoint was not authorized because
 /// the organization the user belongs to was blocked
 pub static ORGANIZATION_BLOCKED: &str = "ORGANIZATION_BLOCKED";
+
+/// cannot confirm or request a email to confirm a email address because
+/// it is already confirmed
+pub static EMAIL_ALREADY_VERIFIED: &str = "EMAIL_ALREADY_VERIFIED";
