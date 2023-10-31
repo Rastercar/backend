@@ -75,8 +75,6 @@ create table "vehicle" (
     "brand" varchar(255) null,
     "model" varchar(255) null,
     "color" varchar(255) null,
-    "fuel_type" varchar(255) null,
-    "fuel_consumption" int null,
     "additional_info" varchar(255) null,
     "organization_id" int not null
 );
@@ -91,7 +89,6 @@ create table "vehicle_tracker" (
     "created_at" timestamptz(0) not null default now(),
     "model" varchar(255) not null,
     "imei" varchar(255) not null,
-    "in_maintenance" boolean not null default false,
     "organization_id" int not null,
     "vehicle_id" int null
 );

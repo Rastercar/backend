@@ -100,8 +100,6 @@ pub struct Vehicle {
     pub brand: Option<String>,
     pub model: Option<String>,
     pub color: Option<String>,
-    pub fuel_type: Option<String>,
-    pub fuel_consumption: Option<i32>,
     pub additional_info: Option<String>,
     pub organization_id: i32,
 }
@@ -114,7 +112,6 @@ pub struct VehicleTracker {
     pub created_at: DateTime<Utc>,
     pub model: String,
     pub imei: String,
-    pub in_maintenance: bool,
     pub organization_id: i32,
     pub vehicle_id: Option<i32>,
 }

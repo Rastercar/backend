@@ -114,9 +114,6 @@ diesel::table! {
         #[max_length = 255]
         color -> Nullable<Varchar>,
         #[max_length = 255]
-        fuel_type -> Nullable<Varchar>,
-        fuel_consumption -> Nullable<Int4>,
-        #[max_length = 255]
         additional_info -> Nullable<Varchar>,
         organization_id -> Int4,
     }
@@ -130,7 +127,6 @@ diesel::table! {
         model -> Varchar,
         #[max_length = 255]
         imei -> Varchar,
-        in_maintenance -> Bool,
         organization_id -> Int4,
         vehicle_id -> Nullable<Int4>,
     }
