@@ -9,6 +9,7 @@ use crate::{
         common::responses::SimpleError,
         organization,
         user::{self},
+        vehicle,
     },
     services::{mailer::service::MailerService, s3::S3},
     utils::string::StringExt,
@@ -111,6 +112,7 @@ pub fn new(db_conn_pool: Pool<AsyncPgConnection>, rmq_conn_pool: RmqPool, s3: S3
             "/organization",
             organization::routes::create_router(state.clone()),
         )
+        .nest("/vehicle", vehicle::routes::create_router(state.clone()))
         .layer(global_middlewares)
         .with_state(state)
 }

@@ -191,7 +191,7 @@ async fn put_password(
     path = "/user/me/profile-picture",
     tag = "user",
     security(("session_id" = [])),
-    request_body(content = ProfilePicDto, description = "New post data", content_type = "multipart/form-data"),
+    request_body(content = ProfilePicDto, content_type = "multipart/form-data"),
     responses(
         (
             status = OK,
@@ -217,11 +217,10 @@ async fn put_profile_picture(
     Extension(req_user): Extension<RequestUser>,
     TypedMultipart(ProfilePicDto { image }): TypedMultipart<ProfilePicDto>,
 ) -> Result<Json<String>, (StatusCode, SimpleError)> {
-    let img_extension =
-        multipart_form_data::get_image_extension_from_field_or_fail_request(&image)?;
-
-    let timestamp = chrono::Utc::now().format("%d-%m-%Y_%H:%M:%S");
-    let filename = format!("profile-picture_{}.{}", timestamp, img_extension);
+    let filename = multipart_form_data::create_filename_with_timestamp_from_uploaded_photo(
+        "profile-picture",
+        &image,
+    )?;
 
     let request_user = req_user.0;
 
@@ -234,7 +233,7 @@ async fn put_profile_picture(
 
     state
         .s3
-        .upload(key.clone(), image.contents)
+        .upload(key.clone().into(), image.contents)
         .await
         .map_err(|_| {
             (
@@ -257,7 +256,7 @@ async fn put_profile_picture(
     }
 
     if let Some(old_profile_pic) = request_user.profile_picture {
-        if state.s3.delete(&old_profile_pic).await.is_err() {
+        if state.s3.delete(old_profile_pic.clone()).await.is_err() {
             error!("[] failed to delete S3 object: {}", old_profile_pic);
         }
     }
@@ -303,9 +302,7 @@ async fn delete_profile_picture(
             .await
             .or(Err(internal_error_response()))?;
 
-        if state.s3.delete(&old_profile_pic).await.is_err() {
-            error!("failed to delete S3 object: {}", old_profile_pic);
-        }
+        let _ = state.s3.delete(old_profile_pic).await;
 
         return Ok(Json("profile picture removed successfully"));
     }

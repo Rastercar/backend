@@ -3,7 +3,9 @@ use crate::{
     database::{models, schema::organization},
     modules::{
         auth::{
-            self, jwt,
+            self,
+            constants::Permission,
+            jwt,
             middleware::{AclLayer, RequestUser},
         },
         common::{
@@ -36,7 +38,7 @@ pub fn create_router(state: AppState) -> Router<AppState> {
             "/confirm-email-address-by-token",
             post(confirm_email_address_by_token),
         )
-        .layer(AclLayer::new(vec![String::from("UPDATE_ORGANIZATION")]))
+        .layer(AclLayer::new(vec![Permission::UpdateOrganization]))
         .layer(axum::middleware::from_fn_with_state(
             state,
             auth::middleware::require_user,
@@ -105,6 +107,7 @@ pub async fn update_org(
     post,
     path = "/organization/request-billing-email-address-confirmation",
     tag = "organization",
+    security(("session_id" = [])),
     responses(
         (
             status = OK,
@@ -170,6 +173,7 @@ pub async fn request_email_address_confirmation(
     path = "/organization/confirm-email-address-by-token",
     tag = "organization",
     request_body = Token,
+    security(("session_id" = [])),
     responses(
         (
             status = OK,

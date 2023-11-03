@@ -1,4 +1,5 @@
 use super::{
+    constants::Permission,
     dto::{self, UserDto},
     service::UserDtoEntities,
     session::get_session_id_from_request_headers,
@@ -20,6 +21,7 @@ use axum::{
     response::{IntoResponse, Response},
     BoxError,
 };
+use convert_case::{Case, Casing};
 use futures_util::future::BoxFuture;
 use http::Request;
 use http::StatusCode;
@@ -66,9 +68,9 @@ fn handle_fetch_user_result(
 /// middleware for routes that require a normal user, this queries the DB to get the request user by his session ID cookie,
 /// so use it only within routes that need the user data, adds the following extensions:
 ///
+/// - `SessionId`
 /// - `RequestUser`
 /// - `RequestUserPassword`
-/// - `SessionId`
 pub async fn require_user<B>(
     State(state): State<AppState>,
     mut req: http::Request<B>,
@@ -102,7 +104,7 @@ pub async fn require_user<B>(
 }
 
 /// check if every permission on `permissions` is present in the user access level
-pub fn user_contains_permissions(user: &RequestUser, permissions: &Vec<String>) -> bool {
+pub fn user_contains_permissions(user: &RequestUser, permissions: &Vec<Permission>) -> bool {
     let user_permissions: Vec<String> = user
         .0
         .access_level
@@ -113,7 +115,7 @@ pub fn user_contains_permissions(user: &RequestUser, permissions: &Vec<String>) 
 
     permissions
         .iter()
-        .all(|item| user_permissions.contains(item))
+        .all(|item| user_permissions.contains(&item.to_string().to_case(Case::ScreamingSnake)))
 }
 
 /// A layer to be used as a middleware to authorize users.
@@ -125,11 +127,11 @@ pub fn user_contains_permissions(user: &RequestUser, permissions: &Vec<String>) 
 pub struct AclLayer {
     /// list of permissions the role of the request user must have
     /// to allow the request to continue
-    required_permissions: Vec<String>,
+    required_permissions: Vec<Permission>,
 }
 
 impl AclLayer {
-    pub fn new(required_permissions: Vec<String>) -> Self {
+    pub fn new(required_permissions: Vec<Permission>) -> Self {
         AclLayer {
             required_permissions,
         }
@@ -151,7 +153,7 @@ impl<S> Layer<S> for AclLayer {
 pub struct AclMiddleware<S> {
     /// inner service to execute, normally the next middleware or the final route handler
     inner: S,
-    required_permissions: Vec<String>,
+    required_permissions: Vec<Permission>,
 }
 
 impl<S, ReqBody, ResBody> Service<Request<ReqBody>> for AclMiddleware<S>

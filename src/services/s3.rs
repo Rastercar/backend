@@ -55,27 +55,41 @@ impl S3 {
 
     pub async fn upload(
         &self,
-        key: S3Key,
-        data: Bytes,
+        key: String,
+        bytes: Bytes,
     ) -> Result<PutObjectOutput, SdkError<PutObjectError, Response<SdkBody>>> {
-        self.client
+        let result = self
+            .client
             .put_object()
             .bucket(&self.uploads_bucket)
-            .key(String::from(key))
-            .body(data.into())
+            .key(key.clone())
+            .body(bytes.into())
             .send()
-            .await
+            .await;
+
+        if result.is_err() {
+            tracing::error!("[S3] failed to upload S3 object: {}", key);
+        }
+
+        result
     }
 
     pub async fn delete(
         &self,
-        key: &str,
+        key: String,
     ) -> Result<DeleteObjectOutput, SdkError<DeleteObjectError, Response<SdkBody>>> {
-        self.client
+        let result = self
+            .client
             .delete_object()
             .bucket(&self.uploads_bucket)
-            .key(key)
+            .key(key.clone())
             .send()
-            .await
+            .await;
+
+        if result.is_err() {
+            tracing::error!("[S3] failed to delete S3 object: {}", key)
+        }
+
+        result
     }
 }

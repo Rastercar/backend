@@ -1,11 +1,12 @@
 use convert_case::{Case, Casing};
 use strum::{Display, EnumIter, IntoEnumIterator};
 
-#[derive(Debug, EnumIter, Display)]
+#[derive(Debug, EnumIter, Display, Clone)]
 pub enum Permission {
     CreateVehicle,
     UpdateVehicle,
     DeleteVehicle,
+    UpdateOrganization,
 }
 
 impl Permission {

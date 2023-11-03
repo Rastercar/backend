@@ -1,15 +1,14 @@
 mod config;
+mod cronjobs;
 mod database;
 mod modules;
 mod rabbitmq;
-mod scheduled;
 mod server;
 mod services;
 mod utils;
 
 use crate::services::s3::S3;
 use config::app_config;
-use scheduled::cronjobs;
 use signal_hook::{
     consts::{SIGINT, SIGTERM},
     iterator::Signals,
