@@ -1,9 +1,7 @@
-// TODO: check me
 /// a entity could not be created or updated with a given
 /// email because its already in use by another entity
 pub static EMAIL_IN_USE: &str = "EMAIL_IN_USE";
 
-// TODO: check me
 /// a user could not be created or updated with
 /// a given username because its already in use
 pub static USERNAME_IN_USE: &str = "USERNAME_IN_USE";

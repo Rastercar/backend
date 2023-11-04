@@ -10,7 +10,7 @@ pub struct CreateVehicleDto {
     pub photo: Option<FieldData<Bytes>>,
 
     // TODO: validation (this is not validated automagically like validatedJson)
-    #[validate(email)]
+    // #[validate(email)]
     pub plate: String,
 
     pub brand: String,
@@ -19,12 +19,12 @@ pub struct CreateVehicleDto {
 
     pub color: Option<String>,
 
-    // TODO: validate is number between 1900 and 10 years from now
+    #[validate(range(min = 1900, max = 2100))]
     pub model_year: Option<i16>,
 
     pub chassis_number: Option<String>,
 
-    // TODO: validate is number between 1900 and 10 years from now
+    #[validate(range(min = 1900, max = 2100))]
     pub fabrication_year: Option<i16>,
 
     pub additional_info: Option<String>,

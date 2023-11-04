@@ -1,5 +1,6 @@
-use crate::modules::{auth, common, user, organization};
+use crate::modules::{auth, common, user, organization, vehicle};
 use crate::server::controller;
+use crate::database::models;
 use axum::Router;
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use utoipa::openapi::{ContactBuilder, InfoBuilder};
@@ -10,6 +11,8 @@ use utoipa_swagger_ui::SwaggerUi;
 #[derive(OpenApi)]
 #[openapi(
     components(schemas(
+        models::Vehicle,
+
         common::dto::Token,
         common::dto::EmailAddress,
         common::responses::SimpleError,
@@ -26,6 +29,8 @@ use utoipa_swagger_ui::SwaggerUi;
         auth::dto::AccessLevelDto,
         auth::dto::OrganizationDto,
         auth::dto::RegisterOrganization,
+
+        vehicle::dto::CreateVehicleDto,
 
         organization::dto::UpdateOrganizationDto,
     )),
@@ -48,6 +53,8 @@ use utoipa_swagger_ui::SwaggerUi;
         auth::routes::confirm_email_address_by_token,
         auth::routes::change_password_by_recovery_token,
         
+        vehicle::routes::create_vehicle,
+
         organization::routes::update_org,
         organization::routes::confirm_email_address_by_token,
         organization::routes::request_email_address_confirmation,

@@ -30,8 +30,8 @@ async fn main() {
     info!("[DB] running migrations");
     database::db::run_migrations(&cfg.db_url);
 
-    let db_conn_pool = database::db::get_connection_pool(&cfg.db_url).await;
-    let rmq_conn_pool = rabbitmq::get_connection_pool(&cfg.rmq_uri);
+    let db_conn_pool = database::db::create_connection_pool(&cfg.db_url).await;
+    let rmq_conn_pool = rabbitmq::create_connection_pool(&cfg.rmq_uri);
 
     cronjobs::start_clear_sessions_cronjob(db_conn_pool.clone());
 

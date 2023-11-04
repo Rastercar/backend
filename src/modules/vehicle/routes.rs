@@ -8,6 +8,7 @@ use crate::{
             middleware::{AclLayer, RequestUser},
         },
         common::{
+            extractors::ValidatedMultipart,
             multipart_form_data,
             responses::{internal_error_response_with_msg, SimpleError},
         },
@@ -18,7 +19,6 @@ use crate::{
 };
 use axum::{extract::State, Extension};
 use axum::{routing::post, Json, Router};
-use axum_typed_multipart::TypedMultipart;
 use http::StatusCode;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
@@ -31,7 +31,6 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         ))
 }
 
-// TODO: add me to open api
 /// Creates a new vehicle
 #[utoipa::path(
     post,
@@ -41,12 +40,10 @@ pub fn create_router(state: AppState) -> Router<AppState> {
     request_body(content = CreateVehicleDto, content_type = "multipart/form-data"),
     responses(
         (
-            // TODO: must be created vehicle
             status = OK,
-            description = "success message",
-            body = String,
+            description = "the created vehicle",
             content_type = "application/json",
-            example = json!("password recovery email queued to be sent successfully"),
+            body = Vehicle,
         ),
         (
             status = UNAUTHORIZED,
@@ -54,7 +51,6 @@ pub fn create_router(state: AppState) -> Router<AppState> {
             body = SimpleError,
         ),
         (
-            // TODO: set plate unique constraint to be org_id AND plate, set this on up.sql and create new schema
             status = BAD_REQUEST,
             description = "invalid dto error message / PLATE_IN_USE",
             body = SimpleError,
@@ -64,7 +60,7 @@ pub fn create_router(state: AppState) -> Router<AppState> {
 pub async fn create_vehicle(
     State(state): State<AppState>,
     Extension(req_user): Extension<RequestUser>,
-    TypedMultipart(dto): TypedMultipart<CreateVehicleDto>,
+    ValidatedMultipart(dto): ValidatedMultipart<CreateVehicleDto>,
 ) -> Result<Json<Vehicle>, (StatusCode, SimpleError)> {
     let org_id = req_user.get_org_id().ok_or((
         StatusCode::FORBIDDEN,

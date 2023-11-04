@@ -10,7 +10,7 @@ pub static DEFAULT_EXCHANGE: &str = "";
 ///
 /// # PANICS
 /// panics if the tokyo runtime is never specified, this should never happen
-pub fn get_connection_pool(rmq_url: &str) -> Pool {
+pub fn create_connection_pool(rmq_url: &str) -> Pool {
     let props = ConnectionProperties::default()
         .with_executor(tokio_executor_trait::Tokio::current())
         .with_reactor(tokio_reactor_trait::Tokio);

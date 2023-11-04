@@ -1,6 +1,7 @@
 use super::open_api;
 use crate::{
     config::app_config,
+    database::models_helpers::DbConn,
     modules::{
         auth::{
             self,
@@ -17,10 +18,7 @@ use crate::{
 use axum::{body::Body, routing::get, Router};
 use axum_client_ip::SecureClientIpSource;
 use deadpool_lapin::Pool as RmqPool;
-use diesel_async::{
-    pooled_connection::{deadpool::Pool, AsyncDieselConnectionManager},
-    AsyncPgConnection,
-};
+use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection};
 use http::{header, HeaderValue, Method, Request, StatusCode};
 use rand_chacha::ChaCha8Rng;
 use rand_core::{OsRng, RngCore, SeedableRng};
@@ -40,12 +38,7 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub async fn get_db_conn(
-        &self,
-    ) -> Result<
-        deadpool::managed::Object<AsyncDieselConnectionManager<AsyncPgConnection>>,
-        (StatusCode, SimpleError),
-    > {
+    pub async fn get_db_conn(&self) -> Result<DbConn, (StatusCode, SimpleError)> {
         Ok(self.db_conn_pool.get().await.or(Err((
             StatusCode::INTERNAL_SERVER_ERROR,
             SimpleError::internal(),

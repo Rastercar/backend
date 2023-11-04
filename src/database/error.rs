@@ -6,7 +6,8 @@ use http::StatusCode;
 /// Wrapper for diesel errors.
 ///
 /// This is useful for wrapping database errors and safely returning them from
-/// axum route handlers without worrying about leaking sensitive information.   
+/// axum route handlers without worrying about leaking sensitive information,
+/// as it implements `Into<(StatusCode, SimpleError)>`
 pub struct DbError(DieselError);
 
 impl From<DieselError> for DbError {

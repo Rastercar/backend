@@ -8,7 +8,7 @@ pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("./migrations");
 ///
 /// # PANICS
 /// panics if the tokyo runtime is never specified, this should never happen
-pub async fn get_connection_pool(database_url: &str) -> Pool<AsyncPgConnection> {
+pub async fn create_connection_pool(database_url: &str) -> Pool<AsyncPgConnection> {
     let config = AsyncDieselConnectionManager::<diesel_async::AsyncPgConnection>::new(database_url);
 
     Pool::builder(config)
