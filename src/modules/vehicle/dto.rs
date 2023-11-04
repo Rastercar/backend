@@ -19,12 +19,12 @@ pub struct CreateVehicleDto {
 
     pub color: Option<String>,
 
-    // TODO: date ?
+    // TODO: validate is number between 1900 and 10 years from now
     pub model_year: Option<i16>,
 
     pub chassis_number: Option<String>,
 
-    // TODO: date ?
+    // TODO: validate is number between 1900 and 10 years from now
     pub fabrication_year: Option<i16>,
 
     pub additional_info: Option<String>,

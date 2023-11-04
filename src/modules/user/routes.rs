@@ -101,12 +101,32 @@ pub async fn update_me(
 
     let mut req_user = req_user.0;
 
-    diesel::update(user)
+    // TODO: this can fail due to unique username..
+    let xd = diesel::update(user)
         .filter(id.eq(&req_user.id))
         .set(&payload)
         .execute(conn)
-        .await
-        .or(Err(internal_error_response()))?;
+        .await;
+
+    // .or(Err(internal_error_response()))?;
+
+    if let Err(err) = xd {
+        match err {
+            diesel::result::Error::DatabaseError(db_err, info) => match db_err {
+                diesel::result::DatabaseErrorKind::UniqueViolation => {
+                    println!("!!!!!!!!!!!!!!!!!");
+                    println!("{:#?}", info);
+                    println!("{:#?}", info.hint());
+                    println!("{:#?}", info.details());
+                    println!("{:#?}", info.column_name());
+                    println!("{:#?}", info.constraint_name());
+                    println!("{:#?}", info.statement_position());
+                }
+                _ => todo!(),
+            },
+            _ => todo!(),
+        }
+    }
 
     if let Some(new_description) = payload.description {
         req_user.description = new_description;

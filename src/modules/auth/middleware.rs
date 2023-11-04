@@ -34,6 +34,14 @@ use tower::{Layer, Service};
 #[derive(Clone)]
 pub struct RequestUser(pub dto::UserDto);
 
+impl RequestUser {
+    /// Returns the ID the organization the user belongs to, if `None`
+    /// the user is not bound to a org and is a admin user.
+    pub fn get_org_id(&self) -> Option<i32> {
+        self.0.organization.as_ref().map(|user| user.id)
+    }
+}
+
 /// The logged in user password, this is exposed as a struct to be used
 /// as a AxumExtension to endpoints that need to check the user password
 #[derive(Clone)]

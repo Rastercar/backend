@@ -10,7 +10,7 @@ use validator::Validate;
 /// Wrapper struct that extracts the request body as json exactly as `axum::Json<T>`
 /// but also requires T to impl `Validate`, if validation fails a bad request and simple
 /// error is returned
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 pub struct ValidatedJson<T>(pub T);
 
 #[async_trait]

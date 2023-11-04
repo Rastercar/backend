@@ -82,7 +82,7 @@ create table "vehicle" (
 alter table
     "vehicle"
 add
-    constraint "vehicle_plate_unique" unique ("plate");
+    constraint "vehicle_plate_unique" unique ("plate", "organization_id");
 
 create table "vehicle_tracker" (
     "id" serial primary key,
@@ -96,7 +96,7 @@ create table "vehicle_tracker" (
 alter table
     "vehicle_tracker"
 add
-    constraint "vehicle_tracker_imei_unique" unique ("imei");
+    constraint "vehicle_tracker_imei_unique" unique ("imei", "organization_id");
 
 create table "sim_card" (
     "id" serial primary key,
@@ -119,12 +119,12 @@ comment on column "sim_card"."phone_number" is 'Phone numbers are stored in the 
 alter table
     "sim_card"
 add
-    constraint "sim_card_phone_number_unique" unique ("phone_number");
+    constraint "sim_card_phone_number_unique" unique ("phone_number", "organization_id");
 
 alter table
     "sim_card"
 add
-    constraint "sim_card_ssn_unique" unique ("ssn");
+    constraint "sim_card_ssn_unique" unique ("ssn", "organization_id");
 
 create table "vehicle_tracker_last_location" (
     "tracker_id" int not null,

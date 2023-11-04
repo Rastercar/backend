@@ -3,6 +3,7 @@ use chrono::DateTime;
 use diesel::{Identifiable, Queryable, Selectable};
 use diesel_geometry::sql_types::*;
 use ipnetwork::IpNetwork;
+use serde::Serialize;
 
 #[derive(Queryable, Debug, Identifiable, Selectable)]
 #[diesel(table_name = crate::database::schema::access_level)]
@@ -86,7 +87,7 @@ pub struct User {
     pub access_level_id: i32,
 }
 
-#[derive(Queryable, Debug, Identifiable)]
+#[derive(Queryable, Debug, Identifiable, Serialize)]
 #[diesel(table_name = crate::database::schema::vehicle)]
 #[diesel(belongs_to(Organization))]
 pub struct Vehicle {
