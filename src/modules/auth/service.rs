@@ -29,14 +29,14 @@ pub struct AuthService {
     db_conn_pool: Pool<AsyncPgConnection>,
 }
 
-pub fn new_auth_service(db_conn_pool: Pool<AsyncPgConnection>, rng: ChaCha8Rng) -> AuthService {
-    AuthService {
-        db_conn_pool,
-        rng: Arc::new(Mutex::new(rng)),
-    }
-}
-
 impl AuthService {
+    pub fn new(db_conn_pool: Pool<AsyncPgConnection>, rng: ChaCha8Rng) -> Self {
+        AuthService {
+            db_conn_pool,
+            rng: Arc::new(Mutex::new(rng)),
+        }
+    }
+
     /// generates a new session token and creates a new session record on the DB for the user
     pub async fn new_session(
         &self,

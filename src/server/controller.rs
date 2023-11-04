@@ -3,10 +3,7 @@ use crate::{
     config::app_config,
     database::models_helpers::DbConn,
     modules::{
-        auth::{
-            self,
-            service::{new_auth_service, AuthService},
-        },
+        auth::{self, service::AuthService},
         common::responses::SimpleError,
         organization,
         user::{self},
@@ -54,7 +51,7 @@ pub fn new(db_conn_pool: Pool<AsyncPgConnection>, rmq_conn_pool: RmqPool, s3: S3
         s3,
         db_conn_pool: db_conn_pool.clone(),
         mailer_service: MailerService::new(rmq_conn_pool),
-        auth_service: new_auth_service(db_conn_pool.clone(), rng),
+        auth_service: AuthService::new(db_conn_pool.clone(), rng),
     };
 
     // URL.to_string for some reason adds a trailing slash

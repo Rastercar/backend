@@ -14,6 +14,7 @@ use validator::Validate;
 /// requests containing a single field `image` field
 #[derive(TryFromMultipart, ToSchema)]
 pub struct ProfilePicDto {
+    /// TODO: this fails on files too large
     #[schema(value_type = String, format = Binary)]
     pub image: FieldData<Bytes>,
 }

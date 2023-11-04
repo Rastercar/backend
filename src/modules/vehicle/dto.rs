@@ -1,3 +1,4 @@
+use crate::modules::common::validators::REGEX_IS_MERCOSUL_OR_BR_VEHICLE_PLATE;
 use axum::body::Bytes;
 use axum_typed_multipart::{FieldData, TryFromMultipart};
 use utoipa::ToSchema;
@@ -6,11 +7,15 @@ use validator::Validate;
 #[derive(TryFromMultipart, ToSchema, Validate)]
 #[try_from_multipart(rename_all = "camelCase")]
 pub struct CreateVehicleDto {
+    // TODO: this returns error on large files (same for Update Profile Picture DTO)
+    // we must find a way to return some error code / message
     #[schema(value_type = String, format = Binary)]
     pub photo: Option<FieldData<Bytes>>,
 
-    // TODO: validation (this is not validated automagically like validatedJson)
-    // #[validate(email)]
+    #[validate(regex(
+        path = "REGEX_IS_MERCOSUL_OR_BR_VEHICLE_PLATE",
+        message = "vehicle plate must be in format AAA#A## or AAA#### (A: a-z, #: 0-9)"
+    ))]
     pub plate: String,
 
     pub brand: String,
