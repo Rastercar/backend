@@ -5,7 +5,7 @@ use crate::{
     modules::{
         auth::{self, service::AuthService},
         common::responses::SimpleError,
-        organization,
+        organization, tracker,
         user::{self},
         vehicle,
     },
@@ -94,15 +94,16 @@ pub fn new(db_conn_pool: Pool<AsyncPgConnection>, rmq_conn_pool: RmqPool, s3: S3
         .layer(cors);
 
     Router::new()
-        .route("/healthcheck", get(healthcheck))
         .merge(open_api::create_openapi_router())
+        .route("/healthcheck", get(healthcheck))
         .nest("/auth", auth::routes::create_router(state.clone()))
         .nest("/user", user::routes::create_router(state.clone()))
+        .nest("/vehicle", vehicle::routes::create_router(state.clone()))
+        .nest("/tracker", tracker::routes::create_router(state.clone()))
         .nest(
             "/organization",
             organization::routes::create_router(state.clone()),
         )
-        .nest("/vehicle", vehicle::routes::create_router(state.clone()))
         .layer(global_middlewares)
         .with_state(state)
 }

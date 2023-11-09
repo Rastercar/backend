@@ -2,13 +2,9 @@ use super::dto::CreateVehicleDto;
 use crate::{
     database::models::Vehicle,
     modules::{
-        auth::{
-            self,
-            constants::Permission,
-            middleware::{AclLayer, RequestUser},
-        },
+        auth::{self, constants::Permission, middleware::AclLayer},
         common::{
-            extractors::ValidatedMultipart,
+            extractors::{OrganizationId, ValidatedMultipart},
             multipart_form_data,
             responses::{internal_error_response_with_msg, SimpleError},
         },
@@ -17,7 +13,7 @@ use crate::{
     server::controller::AppState,
     services::s3::S3Key,
 };
-use axum::{extract::State, Extension};
+use axum::extract::State;
 use axum::{routing::post, Json, Router};
 use http::StatusCode;
 
@@ -59,14 +55,9 @@ pub fn create_router(state: AppState) -> Router<AppState> {
 )]
 pub async fn create_vehicle(
     State(state): State<AppState>,
-    Extension(req_user): Extension<RequestUser>,
+    OrganizationId(org_id): OrganizationId,
     ValidatedMultipart(dto): ValidatedMultipart<CreateVehicleDto>,
 ) -> Result<Json<Vehicle>, (StatusCode, SimpleError)> {
-    let org_id = req_user.get_org_id().ok_or((
-        StatusCode::FORBIDDEN,
-        SimpleError::from("endpoint only for org bound users"),
-    ))?;
-
     let conn = &mut state.get_db_conn().await?;
 
     let mut created_vehicle = repository::create_vehicle(conn, &dto, org_id).await?;

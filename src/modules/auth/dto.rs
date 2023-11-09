@@ -11,7 +11,7 @@ use validator::Validate;
 // --- INPUT
 
 #[derive(Deserialize, Validate, ToSchema)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "camelCase")]
 pub struct RegisterOrganization {
     #[validate(regex(
         path = "REGEX_IS_LOWERCASE_ALPHANUMERIC_WITH_UNDERSCORES",
@@ -44,7 +44,7 @@ pub struct RegisterOrganization {
 }
 
 #[derive(Deserialize, Validate, ToSchema)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "camelCase")]
 pub struct SignIn {
     #[validate(length(min = 5, max = 256))]
     pub password: String,

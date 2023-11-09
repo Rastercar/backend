@@ -7,8 +7,6 @@ use validator::Validate;
 #[derive(TryFromMultipart, ToSchema, Validate)]
 #[try_from_multipart(rename_all = "camelCase")]
 pub struct CreateVehicleDto {
-    // TODO: this returns error on large files (same for Update Profile Picture DTO)
-    // we must find a way to return some error code / message
     #[schema(value_type = String, format = Binary)]
     pub photo: Option<FieldData<Bytes>>,
 

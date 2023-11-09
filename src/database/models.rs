@@ -107,9 +107,10 @@ pub struct Vehicle {
     pub organization_id: i32,
 }
 
-#[derive(Queryable, Debug, Identifiable)]
+#[derive(Queryable, Debug, Identifiable, Serialize, ToSchema)]
 #[diesel(table_name = crate::database::schema::vehicle_tracker)]
 #[diesel(belongs_to(Organization))]
+#[serde(rename_all = "camelCase")]
 pub struct VehicleTracker {
     pub id: i32,
     pub created_at: DateTime<Utc>,

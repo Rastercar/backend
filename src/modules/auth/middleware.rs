@@ -40,6 +40,21 @@ impl RequestUser {
     pub fn get_org_id(&self) -> Option<i32> {
         self.0.organization.as_ref().map(|user| user.id)
     }
+
+    /// check if every permission on `required_permissions` is present in the user access level
+    pub fn contains_permission(&self, required_permissions: &Vec<Permission>) -> bool {
+        let user_permissions: Vec<String> = self
+            .0
+            .access_level
+            .permissions
+            .iter()
+            .filter_map(|e| e.to_owned())
+            .collect();
+
+        required_permissions
+            .iter()
+            .all(|item| user_permissions.contains(&item.to_string().to_case(Case::ScreamingSnake)))
+    }
 }
 
 /// The logged in user password, this is exposed as a struct to be used
@@ -100,6 +115,9 @@ pub async fn require_user<B>(
 
         let user = UserDto::from(user_access_level_and_org);
 
+        // TODO:!
+        tracing::info!("setting RequestUser");
+
         req.extensions_mut().insert(session_token);
         req.extensions_mut().insert(RequestUser(user));
         req.extensions_mut()
@@ -109,21 +127,6 @@ pub async fn require_user<B>(
     }
 
     Err((StatusCode::UNAUTHORIZED, SimpleError::from(NO_SID_COOKIE)))
-}
-
-/// check if every permission on `permissions` is present in the user access level
-pub fn user_contains_permissions(user: &RequestUser, permissions: &Vec<Permission>) -> bool {
-    let user_permissions: Vec<String> = user
-        .0
-        .access_level
-        .permissions
-        .iter()
-        .filter_map(|e| e.to_owned())
-        .collect();
-
-    permissions
-        .iter()
-        .all(|item| user_permissions.contains(&item.to_string().to_case(Case::ScreamingSnake)))
 }
 
 /// A layer to be used as a middleware to authorize users.
@@ -189,7 +192,7 @@ where
         let mut inner = std::mem::replace(&mut self.inner, maybe_not_ready_inner);
 
         if let Some(req_user) = req.extensions().get::<RequestUser>() {
-            let has_permissions = user_contains_permissions(req_user, &self.required_permissions);
+            let has_permissions = req_user.contains_permission(&self.required_permissions);
 
             return Box::pin(async move {
                 if has_permissions {

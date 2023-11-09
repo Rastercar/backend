@@ -1,11 +1,11 @@
-use crate::modules::common::responses::SimpleError;
+use crate::modules::{auth::middleware::RequestUser, common::responses::SimpleError};
 use axum::{
     async_trait,
-    extract::{rejection::JsonRejection, FromRequest},
+    extract::{rejection::JsonRejection, FromRequest, FromRequestParts},
     Json,
 };
 use axum_typed_multipart::{BaseMultipart, TypedMultipartError};
-use http::{Request, StatusCode};
+use http::{request::Parts, Request, StatusCode};
 use validator::Validate;
 
 /// Wrapper struct that extracts the request body as json exactly as `axum::Json<T>`
@@ -62,5 +62,39 @@ where
                 SimpleError::from(rejection.to_string()),
             )),
         }
+    }
+}
+
+/// Extracts the organization ID from the request user, failing with
+/// `(StatusCode::BAD_REQUEST, SimpleError::from("route only accessible to organization bound users"))`
+/// if the request user is not bound to a organization.
+///
+/// this requires the `RequestUser` extension to be available.
+#[derive(Clone, Copy)]
+pub struct OrganizationId(pub i32);
+
+#[async_trait]
+impl<S> FromRequestParts<S> for OrganizationId
+where
+    S: Send + Sync,
+{
+    type Rejection = (http::StatusCode, SimpleError);
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        // TODO:!
+        tracing::info!("getting org id");
+
+        let err = (
+            StatusCode::FORBIDDEN,
+            SimpleError::from("endpoint only for org bound users"),
+        );
+
+        if let Some(req_user) = parts.extensions.get::<RequestUser>() {
+            let org_id = req_user.get_org_id().ok_or(err)?;
+
+            return Ok(OrganizationId(org_id));
+        }
+
+        Err(err)
     }
 }

@@ -1,4 +1,4 @@
-use crate::modules::{auth, common, user, organization, vehicle};
+use crate::modules::{auth, common, user, organization, vehicle, tracker};
 use crate::server::controller;
 use crate::database::models;
 use axum::Router;
@@ -12,6 +12,7 @@ use utoipa_swagger_ui::SwaggerUi;
 #[openapi(
     components(schemas(
         models::Vehicle,
+        models::VehicleTracker,
 
         common::dto::Token,
         common::dto::EmailAddress,
@@ -31,6 +32,8 @@ use utoipa_swagger_ui::SwaggerUi;
         auth::dto::RegisterOrganization,
 
         vehicle::dto::CreateVehicleDto,
+
+        tracker::dto::CreateTrackerDto,
 
         organization::dto::UpdateOrganizationDto,
     )),
@@ -54,6 +57,8 @@ use utoipa_swagger_ui::SwaggerUi;
         auth::routes::change_password_by_recovery_token,
         
         vehicle::routes::create_vehicle,
+
+        tracker::routes::create_tracker,
 
         organization::routes::update_org,
         organization::routes::confirm_email_address_by_token,
