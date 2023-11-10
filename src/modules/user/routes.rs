@@ -3,6 +3,7 @@ use super::dto::{self, ProfilePicDto};
 use crate::database::error::DbError;
 use crate::modules::auth::middleware::RequestUserPassword;
 use crate::modules::common::error_codes::EMAIL_ALREADY_VERIFIED;
+use crate::modules::common::extractors::DbConnection;
 use crate::modules::common::responses::internal_error_response_with_msg;
 use crate::services::mailer::service::ConfirmEmailRecipientType;
 use crate::{
@@ -92,20 +93,18 @@ pub async fn me(Extension(req_user): Extension<RequestUser>) -> Json<UserDto> {
     ),
 )]
 pub async fn update_me(
-    State(state): State<AppState>,
+    DbConnection(mut conn): DbConnection,
     Extension(req_user): Extension<RequestUser>,
     ValidatedJson(payload): ValidatedJson<dto::UpdateUserDto>,
 ) -> Result<Json<auth_dto::UserDto>, (StatusCode, SimpleError)> {
     use crate::database::schema::user::dsl::*;
-
-    let conn = &mut state.get_db_conn().await?;
 
     let mut req_user = req_user.0;
 
     diesel::update(user)
         .filter(id.eq(&req_user.id))
         .set(&payload)
-        .execute(conn)
+        .execute(&mut conn)
         .await
         .map_err(|e| DbError::from(e))?;
 
@@ -151,14 +150,12 @@ pub async fn update_me(
     ),
 )]
 async fn put_password(
-    State(state): State<AppState>,
+    DbConnection(mut conn): DbConnection,
     Extension(req_user): Extension<RequestUser>,
     Extension(req_user_password): Extension<RequestUserPassword>,
     ValidatedJson(payload): ValidatedJson<dto::ChangePasswordDto>,
 ) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
     use crate::database::schema::user::dsl::*;
-
-    let conn = &mut state.get_db_conn().await?;
 
     let req_user = req_user.0;
 
@@ -179,7 +176,7 @@ async fn put_password(
     diesel::update(user)
         .filter(id.eq(&req_user.id))
         .set(password.eq(new_password_hash))
-        .execute(conn)
+        .execute(&mut conn)
         .await
         .or(Err(internal_error_response()))?;
 

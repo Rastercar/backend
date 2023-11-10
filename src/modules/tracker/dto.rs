@@ -2,8 +2,7 @@ use serde::Deserialize;
 use utoipa::ToSchema;
 use validator::Validate;
 
-// TODO: remove debug
-#[derive(Deserialize, ToSchema, Validate, Debug)]
+#[derive(Deserialize, ToSchema, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateTrackerDto {
     #[validate(length(min = 1))]

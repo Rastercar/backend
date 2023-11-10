@@ -11,7 +11,7 @@ use crate::{
         common::{
             self,
             error_codes::EMAIL_ALREADY_VERIFIED,
-            extractors::ValidatedJson,
+            extractors::{DbConnection, ValidatedJson},
             responses::{internal_error_response, SimpleError},
         },
     },
@@ -73,19 +73,17 @@ pub fn create_router(state: AppState) -> Router<AppState> {
     ),
 )]
 pub async fn update_org(
-    State(state): State<AppState>,
+    DbConnection(mut conn): DbConnection,
     Extension(req_user): Extension<RequestUser>,
     ValidatedJson(payload): ValidatedJson<UpdateOrganizationDto>,
 ) -> Result<Json<auth::dto::OrganizationDto>, (StatusCode, SimpleError)> {
     if let Some(org) = req_user.0.organization {
-        let conn = &mut state.get_db_conn().await?;
-
         use crate::database::schema::organization::dsl::*;
 
         let org = diesel::update(organization)
             .filter(id.eq(&org.id))
             .set(&payload)
-            .get_result::<models::Organization>(conn)
+            .get_result::<models::Organization>(&mut conn)
             .await
             .or(Err(internal_error_response()))?;
 
@@ -195,11 +193,9 @@ pub async fn request_email_address_confirmation(
     ),
 )]
 pub async fn confirm_email_address_by_token(
-    State(state): State<AppState>,
+    DbConnection(mut conn): DbConnection,
     ValidatedJson(payload): ValidatedJson<common::dto::Token>,
 ) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
-    let conn = &mut state.get_db_conn().await?;
-
     jwt::decode(&payload.token).or(Err((
         StatusCode::UNAUTHORIZED,
         SimpleError::from("invalid token"),
@@ -208,7 +204,7 @@ pub async fn confirm_email_address_by_token(
     let maybe_org = organization::table
         .select(models::Organization::as_select())
         .filter(organization::dsl::confirm_billing_email_token.eq(&payload.token))
-        .first::<models::Organization>(conn)
+        .first::<models::Organization>(&mut conn)
         .await
         .optional()
         .or(Err(internal_error_response()))?;
@@ -227,7 +223,7 @@ pub async fn confirm_email_address_by_token(
                 organization::dsl::billing_email_verified.eq(true),
                 organization::dsl::confirm_billing_email_token.eq::<Option<String>>(None),
             ))
-            .execute(conn)
+            .execute(&mut conn)
             .await
             .or(Err(internal_error_response()))?;
 

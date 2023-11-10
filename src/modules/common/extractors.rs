@@ -1,4 +1,8 @@
-use crate::modules::{auth::middleware::RequestUser, common::responses::SimpleError};
+use crate::{
+    database::models_helpers::DbConn,
+    modules::{auth::middleware::RequestUser, common::responses::SimpleError},
+    server::controller::AppState,
+};
 use axum::{
     async_trait,
     extract::{rejection::JsonRejection, FromRequest, FromRequestParts},
@@ -65,7 +69,7 @@ where
     }
 }
 
-/// Extracts the organization ID from the request user, failing with
+/// Extracts the organization id of the request user, failing with
 /// `(StatusCode::BAD_REQUEST, SimpleError::from("route only accessible to organization bound users"))`
 /// if the request user is not bound to a organization.
 ///
@@ -81,9 +85,6 @@ where
     type Rejection = (http::StatusCode, SimpleError);
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        // TODO:!
-        tracing::info!("getting org id");
-
         let err = (
             StatusCode::FORBIDDEN,
             SimpleError::from("endpoint only for org bound users"),
@@ -96,5 +97,26 @@ where
         }
 
         Err(err)
+    }
+}
+
+/// Gets a DB connection from the state, returning:
+///
+/// `(StatusCode::INTERNAL_SERVER_ERROR, SimpleError::internal())`
+///
+/// if the connection is not available.
+///
+/// This is mostly useful when a DB connection is necessary at any time
+/// to handle the request, if there is a branch where the request can
+/// return without using the DbConnection, do not use this extractor.
+pub struct DbConnection(pub DbConn);
+
+#[async_trait]
+impl FromRequestParts<AppState> for DbConnection {
+    type Rejection = (http::StatusCode, SimpleError);
+
+    async fn from_request_parts(_: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
+        let conn = state.get_db_conn().await?;
+        Ok(DbConnection(conn))
     }
 }

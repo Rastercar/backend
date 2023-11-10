@@ -1,18 +1,23 @@
+use super::dto::CreateTrackerDto;
 use crate::{
-    database::models::VehicleTracker,
+    database::{
+        error::DbError,
+        models::VehicleTracker,
+        schema::{vehicle, vehicle_tracker},
+    },
     modules::{
         auth::{self, constants::Permission, middleware::AclLayer},
         common::{
-            extractors::{OrganizationId, ValidatedJson},
-            responses::SimpleError,
+            extractors::{DbConnection, OrganizationId, ValidatedJson},
+            responses::{internal_error_response, SimpleError},
         },
     },
     server::controller::AppState,
 };
 use axum::{routing::post, Json, Router};
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 use http::StatusCode;
-
-use super::dto::CreateTrackerDto;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
@@ -51,19 +56,42 @@ pub fn create_router(state: AppState) -> Router<AppState> {
     ),
 )]
 pub async fn create_tracker(
-    // State(state): State<AppState>,
     OrganizationId(org_id): OrganizationId,
+    DbConnection(mut conn): DbConnection,
     ValidatedJson(dto): ValidatedJson<CreateTrackerDto>,
 ) -> Result<Json<VehicleTracker>, (StatusCode, SimpleError)> {
-    println!("{}", org_id);
-    println!("{:#?}", dto);
+    // TODO: invert the relationship between vehicle and tracker (make tracker_id in vehicle instead of the oposite, who the
+    // fuck would install 2 trackers on the same vehicle anyway ?)
+    if let Some(vehicle_id) = dto.vehicle_id {
+        let count: i64 = vehicle::dsl::vehicle
+            .filter(vehicle::dsl::id.eq(vehicle_id))
+            .filter(vehicle::dsl::organization_id.eq(org_id))
+            .count()
+            .get_result(&mut conn)
+            .await
+            .or(Err(internal_error_response()))?;
 
-    // TODO: implement a conn extractor from req parts to avoid this line everywhere
-    // let conn = &mut state.get_db_conn().await?;
+        if count != 1 {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                SimpleError::from(format!(
+                    "vehicle: {} not found for org {}",
+                    vehicle_id, org_id
+                )),
+            ));
+        }
+    }
 
-    todo!();
+    let created_tracker = diesel::insert_into(vehicle_tracker::dsl::vehicle_tracker)
+        .values((
+            vehicle_tracker::dsl::imei.eq(dto.imei),
+            vehicle_tracker::dsl::model.eq(dto.model),
+            vehicle_tracker::dsl::vehicle_id.eq(dto.vehicle_id),
+            vehicle_tracker::dsl::organization_id.eq(org_id),
+        ))
+        .get_result::<VehicleTracker>(&mut conn)
+        .await
+        .map_err(|e| DbError::from(e))?;
 
-    // let mut created_tracker = repository::create_vehicle(conn, &dto, org_id).await?;
-
-    // Ok(Json(created_tracker))
+    Ok(Json(created_tracker))
 }

@@ -7,7 +7,7 @@ use crate::database::schema::session;
 use crate::database::schema::user::{self};
 use crate::modules::common;
 use crate::modules::common::error_codes::EMAIL_ALREADY_VERIFIED;
-use crate::modules::common::extractors::ValidatedJson;
+use crate::modules::common::extractors::{DbConnection, ValidatedJson};
 use crate::modules::common::responses::{
     internal_error_response, internal_error_response_with_msg,
 };
@@ -186,14 +186,13 @@ async fn sign_out_session_by_id(
     Extension(req_user): Extension<RequestUser>,
     Extension(req_user_session): Extension<SessionId>,
     Path(public_session_id): Path<i32>,
+    DbConnection(mut conn): DbConnection,
     State(state): State<AppState>,
 ) -> Result<(StatusCode, HeaderMap), (StatusCode, SimpleError)> {
-    let conn = &mut state.get_db_conn().await?;
-
     let maybe_session_to_delete: Option<models::Session> = session::dsl::session
         .select(models::Session::as_select())
         .filter(session::dsl::public_id.eq(&public_session_id))
-        .first::<models::Session>(conn)
+        .first::<models::Session>(&mut conn)
         .await
         .optional()
         .or(Err(internal_error_response()))?;
@@ -411,13 +410,12 @@ pub async fn sign_up(
     ),
 )]
 pub async fn request_recover_password_email(
+    DbConnection(mut conn): DbConnection,
     State(state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<common::dto::EmailAddress>,
 ) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
-    let conn = &mut state.get_db_conn().await?;
-
     let maybe_user = models::User::by_email(&payload.email)
-        .first::<models::User>(conn)
+        .first::<models::User>(&mut conn)
         .await
         .optional()
         .or(Err(internal_error_response()))?;
@@ -473,11 +471,9 @@ pub async fn request_recover_password_email(
     ),
 )]
 pub async fn change_password_by_recovery_token(
-    State(state): State<AppState>,
+    DbConnection(mut conn): DbConnection,
     ValidatedJson(payload): ValidatedJson<dto::ResetPassword>,
 ) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
-    let conn = &mut state.get_db_conn().await?;
-
     jwt::decode(&payload.password_reset_token).or(Err((
         StatusCode::UNAUTHORIZED,
         SimpleError::from("invalid token"),
@@ -485,7 +481,7 @@ pub async fn change_password_by_recovery_token(
 
     let maybe_user = models::User::all()
         .filter(user::dsl::reset_password_token.eq(&payload.password_reset_token))
-        .first::<models::User>(conn)
+        .first::<models::User>(&mut conn)
         .await
         .optional()
         .or(Err(internal_error_response()))?;
@@ -500,7 +496,7 @@ pub async fn change_password_by_recovery_token(
                 user::dsl::reset_password_token.eq::<Option<String>>(None),
                 user::dsl::password.eq(new_password_hash),
             ))
-            .execute(conn)
+            .execute(&mut conn)
             .await
             .or(Err(internal_error_response()))?;
 
@@ -542,11 +538,9 @@ pub async fn change_password_by_recovery_token(
     ),
 )]
 pub async fn confirm_email_address_by_token(
-    State(state): State<AppState>,
+    DbConnection(mut conn): DbConnection,
     ValidatedJson(payload): ValidatedJson<common::dto::Token>,
 ) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
-    let conn = &mut state.get_db_conn().await?;
-
     jwt::decode(&payload.token).or(Err((
         StatusCode::UNAUTHORIZED,
         SimpleError::from("invalid token"),
@@ -554,7 +548,7 @@ pub async fn confirm_email_address_by_token(
 
     let maybe_user = models::User::all()
         .filter(user::dsl::confirm_email_token.eq(&payload.token))
-        .first::<models::User>(conn)
+        .first::<models::User>(&mut conn)
         .await
         .optional()
         .or(Err(internal_error_response()))?;
@@ -573,7 +567,7 @@ pub async fn confirm_email_address_by_token(
                 user::dsl::email_verified.eq(true),
                 user::dsl::confirm_email_token.eq::<Option<String>>(None),
             ))
-            .execute(conn)
+            .execute(&mut conn)
             .await
             .or(Err(internal_error_response()))?;
 
