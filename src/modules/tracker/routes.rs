@@ -22,7 +22,7 @@ use http::StatusCode;
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", post(create_tracker))
-        .layer(AclLayer::new(vec![Permission::CreateVehicle]))
+        .layer(AclLayer::new(vec![Permission::CreateTracker]))
         .layer(axum::middleware::from_fn_with_state(
             state,
             auth::middleware::require_user,
@@ -60,8 +60,6 @@ pub async fn create_tracker(
     DbConnection(mut conn): DbConnection,
     ValidatedJson(dto): ValidatedJson<CreateTrackerDto>,
 ) -> Result<Json<VehicleTracker>, (StatusCode, SimpleError)> {
-    // TODO: invert the relationship between vehicle and tracker (make tracker_id in vehicle instead of the oposite, who the
-    // fuck would install 2 trackers on the same vehicle anyway ?)
     if let Some(vehicle_id) = dto.vehicle_id {
         let count: i64 = vehicle::dsl::vehicle
             .filter(vehicle::dsl::id.eq(vehicle_id))
@@ -77,6 +75,23 @@ pub async fn create_tracker(
                 SimpleError::from(format!(
                     "vehicle: {} not found for org {}",
                     vehicle_id, org_id
+                )),
+            ));
+        }
+
+        let trackers_on_vehicle_cnt: i64 = vehicle_tracker::dsl::vehicle_tracker
+            .filter(vehicle_tracker::dsl::vehicle_id.eq(vehicle_id))
+            .count()
+            .get_result(&mut conn)
+            .await
+            .or(Err(internal_error_response()))?;
+
+        if trackers_on_vehicle_cnt > 0 {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                SimpleError::from(format!(
+                    "vehicle: {} already has a tracker installed",
+                    vehicle_id
                 )),
             ));
         }

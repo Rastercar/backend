@@ -4,6 +4,7 @@ use strum::{Display, EnumIter, IntoEnumIterator};
 /// All the permissions available for the rastercar API
 #[derive(Debug, EnumIter, Display, Clone)]
 pub enum Permission {
+    CreateTracker,
     CreateVehicle,
     UpdateVehicle,
     DeleteVehicle,

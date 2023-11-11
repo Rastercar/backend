@@ -115,9 +115,6 @@ pub async fn require_user<B>(
 
         let user = UserDto::from(user_access_level_and_org);
 
-        // TODO:!
-        tracing::info!("setting RequestUser");
-
         req.extensions_mut().insert(session_token);
         req.extensions_mut().insert(RequestUser(user));
         req.extensions_mut()
