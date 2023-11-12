@@ -96,6 +96,8 @@ pub async fn update_org(
     ))
 }
 
+// TODO: list the required permissions for this route, there is a utoipa example of this somewhere
+// Lists the trackers that belong to the same org as the request user
 /// Requests org email address confirmation
 ///
 /// Required permissions: UPDATE_ORGANIZATION

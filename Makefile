@@ -3,6 +3,10 @@
 lazy:
 	git add . && git commit -m "." && git push origin master
 
+.PHONY: run_prod
+run_prod:
+	RUST_LOG=error AWS_PROFILE=rastercar-vitor cargo run
+
 .PHONY: run_dev
 run_dev:
 	RUST_LOG=info IS_DEVELOPMENT=true AWS_PROFILE=rastercar-vitor cargo watch -x run

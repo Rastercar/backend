@@ -3,18 +3,23 @@ use crate::{
     database::{
         error::DbError,
         models::VehicleTracker,
+        pagination::PaginationResult,
         schema::{vehicle, vehicle_tracker},
     },
     modules::{
         auth::{self, constants::Permission, middleware::AclLayer},
         common::{
-            extractors::{DbConnection, OrganizationId, ValidatedJson},
+            dto::Pagination,
+            extractors::{DbConnection, OrganizationId, ValidatedJson, ValidatedQuery},
             responses::{internal_error_response, SimpleError},
         },
     },
     server::controller::AppState,
 };
-use axum::{routing::post, Json, Router};
+use axum::{
+    routing::{get, post},
+    Json, Router,
+};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use http::StatusCode;
@@ -23,6 +28,7 @@ pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", post(create_tracker))
         .layer(AclLayer::new(vec![Permission::CreateTracker]))
+        .route("/", get(list_trackers))
         .layer(axum::middleware::from_fn_with_state(
             state,
             auth::middleware::require_user,
@@ -109,4 +115,49 @@ pub async fn create_tracker(
         .map_err(|e| DbError::from(e))?;
 
     Ok(Json(created_tracker))
+}
+
+// TODO: find a way to document the response type of PaginatedResult, see:
+// https://github.com/juhaku/utoipa/pull/588/files
+/// Lists the trackers that belong to the same org as the request user
+#[utoipa::path(
+    get,
+    path = "/tracker",
+    tag = "tracker",
+    security(("session_id" = [])),
+    params(
+        Pagination
+    ),
+    responses(
+        (
+            status = OK,
+            description = "paginated list of trackers",
+            content_type = "application/json",
+            body = PaginationResult<VehicleTracker>,
+        ),
+        (
+            status = UNAUTHORIZED,
+            description = "expired or invalid token",
+            body = SimpleError,
+        ),
+    ),
+)]
+pub async fn list_trackers(
+    ValidatedQuery(query): ValidatedQuery<Pagination>,
+    OrganizationId(org_id): OrganizationId,
+    DbConnection(mut conn): DbConnection,
+) -> Result<Json<PaginationResult<VehicleTracker>>, (StatusCode, SimpleError)> {
+    use crate::database::pagination::*;
+
+    let result = vehicle_tracker::dsl::vehicle_tracker
+        .order(vehicle_tracker::id.asc())
+        .filter(vehicle_tracker::dsl::organization_id.eq(org_id))
+        .select(VehicleTracker::as_select())
+        .paginate(query.page as i64)
+        .per_page(query.page_size as i64)
+        .load_with_pagination::<VehicleTracker>(&mut conn)
+        .await
+        .or(Err(internal_error_response()))?;
+
+    Ok(Json(result))
 }

@@ -5,12 +5,38 @@ use crate::{
 };
 use axum::{
     async_trait,
-    extract::{rejection::JsonRejection, FromRequest, FromRequestParts},
+    extract::{rejection::JsonRejection, FromRequest, FromRequestParts, Query},
     Json,
 };
 use axum_typed_multipart::{BaseMultipart, TypedMultipartError};
 use http::{request::Parts, Request, StatusCode};
+use serde::de::DeserializeOwned;
 use validator::Validate;
+
+/// Wrapper struct that extracts from the request query exactly `axum::Query<T>`
+/// but also requires T to impl `Validate`, if validation fails a bad request code
+/// and simple error is returned
+#[derive(Clone, Copy)]
+pub struct ValidatedQuery<T>(pub T);
+
+#[async_trait]
+impl<S, T> FromRequestParts<S> for ValidatedQuery<T>
+where
+    S: Send + Sync,
+    T: DeserializeOwned + Validate,
+{
+    type Rejection = (http::StatusCode, SimpleError);
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        match Query::<T>::from_request_parts(parts, state).await {
+            Ok(payload) => match payload.validate() {
+                Ok(_) => Ok(ValidatedQuery(payload.0)),
+                Err(e) => Err((StatusCode::BAD_REQUEST, SimpleError::from(e))),
+            },
+            Err(rejection) => Err((rejection.status(), SimpleError::from(rejection.to_string()))),
+        }
+    }
+}
 
 /// Wrapper struct that extracts the request body as json exactly as `axum::Json<T>`
 /// but also requires T to impl `Validate`, if validation fails a bad request code

@@ -58,6 +58,7 @@ use utoipa_swagger_ui::SwaggerUi;
         
         vehicle::routes::create_vehicle,
 
+        tracker::routes::list_trackers,
         tracker::routes::create_tracker,
 
         organization::routes::update_org,
