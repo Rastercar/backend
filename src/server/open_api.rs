@@ -1,6 +1,7 @@
 use crate::modules::{auth, common, user, organization, vehicle, tracker};
 use crate::server::controller;
 use crate::database::models;
+use crate::database::pagination::PaginatedVehicleTracker;
 use axum::Router;
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use utoipa::openapi::{ContactBuilder, InfoBuilder};
@@ -11,6 +12,8 @@ use utoipa_swagger_ui::SwaggerUi;
 #[derive(OpenApi)]
 #[openapi(
     components(schemas(
+        PaginatedVehicleTracker,
+
         models::Vehicle,
         models::VehicleTracker,
 

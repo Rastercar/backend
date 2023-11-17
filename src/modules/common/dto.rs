@@ -23,6 +23,7 @@ fn default_page_size() -> usize {
 }
 
 #[derive(Deserialize, IntoParams, Validate)]
+#[serde(rename_all = "camelCase")]
 pub struct Pagination {
     #[serde(default = "default_page")]
     #[validate(range(min = 1, max = 99999))]

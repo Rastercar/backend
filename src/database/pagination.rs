@@ -1,3 +1,4 @@
+use crate::database::models::VehicleTracker;
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::query_builder::*;
@@ -27,7 +28,7 @@ impl<T> Paginate for T {
     }
 }
 
-#[derive(Debug, Clone, Copy, QueryId)]
+#[derive(Clone, Copy, QueryId)]
 pub struct Paginated<T> {
     /// The query to be executed
     query: T,
@@ -42,10 +43,11 @@ pub struct Paginated<T> {
     offset: i64,
 }
 
+/// Pagination metadata of a executed query
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-/// Pagination metadata of a executed query
-pub struct PaginationResult<T> {
+#[aliases(PaginatedVehicleTracker = PaginationResult<VehicleTracker>)]
+pub struct PaginationResult<T: for<'_s> ToSchema<'_s>> {
     /// Page number
     ///
     /// this is used to determine the offset used in the query
@@ -84,7 +86,7 @@ impl<'a, T: 'a> Paginated<T> {
     ) -> QueryResult<PaginationResult<U>>
     where
         Self: LoadQuery<'a, AsyncPgConnection, (U, i64)>,
-        U: std::marker::Send,
+        U: std::marker::Send + for<'_s> utoipa::ToSchema<'_s>,
     {
         let per_page = self.per_page;
         let page = self.page;

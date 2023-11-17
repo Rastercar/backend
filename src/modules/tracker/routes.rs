@@ -36,6 +36,8 @@ pub fn create_router(state: AppState) -> Router<AppState> {
 }
 
 /// Creates a new tracker
+///
+/// Required permissions: CREATE_TRACKER
 #[utoipa::path(
     post,
     path = "/tracker",
@@ -117,8 +119,6 @@ pub async fn create_tracker(
     Ok(Json(created_tracker))
 }
 
-// TODO: find a way to document the response type of PaginatedResult, see:
-// https://github.com/juhaku/utoipa/pull/588/files
 /// Lists the trackers that belong to the same org as the request user
 #[utoipa::path(
     get,
@@ -133,7 +133,7 @@ pub async fn create_tracker(
             status = OK,
             description = "paginated list of trackers",
             content_type = "application/json",
-            body = PaginationResult<VehicleTracker>,
+            body = PaginatedVehicleTracker,
         ),
         (
             status = UNAUTHORIZED,

@@ -18,7 +18,7 @@ impl User {
         user::table.select(User::as_select())
     }
 
-    // [TODO-PROD] this is here just to show a quick example on how to compose
+    // [PROD-TODO] this is here just to show a quick example on how to compose
     // applications if this is not used repeatedly this can be removed
     pub fn by_email(email: &str) -> Filter<UserAll, diesel::dsl::Eq<user::email, &str>> {
         Self::all().filter(user::email.eq(email))

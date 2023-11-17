@@ -23,7 +23,7 @@ impl Default for Claims {
         let now = Utc::now();
 
         Claims {
-            // [TODO-PROD] set this as the rastercar url
+            // [PROD-TODO] set this as the rastercar url
             aud: String::from("rastercar users"),
             iat: now.timestamp() as usize,
             iss: String::from("rastercar API"),

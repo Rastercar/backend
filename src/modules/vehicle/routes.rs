@@ -28,6 +28,8 @@ pub fn create_router(state: AppState) -> Router<AppState> {
 }
 
 /// Creates a new vehicle
+///
+/// Required permissions: CREATE_VEHICLE
 #[utoipa::path(
     post,
     path = "/vehicle",
