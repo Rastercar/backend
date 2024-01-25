@@ -55,11 +55,11 @@ pub fn new(
     let rng = ChaCha8Rng::seed_from_u64(OsRng.next_u64());
 
     let state = AppState {
-        db,
+        db: db.clone(),
         s3,
-        db_conn_pool: db_conn_pool.clone(),
+        db_conn_pool: db_conn_pool,
         mailer_service: MailerService::new(rmq_conn_pool),
-        auth_service: AuthService::new(db_conn_pool.clone(), rng),
+        auth_service: AuthService::new(db, rng),
     };
 
     // URL.to_string for some reason adds a trailing slash

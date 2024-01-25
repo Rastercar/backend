@@ -7,13 +7,10 @@ use crate::modules::auth::session::{SessionId, SESSION_DAYS_DURATION};
 use anyhow::Result;
 use bcrypt::{hash, verify, DEFAULT_COST};
 use chrono::{Duration, Utc};
-use diesel::prelude::*;
 use diesel_async::scoped_futures::ScopedFutureExt;
-use diesel_async::{
-    pooled_connection::deadpool::Pool, AsyncConnection, AsyncPgConnection, RunQueryDsl,
-};
 use ipnetwork::IpNetwork;
 use rand_chacha::ChaCha8Rng;
+use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 
@@ -26,13 +23,13 @@ pub enum UserFromCredentialsError {
 #[derive(Clone)]
 pub struct AuthService {
     rng: Arc<Mutex<ChaCha8Rng>>,
-    db_conn_pool: Pool<AsyncPgConnection>,
+    db: DatabaseConnection,
 }
 
 impl AuthService {
-    pub fn new(db_conn_pool: Pool<AsyncPgConnection>, rng: ChaCha8Rng) -> Self {
+    pub fn new(db: DatabaseConnection, rng: ChaCha8Rng) -> Self {
         AuthService {
-            db_conn_pool,
+            db,
             rng: Arc::new(Mutex::new(rng)),
         }
     }
@@ -44,37 +41,35 @@ impl AuthService {
         client_ip: IpAddr,
         client_user_agent: String,
     ) -> Result<SessionId> {
-        use crate::database::schema::session::dsl::*;
-
-        let conn = &mut self.db_conn_pool.get().await?;
-
         let ses_token = SessionId::generate_new(&mut self.rng.lock().unwrap());
 
-        diesel::insert_into(session)
-            .values((
-                ip.eq(IpNetwork::from(client_ip)),
-                user_agent.eq(client_user_agent),
-                expires_at.eq(Utc::now() + Duration::days(SESSION_DAYS_DURATION)),
-                user_id.eq(user_identifier),
-                session_token.eq(ses_token.into_database_value()),
-            ))
-            .get_result::<models::Session>(conn)
-            .await?;
+        let new_session = entity::session::ActiveModel {
+            ip: Set(IpNetwork::from(client_ip).to_string()),
+            user_agent: Set(client_user_agent),
+            expires_at: Set((Utc::now() + Duration::days(SESSION_DAYS_DURATION)).into()),
+            user_id: Set(user_identifier),
+            session_token: Set(ses_token.into_database_value()),
+            ..Default::default()
+        };
+
+        new_session.insert(&self.db).await?;
 
         Ok(ses_token)
     }
 
     /// lists all sessions belonging to a user
-    pub async fn get_active_user_sessions(&self, user_id: &i32) -> Result<Vec<models::Session>> {
-        let conn = &mut self.db_conn_pool.get().await?;
+    pub async fn get_active_user_sessions(
+        &self,
+        user_id: i32,
+    ) -> Result<Vec<(entity::session::Model, entity::user::Model)>> {
+        // TODO: !        //     .inner_join(user::table)
 
-        let sessions: Vec<models::Session> = session::dsl::session
-            .inner_join(user::table)
-            // do not return expired sessions as they are soon to be deleted by a cron job
-            .filter(session::dsl::expires_at.gt(Utc::now()))
-            .filter(session::dsl::user_id.eq(user_id))
-            .select(models::Session::as_select())
-            .load(conn)
+        // TODO: corrigir sessao -> user para One to One
+        let sessions = entity::session::Entity::find()
+            .filter(entity::session::Column::ExpiresAt.gt(Utc::now()))
+            .filter(entity::session::Column::UserId.eq(user_id))
+            .find_with_related(entity::user::Entity)
+            .all(&self.db)
             .await?;
 
         Ok(sessions)
