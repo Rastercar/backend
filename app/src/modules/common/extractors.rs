@@ -1,5 +1,4 @@
 use crate::{
-    database::models_helpers::DbConn,
     modules::{auth::middleware::RequestUser, common::responses::SimpleError},
     server::controller::AppState,
 };
@@ -10,6 +9,7 @@ use axum::{
 };
 use axum_typed_multipart::{BaseMultipart, TypedMultipartError};
 use http::{request::Parts, Request, StatusCode};
+use sea_orm::DatabaseConnection;
 use serde::de::DeserializeOwned;
 use validator::Validate;
 
@@ -126,23 +126,14 @@ where
     }
 }
 
-/// Gets a DB connection from the state, returning:
-///
-/// `(StatusCode::INTERNAL_SERVER_ERROR, SimpleError::internal())`
-///
-/// if the connection is not available.
-///
-/// This is mostly useful when a DB connection is necessary at any time
-/// to handle the request, if there is a branch where the request can
-/// return without using the DbConnection, do not use this extractor.
-pub struct DbConnection(pub DbConn);
+/// Helper to get a DB connection from the state
+pub struct DbConnection(pub DatabaseConnection);
 
 #[async_trait]
 impl FromRequestParts<AppState> for DbConnection {
     type Rejection = (http::StatusCode, SimpleError);
 
     async fn from_request_parts(_: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
-        let conn = state.get_db_conn().await?;
-        Ok(DbConnection(conn))
+        Ok(DbConnection(state.db))
     }
 }

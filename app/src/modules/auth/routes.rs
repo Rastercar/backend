@@ -8,9 +8,7 @@ use crate::database::schema::user::{self};
 use crate::modules::common;
 use crate::modules::common::error_codes::EMAIL_ALREADY_VERIFIED;
 use crate::modules::common::extractors::{DbConnection, ValidatedJson};
-use crate::modules::common::responses::{
-    internal_error_response, internal_error_response_with_msg,
-};
+use crate::modules::common::responses::{internal_error_msg, internal_error_res};
 use crate::modules::common::{error_codes, responses::SimpleError};
 use crate::server::controller::AppState;
 use anyhow::Result;
@@ -96,7 +94,7 @@ pub async fn list_sessions(
 
     let sessions = state
         .auth_service
-        .get_active_user_sessions(&req_user.0.id)
+        .get_active_user_sessions(req_user.0.id)
         .await
         .or(Err((
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -195,7 +193,7 @@ async fn sign_out_session_by_id(
         .first::<models::Session>(&mut conn)
         .await
         .optional()
-        .or(Err(internal_error_response()))?;
+        .or(Err(internal_error_res()))?;
 
     if let Some(session_to_delete) = maybe_session_to_delete {
         let request_user = req_user.0;
@@ -284,7 +282,7 @@ pub async fn sign_in(
         .await
         .map_err(|e| match e {
             Err::NotFound => (StatusCode::NOT_FOUND, SimpleError::from("user not found")),
-            Err::InternalError => internal_error_response(),
+            Err::InternalError => internal_error_res(),
             Err::InvalidPassword => (
                 StatusCode::UNAUTHORIZED,
                 SimpleError::from("invalid password"),
@@ -340,7 +338,7 @@ pub async fn sign_up(
         .auth_service
         .check_email_in_use(&payload.email)
         .await
-        .or(Err(internal_error_response()))?;
+        .or(Err(internal_error_res()))?;
 
     if email_in_use {
         return Err((
@@ -353,7 +351,7 @@ pub async fn sign_up(
         .auth_service
         .get_user_id_by_username(&payload.username)
         .await
-        .or(Err(internal_error_response()))?
+        .or(Err(internal_error_res()))?
         .is_some();
 
     if username_in_use {
@@ -367,15 +365,13 @@ pub async fn sign_up(
         .auth_service
         .register_user_and_organization(payload)
         .await
-        .or(Err(internal_error_response()))?;
+        .or(Err(internal_error_res()))?;
 
     let session_token = state
         .auth_service
         .new_session(created_user.id, client_ip.0, user_agent.to_string())
         .await
-        .or(Err(internal_error_response_with_msg(
-            "failed to create session",
-        )))?;
+        .or(Err(internal_error_msg("failed to create session")))?;
 
     Ok(sign_in_or_up_response(created_user, session_token))
 }
@@ -418,20 +414,20 @@ pub async fn request_recover_password_email(
         .first::<models::User>(&mut conn)
         .await
         .optional()
-        .or(Err(internal_error_response()))?;
+        .or(Err(internal_error_res()))?;
 
     if let Some(usr) = maybe_user {
         let token = state
             .auth_service
             .gen_and_set_user_reset_password_token(usr.id)
             .await
-            .or(Err(internal_error_response()))?;
+            .or(Err(internal_error_res()))?;
 
         state
             .mailer_service
             .send_recover_password_email(payload.email, token, usr.username)
             .await
-            .or(Err(internal_error_response()))?;
+            .or(Err(internal_error_res()))?;
 
         return Ok(Json("password recovery email queued successfully"));
     }
@@ -484,11 +480,11 @@ pub async fn change_password_by_recovery_token(
         .first::<models::User>(&mut conn)
         .await
         .optional()
-        .or(Err(internal_error_response()))?;
+        .or(Err(internal_error_res()))?;
 
     if let Some(usr) = maybe_user {
         let new_password_hash =
-            hash(&payload.new_password, DEFAULT_COST).or(Err(internal_error_response()))?;
+            hash(&payload.new_password, DEFAULT_COST).or(Err(internal_error_res()))?;
 
         diesel::update(user::dsl::user)
             .filter(user::dsl::id.eq(usr.id))
@@ -498,7 +494,7 @@ pub async fn change_password_by_recovery_token(
             ))
             .execute(&mut conn)
             .await
-            .or(Err(internal_error_response()))?;
+            .or(Err(internal_error_res()))?;
 
         return Ok(Json("password changed successfully"));
     }
@@ -551,7 +547,7 @@ pub async fn confirm_email_address_by_token(
         .first::<models::User>(&mut conn)
         .await
         .optional()
-        .or(Err(internal_error_response()))?;
+        .or(Err(internal_error_res()))?;
 
     if let Some(usr) = maybe_user {
         if usr.email_verified {
@@ -569,7 +565,7 @@ pub async fn confirm_email_address_by_token(
             ))
             .execute(&mut conn)
             .await
-            .or(Err(internal_error_response()))?;
+            .or(Err(internal_error_res()))?;
 
         return Ok(Json("email confirmed successfully"));
     }

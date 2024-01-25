@@ -9,7 +9,7 @@ use crate::{
         auth::session::SessionId,
         common::{
             error_codes::{INVALID_SESSION, NO_SID_COOKIE, ORGANIZATION_BLOCKED},
-            responses::{internal_error_response_with_msg, SimpleError},
+            responses::{internal_error_msg, SimpleError},
         },
     },
     server::controller::AppState,
@@ -43,17 +43,12 @@ impl RequestUser {
 
     /// check if every permission on `required_permissions` is present in the user access level
     pub fn contains_permission(&self, required_permissions: &Vec<Permission>) -> bool {
-        let user_permissions: Vec<String> = self
-            .0
-            .access_level
-            .permissions
-            .iter()
-            .filter_map(|e| e.to_owned())
-            .collect();
-
-        required_permissions
-            .iter()
-            .all(|item| user_permissions.contains(&item.to_string().to_case(Case::ScreamingSnake)))
+        required_permissions.iter().all(|item| {
+            self.0
+                .access_level
+                .permissions
+                .contains(&item.to_string().to_case(Case::ScreamingSnake))
+        })
     }
 }
 
@@ -83,9 +78,7 @@ fn handle_fetch_user_result(
         };
     }
 
-    Err(internal_error_response_with_msg(
-        "failed to fetch user session",
-    ))
+    Err(internal_error_msg("failed to fetch user session"))
 }
 
 /// middleware for routes that require a normal user, this queries the DB to get the request user by his session ID cookie,
@@ -207,7 +200,7 @@ where
         Box::pin(async move {
             // this should be a internal error and not a FORBIDDEN response
             // since the request user should be available on the extensions.
-            Ok(internal_error_response_with_msg("cannot check user permissions").into_response())
+            Ok(internal_error_msg("cannot check user permissions").into_response())
         })
     }
 }

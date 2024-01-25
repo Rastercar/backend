@@ -11,7 +11,7 @@ use crate::{
         common::{
             dto::Pagination,
             extractors::{DbConnection, OrganizationId, ValidatedJson, ValidatedQuery},
-            responses::{internal_error_response, SimpleError},
+            responses::{internal_error_res, SimpleError},
         },
     },
     server::controller::AppState,
@@ -75,7 +75,7 @@ pub async fn create_tracker(
             .count()
             .get_result(&mut conn)
             .await
-            .or(Err(internal_error_response()))?;
+            .or(Err(internal_error_res()))?;
 
         if count != 1 {
             return Err((
@@ -92,7 +92,7 @@ pub async fn create_tracker(
             .count()
             .get_result(&mut conn)
             .await
-            .or(Err(internal_error_response()))?;
+            .or(Err(internal_error_res()))?;
 
         if trackers_on_vehicle_cnt > 0 {
             return Err((
@@ -157,7 +157,7 @@ pub async fn list_trackers(
         .per_page(query.page_size as i64)
         .load_with_pagination::<VehicleTracker>(&mut conn)
         .await
-        .or(Err(internal_error_response()))?;
+        .or(Err(internal_error_res()))?;
 
     Ok(Json(result))
 }

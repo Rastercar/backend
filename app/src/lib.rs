@@ -69,7 +69,7 @@ pub async fn main() {
 
     let s3 = S3::new().await;
 
-    let server = server::controller::new(db, s3, db_conn_pool, rmq_conn_pool)
+    let server = server::controller::new(db, s3, rmq_conn_pool)
         .into_make_service_with_connect_info::<SocketAddr>();
 
     axum::Server::bind(&addr).serve(server).await.unwrap();

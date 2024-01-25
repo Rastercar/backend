@@ -4,7 +4,7 @@ use crate::database::error::DbError;
 use crate::modules::auth::middleware::RequestUserPassword;
 use crate::modules::common::error_codes::EMAIL_ALREADY_VERIFIED;
 use crate::modules::common::extractors::DbConnection;
-use crate::modules::common::responses::internal_error_response_with_msg;
+use crate::modules::common::responses::internal_error_msg;
 use crate::services::mailer::service::ConfirmEmailRecipientType;
 use crate::{
     modules::{
@@ -12,7 +12,7 @@ use crate::{
         common::{
             extractors::ValidatedJson,
             multipart_form_data,
-            responses::{internal_error_response, SimpleError},
+            responses::{internal_error_res, SimpleError},
         },
     },
     server::controller::AppState,
@@ -159,8 +159,8 @@ async fn put_password(
 
     let req_user = req_user.0;
 
-    let old_password_valid = verify(payload.old_password, req_user_password.0.as_str())
-        .or(Err(internal_error_response()))?;
+    let old_password_valid =
+        verify(payload.old_password, req_user_password.0.as_str()).or(Err(internal_error_res()))?;
 
     if !old_password_valid {
         return Err((
@@ -169,16 +169,15 @@ async fn put_password(
         ));
     }
 
-    let new_password_hash = hash(payload.new_password, DEFAULT_COST).or(Err(
-        internal_error_response_with_msg("error hashing password"),
-    ))?;
+    let new_password_hash = hash(payload.new_password, DEFAULT_COST)
+        .or(Err(internal_error_msg("error hashing password")))?;
 
     diesel::update(user)
         .filter(id.eq(&req_user.id))
         .set(password.eq(new_password_hash))
         .execute(&mut conn)
         .await
-        .or(Err(internal_error_response()))?;
+        .or(Err(internal_error_res()))?;
 
     Ok(Json("password changed successfully"))
 }
@@ -250,7 +249,7 @@ async fn put_profile_picture(
             .set(profile_picture.eq(String::from(key.clone())))
             .execute(conn)
             .await
-            .or(Err(internal_error_response()))?;
+            .or(Err(internal_error_res()))?;
     }
 
     if let Some(old_profile_pic) = request_user.profile_picture {
@@ -298,7 +297,7 @@ async fn delete_profile_picture(
             .set(profile_picture.eq::<Option<String>>(None))
             .execute(conn)
             .await
-            .or(Err(internal_error_response()))?;
+            .or(Err(internal_error_res()))?;
 
         let _ = state.s3.delete(old_profile_pic).await;
 
@@ -350,13 +349,13 @@ pub async fn request_email_address_confirmation(
         .auth_service
         .gen_and_set_user_confirm_email_token(req_user.0.id)
         .await
-        .or(Err(internal_error_response()))?;
+        .or(Err(internal_error_res()))?;
 
     state
         .mailer_service
         .send_confirm_email_address_email(req_user.0.email, token, ConfirmEmailRecipientType::User)
         .await
-        .or(Err(internal_error_response()))?;
+        .or(Err(internal_error_res()))?;
 
     Ok(Json("email address confirmation email queued successfully"))
 }

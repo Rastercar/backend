@@ -6,6 +6,8 @@ use ipnetwork::IpNetwork;
 use serde::Serialize;
 use utoipa::ToSchema;
 
+// TODO: REMOVE ME AND OTHER DIESEL FILES !
+
 #[derive(Queryable, Debug, Identifiable, Selectable)]
 #[diesel(table_name = crate::database::schema::access_level)]
 #[diesel(belongs_to(Organization))]

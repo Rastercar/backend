@@ -36,11 +36,11 @@ pub fn get_image_extension_from_field_or_fail_request(
 /// `<prefix>_<now_timestamp>_<uploaded_file_extension>`
 ///
 /// eg: photo_02-10-2023_10:20:59.jpeg
-pub fn create_filename_with_timestamp_from_uploaded_photo(
+pub fn filename_from_img(
     prefix: &str,
-    photo: &FieldData<Bytes>,
+    img: &FieldData<Bytes>,
 ) -> Result<String, (StatusCode, SimpleError)> {
-    let file_extension = get_image_extension_from_field_or_fail_request(&photo)?;
+    let file_extension = get_image_extension_from_field_or_fail_request(&img)?;
 
     let timestamp = chrono::Utc::now().format("%d-%m-%Y_%H:%M:%S");
 

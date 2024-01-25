@@ -107,7 +107,7 @@ pub struct AccessLevelDto {
     pub name: String,
     pub description: String,
     pub is_fixed: bool,
-    pub permissions: Vec<Option<String>>,
+    pub permissions: Vec<String>,
 }
 
 #[derive(Serialize, Clone, ToSchema)]
@@ -136,11 +136,11 @@ pub struct UserDto {
     pub access_level: AccessLevelDto,
 }
 
-impl From<models::Organization> for OrganizationDto {
-    fn from(m: models::Organization) -> Self {
+impl From<entity::organization::Model> for OrganizationDto {
+    fn from(m: entity::organization::Model) -> Self {
         Self {
             id: m.id,
-            created_at: m.created_at,
+            created_at: m.created_at.into(),
             billing_email: m.billing_email,
             name: m.name,
             blocked: m.blocked,
@@ -149,24 +149,24 @@ impl From<models::Organization> for OrganizationDto {
     }
 }
 
-impl From<models::Session> for SessionDto {
-    fn from(m: models::Session) -> Self {
+impl From<entity::session::Model> for SessionDto {
+    fn from(m: entity::session::Model) -> Self {
         Self {
             ip: m.ip.to_string(),
             public_id: m.public_id,
             user_agent: m.user_agent,
-            created_at: m.created_at,
-            expires_at: m.expires_at,
+            created_at: m.created_at.into(),
+            expires_at: m.expires_at.into(),
             same_as_from_request: false,
         }
     }
 }
 
-impl From<models::AccessLevel> for AccessLevelDto {
-    fn from(m: models::AccessLevel) -> Self {
+impl From<entity::access_level::Model> for AccessLevelDto {
+    fn from(m: entity::access_level::Model) -> Self {
         Self {
             id: m.id,
-            created_at: m.created_at,
+            created_at: m.created_at.into(),
             name: m.name,
             description: m.description,
             is_fixed: m.is_fixed,

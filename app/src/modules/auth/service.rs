@@ -1,16 +1,17 @@
 use super::constants::Permission;
 use super::dto::{self, OrganizationDto, UserDto};
 use super::jwt::{self, Claims};
-use crate::database::models;
-use crate::database::schema::{access_level, organization, session, user};
 use crate::modules::auth::session::{SessionId, SESSION_DAYS_DURATION};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use bcrypt::{hash, verify, DEFAULT_COST};
 use chrono::{Duration, Utc};
-use diesel_async::scoped_futures::ScopedFutureExt;
 use ipnetwork::IpNetwork;
+use migration::Expr;
 use rand_chacha::ChaCha8Rng;
-use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, Set,
+    TransactionTrait, TryIntoModel,
+};
 use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 
@@ -61,14 +62,10 @@ impl AuthService {
     pub async fn get_active_user_sessions(
         &self,
         user_id: i32,
-    ) -> Result<Vec<(entity::session::Model, entity::user::Model)>> {
-        // TODO: !        //     .inner_join(user::table)
-
-        // TODO: corrigir sessao -> user para One to One
+    ) -> Result<Vec<entity::session::Model>> {
         let sessions = entity::session::Entity::find()
             .filter(entity::session::Column::ExpiresAt.gt(Utc::now()))
             .filter(entity::session::Column::UserId.eq(user_id))
-            .find_with_related(entity::user::Entity)
             .all(&self.db)
             .await?;
 
@@ -77,12 +74,10 @@ impl AuthService {
 
     /// deletes a session by its token
     pub async fn delete_session(&self, session_id: &SessionId) -> Result<()> {
-        use crate::database::schema::session::dsl::*;
-
-        let conn = &mut self.db_conn_pool.get().await?;
-
-        let delete_query = session.filter(session_token.eq(session_id.into_database_value()));
-        diesel::delete(delete_query).execute(conn).await?;
+        entity::session::Entity::delete_many()
+            .filter(entity::session::Column::SessionToken.eq(session_id.into_database_value()))
+            .exec(&self.db)
+            .await?;
 
         Ok(())
     }
@@ -90,24 +85,26 @@ impl AuthService {
     /// gets the user from the session token if the session is not expired
     pub async fn get_user_from_session_id(
         &self,
-        token: SessionId,
+        session_id: SessionId,
     ) -> Result<Option<UserDtoEntities>> {
-        let conn = &mut self.db_conn_pool.get().await?;
+        let result = entity::user::Entity::find()
+            .inner_join(entity::session::Entity)
+            .filter(entity::session::Column::ExpiresAt.gt(Utc::now()))
+            .filter(entity::session::Column::SessionToken.eq(session_id.into_database_value()))
+            .find_also_related(entity::organization::Entity)
+            .one(&self.db)
+            .await?;
 
-        Ok(user::table
-            .inner_join(session::table)
-            .inner_join(access_level::table)
-            .left_join(organization::table)
-            .filter(session::dsl::session_token.eq(token.into_database_value()))
-            .filter(session::dsl::expires_at.gt(Utc::now()))
-            .select((
-                models::User::as_select(),
-                models::AccessLevel::as_select(),
-                Option::<models::Organization>::as_select(),
-            ))
-            .first::<UserDtoEntities>(conn)
-            .await
-            .optional()?)
+        if let Some((user, organization)) = result {
+            let access_level = entity::access_level::Entity::find_by_id(user.access_level_id)
+                .one(&self.db)
+                .await?
+                .context("access level not found")?;
+
+            return Ok(Some((user, access_level, organization)));
+        }
+
+        Ok(None)
     }
 
     /// finds a user from email and plain text password, verifying the password
@@ -116,36 +113,30 @@ impl AuthService {
         user_email: String,
         user_password: String,
     ) -> Result<dto::UserDto, UserFromCredentialsError> {
-        let conn = &mut self
-            .db_conn_pool
-            .get()
+        let result = entity::user::Entity::find()
+            .inner_join(entity::session::Entity)
+            .filter(entity::user::Column::Email.eq(user_email))
+            .find_also_related(entity::organization::Entity)
+            .one(&self.db)
             .await
             .or(Err(UserFromCredentialsError::InternalError))?;
 
-        let user_model: Option<UserDtoEntities> = user::table
-            .inner_join(access_level::table)
-            .left_join(organization::table)
-            .filter(user::email.eq(&user_email))
-            .select((
-                models::User::as_select(),
-                models::AccessLevel::as_select(),
-                Option::<models::Organization>::as_select(),
-            ))
-            .first::<UserDtoEntities>(conn)
-            .await
-            .optional()
-            .or(Err(UserFromCredentialsError::InternalError))?;
+        match result {
+            Some((user, organization)) => {
+                let access_level = entity::access_level::Entity::find_by_id(user.access_level_id)
+                    .one(&self.db)
+                    .await
+                    .or(Err(UserFromCredentialsError::InternalError))?
+                    .ok_or(UserFromCredentialsError::NotFound)?;
 
-        match user_model {
-            Some(usr) => {
-                let pass_is_valid = verify(user_password, &usr.0.password)
+                let pass_is_valid = verify(user_password, &user.password)
                     .or(Err(UserFromCredentialsError::InternalError))?;
 
-                if pass_is_valid {
-                    Ok(UserDto::from(usr))
-                } else {
-                    Err(UserFromCredentialsError::InvalidPassword)
+                if !pass_is_valid {
+                    return Err(UserFromCredentialsError::InvalidPassword);
                 }
+
+                return Ok(UserDto::from((user, access_level, organization)));
             }
             None => Err(UserFromCredentialsError::NotFound),
         }
@@ -153,45 +144,34 @@ impl AuthService {
 
     /// checks if a email is in use by a organization or a user
     pub async fn check_email_in_use(&self, email: &str) -> Result<bool> {
-        let conn = &mut self.db_conn_pool.get().await?;
+        let org = entity::organization::Entity::find()
+            .filter(entity::organization::Column::BillingEmail.eq(email))
+            .one(&self.db)
+            .await?;
 
-        let organization_id: Option<i32> = organization::dsl::organization
-            .select(organization::dsl::id)
-            .filter(organization::dsl::billing_email.eq(&email))
-            .first(conn)
-            .await
-            .optional()?;
-
-        if organization_id.is_some() {
+        if org.is_some() {
             return Ok(true);
         }
 
-        let user_id: Option<i32> = user::dsl::user
-            .select(user::dsl::id)
-            .filter(user::dsl::email.eq(&email))
-            .first(conn)
-            .await
-            .optional()?;
+        let user = entity::user::Entity::find()
+            .filter(entity::user::Column::Email.eq(email))
+            .one(&self.db)
+            .await?;
 
-        Ok(user_id.is_some())
+        Ok(user.is_some())
     }
 
     pub async fn get_user_id_by_username(&self, username: &str) -> Result<Option<i32>> {
-        let conn = &mut self.db_conn_pool.get().await?;
-
-        let user_id: Option<i32> = user::dsl::user
-            .select(user::dsl::id)
-            .filter(user::dsl::username.eq(&username))
-            .first(conn)
-            .await
-            .optional()?;
+        let user_id = entity::user::Entity::find()
+            .filter(entity::user::Column::Username.eq(username))
+            .one(&self.db)
+            .await?
+            .and_then(|u| Some(u.id));
 
         Ok(user_id)
     }
 
     pub async fn gen_and_set_user_reset_password_token(&self, user_id: i32) -> Result<String> {
-        use crate::database::schema::user::dsl::*;
-
         let mut claims = Claims::default();
 
         claims.set_expiration_in(Duration::minutes(15));
@@ -200,20 +180,19 @@ impl AuthService {
 
         let token = jwt::encode(&claims)?;
 
-        let conn = &mut self.db_conn_pool.get().await?;
-
-        diesel::update(user)
-            .filter(id.eq(user_id))
-            .set(reset_password_token.eq(&token))
-            .execute(conn)
+        entity::user::Entity::update_many()
+            .col_expr(
+                entity::user::Column::ResetPasswordToken,
+                Expr::value(&token),
+            )
+            .filter(entity::user::Column::Id.eq(user_id))
+            .exec(&self.db)
             .await?;
 
         Ok(token)
     }
 
     pub async fn gen_and_set_user_confirm_email_token(&self, user_id: i32) -> Result<String> {
-        use crate::database::schema::user::dsl::*;
-
         let mut claims = Claims::default();
 
         claims.set_expiration_in(Duration::hours(8));
@@ -222,20 +201,16 @@ impl AuthService {
 
         let token = jwt::encode(&claims)?;
 
-        let conn = &mut self.db_conn_pool.get().await?;
-
-        diesel::update(user)
-            .filter(id.eq(user_id))
-            .set(confirm_email_token.eq(&token))
-            .execute(conn)
+        entity::user::Entity::update_many()
+            .col_expr(entity::user::Column::ConfirmEmailToken, Expr::value(&token))
+            .filter(entity::user::Column::Id.eq(user_id))
+            .exec(&self.db)
             .await?;
 
         Ok(token)
     }
 
     pub async fn gen_and_set_org_confirm_email_token(&self, org_id: i32) -> Result<String> {
-        use crate::database::schema::organization::dsl::*;
-
         let mut claims = Claims::default();
 
         claims.set_expiration_in(Duration::hours(8));
@@ -244,12 +219,13 @@ impl AuthService {
 
         let token = jwt::encode(&claims)?;
 
-        let conn = &mut self.db_conn_pool.get().await?;
-
-        diesel::update(organization)
-            .filter(id.eq(org_id))
-            .set(confirm_billing_email_token.eq(&token))
-            .execute(conn)
+        entity::organization::Entity::update_many()
+            .col_expr(
+                entity::organization::Column::ConfirmBillingEmailToken,
+                Expr::value(&token),
+            )
+            .filter(entity::organization::Column::Id.eq(org_id))
+            .exec(&self.db)
             .await?;
 
         Ok(token)
@@ -260,57 +236,55 @@ impl AuthService {
         &self,
         dto: dto::RegisterOrganization,
     ) -> Result<dto::UserDto> {
-        let conn = &mut self.db_conn_pool.get().await?;
+        let password_hash = hash(dto.password, DEFAULT_COST)?;
 
-        let user_dto = conn
-            .transaction::<_, anyhow::Error, _>(|conn| {
-                async move {
-                    let created_organization = diesel::insert_into(organization::dsl::organization)
-                        .values((
-                            organization::dsl::name.eq(&dto.username),
-                            organization::dsl::blocked.eq(false),
-                            organization::dsl::billing_email.eq(&dto.email),
-                            organization::dsl::billing_email_verified.eq(false),
-                        ))
-                        .get_result::<models::Organization>(conn)
-                        .await?;
+        let user_dto = self
+            .db
+            .transaction::<_, UserDto, DbErr>(|tx| {
+                Box::pin(async move {
+                    let organization = entity::organization::ActiveModel {
+                        name: Set(dto.username.clone()),
+                        blocked: Set(false),
+                        billing_email: Set(dto.email.clone()),
+                        billing_email_verified: Set(false),
+                        ..Default::default()
+                    }
+                    .save(tx)
+                    .await?
+                    .try_into_model()?;
 
-                    let created_access_level = diesel::insert_into(access_level::dsl::access_level)
-                        .values((
-                            access_level::dsl::name.eq("admin"),
-                            access_level::dsl::is_fixed.eq(true),
-                            access_level::dsl::description.eq("root access level"),
-                            access_level::dsl::organization_id.eq(created_organization.id),
-                            access_level::dsl::permissions.eq(Permission::to_string_vec()),
-                        ))
-                        .get_result::<models::AccessLevel>(conn)
-                        .await?;
+                    let access_level = entity::access_level::ActiveModel {
+                        name: Set(String::from("admin")),
+                        is_fixed: Set(true),
+                        description: Set(String::from("root access level")),
+                        permissions: Set(Permission::to_string_vec()),
+                        organization_id: Set(Some(organization.id)),
+                        ..Default::default()
+                    }
+                    .save(tx)
+                    .await?
+                    .try_into_model()?;
 
-                    let created_user = diesel::insert_into(user::dsl::user)
-                        .values((
-                            user::dsl::email.eq(dto.email),
-                            user::dsl::username.eq(dto.username),
-                            user::dsl::password.eq(hash(dto.password, DEFAULT_COST)?),
-                            user::dsl::email_verified.eq(false),
-                            user::dsl::organization_id.eq(created_organization.id),
-                            user::dsl::access_level_id.eq(created_access_level.id),
-                        ))
-                        .get_result::<models::User>(conn)
-                        .await?;
+                    let user = entity::user::ActiveModel {
+                        email: Set(dto.email),
+                        username: Set(dto.username),
+                        password: Set(password_hash),
+                        email_verified: Set(false),
+                        organization_id: Set(Some(organization.id)),
+                        access_level_id: Set(access_level.id),
+                        ..Default::default()
+                    }
+                    .save(tx)
+                    .await?
+                    .try_into_model()?;
 
-                    diesel::update(organization::dsl::organization)
-                        .filter(organization::dsl::id.eq(created_organization.id))
-                        .set(organization::dsl::owner_id.eq(created_user.id))
-                        .execute(conn)
-                        .await?;
+                    let mut org: entity::organization::ActiveModel = organization.clone().into();
 
-                    Ok(UserDto::from((
-                        created_user,
-                        created_access_level,
-                        Some(created_organization),
-                    )))
-                }
-                .scope_boxed()
+                    org.owner_id = Set(Some(user.id));
+                    org.update(tx).await?;
+
+                    Ok(UserDto::from((user, access_level, Some(organization))))
+                })
             })
             .await?;
 
@@ -318,11 +292,11 @@ impl AuthService {
     }
 }
 
-/// tuple with relevant relationships (`access_level` and `organization`) to create a user dto
+/// tuple with relevant relationships to create a user dto
 pub type UserDtoEntities = (
-    models::User,
-    models::AccessLevel,
-    Option<models::Organization>,
+    entity::user::Model,
+    entity::access_level::Model,
+    Option<entity::organization::Model>,
 );
 
 impl From<UserDtoEntities> for UserDto {
@@ -331,7 +305,7 @@ impl From<UserDtoEntities> for UserDto {
 
         Self {
             id: user.id,
-            created_at: user.created_at,
+            created_at: user.created_at.into(),
             username: user.username,
             email: user.email,
             email_verified: user.email_verified,

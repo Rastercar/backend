@@ -1,29 +1,24 @@
 use super::dto::CreateVehicleDto;
 use crate::database::error::DbError;
-use crate::database::models_helpers::DbConn;
-use crate::database::{models, schema};
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+use sea_orm::{ActiveModelTrait, DatabaseConnection, Set};
 
 pub async fn create_vehicle(
-    conn: &mut DbConn,
+    conn: &DatabaseConnection,
     dto: &CreateVehicleDto,
     org_id: i32,
-) -> Result<models::Vehicle, DbError> {
-    use schema::vehicle::dsl::*;
+) -> Result<entity::vehicle::Model, DbError> {
+    let vehicle = entity::vehicle::ActiveModel {
+        plate: Set(dto.plate.clone()),
+        brand: Set(Some(dto.brand.clone())),
+        model: Set(Some(dto.model.clone())),
+        color: Set(dto.color.clone()),
+        model_year: Set(dto.model_year),
+        chassis_number: Set(dto.chassis_number.clone()),
+        additional_info: Set(dto.additional_info.clone()),
+        organization_id: Set(org_id),
+        fabrication_year: Set(dto.fabrication_year),
+        ..Default::default()
+    };
 
-    Ok(diesel::insert_into(vehicle)
-        .values((
-            plate.eq(&dto.plate),
-            brand.eq(&dto.brand),
-            model.eq(&dto.model),
-            color.eq(&dto.color),
-            model_year.eq(&dto.model_year),
-            chassis_number.eq(&dto.chassis_number),
-            additional_info.eq(&dto.additional_info),
-            organization_id.eq(org_id),
-            fabrication_year.eq(&dto.fabrication_year),
-        ))
-        .get_result::<models::Vehicle>(conn)
-        .await?)
+    Ok(vehicle.insert(conn).await?)
 }

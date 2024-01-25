@@ -12,7 +12,7 @@ use crate::{
             self,
             error_codes::EMAIL_ALREADY_VERIFIED,
             extractors::{DbConnection, ValidatedJson},
-            responses::{internal_error_response, SimpleError},
+            responses::{internal_error_res, SimpleError},
         },
     },
     server::controller::AppState,
@@ -85,9 +85,10 @@ pub async fn update_org(
             .set(&payload)
             .get_result::<models::Organization>(&mut conn)
             .await
-            .or(Err(internal_error_response()))?;
+            .or(Err(internal_error_res()))?;
 
-        return Ok(Json(auth::dto::OrganizationDto::from(org)));
+        // return Ok(Json(auth::dto::OrganizationDto::from(org)));
+        todo!()
     }
 
     Err((
@@ -142,7 +143,7 @@ pub async fn request_email_address_confirmation(
             .auth_service
             .gen_and_set_org_confirm_email_token(user_org.id)
             .await
-            .or(Err(internal_error_response()))?;
+            .or(Err(internal_error_res()))?;
 
         state
             .mailer_service
@@ -152,7 +153,7 @@ pub async fn request_email_address_confirmation(
                 ConfirmEmailRecipientType::Organization,
             )
             .await
-            .or(Err(internal_error_response()))?;
+            .or(Err(internal_error_res()))?;
 
         return Ok(Json("email address confirmation email queued successfully"));
     }
@@ -209,7 +210,7 @@ pub async fn confirm_email_address_by_token(
         .first::<models::Organization>(&mut conn)
         .await
         .optional()
-        .or(Err(internal_error_response()))?;
+        .or(Err(internal_error_res()))?;
 
     if let Some(org) = maybe_org {
         if org.billing_email_verified {
@@ -227,7 +228,7 @@ pub async fn confirm_email_address_by_token(
             ))
             .execute(&mut conn)
             .await
-            .or(Err(internal_error_response()))?;
+            .or(Err(internal_error_res()))?;
 
         return Ok(Json("email confirmed successfully"));
     }

@@ -1,12 +1,12 @@
 use super::dto::CreateVehicleDto;
 use crate::{
-    database::models::Vehicle,
+    database::{models::Vehicle, models_helpers::DbConn},
     modules::{
         auth::{self, constants::Permission, middleware::AclLayer},
         common::{
-            extractors::{OrganizationId, ValidatedMultipart},
+            extractors::{DbConnection, OrganizationId, ValidatedMultipart},
             multipart_form_data,
-            responses::{internal_error_response_with_msg, SimpleError},
+            responses::{internal_error_msg, SimpleError},
         },
         vehicle::repository,
     },
@@ -16,6 +16,8 @@ use crate::{
 use axum::extract::State;
 use axum::{routing::post, Json, Router};
 use http::StatusCode;
+use migration::Expr;
+use sea_orm::{ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
@@ -59,20 +61,20 @@ pub async fn create_vehicle(
     State(state): State<AppState>,
     OrganizationId(org_id): OrganizationId,
     ValidatedMultipart(dto): ValidatedMultipart<CreateVehicleDto>,
-) -> Result<Json<Vehicle>, (StatusCode, SimpleError)> {
-    let conn = &mut state.get_db_conn().await?;
-
-    let mut created_vehicle = repository::create_vehicle(conn, &dto, org_id).await?;
+    DbConnection(db): DbConnection,
+) -> Result<Json<entity::vehicle::Model>, (StatusCode, SimpleError)> {
+    let created_vehicle = repository::create_vehicle(&db, &dto, org_id).await?;
 
     if let Some(photo) = dto.photo {
-        let filename = match multipart_form_data::create_filename_with_timestamp_from_uploaded_photo(
-            "photo", &photo,
-        ) {
+        let validated_filename = multipart_form_data::filename_from_img("photo", &photo);
+
+        let filename = match validated_filename {
             Ok(f) => f,
             Err(e) => {
                 // Creating the vehicle without the uploaded photo is not acceptable
                 // therefore delete the created vehicle and return a error response.
-                let _ = created_vehicle.delete_self(conn).await;
+                let _ = created_vehicle.delete(&db).await;
+
                 return Err(e);
             }
         };
@@ -87,26 +89,27 @@ pub async fn create_vehicle(
             .await
             .is_err()
         {
-            let _ = created_vehicle.delete_self(conn).await;
+            let _ = created_vehicle.delete(&db).await;
 
-            return Err(internal_error_response_with_msg(
-                "failed to upload vehicle photo",
-            ));
+            return Err(internal_error_msg("failed to upload vehicle photo"));
         };
 
         let uploaded_photo = String::from(key.clone());
 
-        let update_photo_on_db_result = created_vehicle
-            .set_photo(conn, Some(uploaded_photo.clone()))
+        let update_photo_on_db_result = entity::vehicle::Entity::update_many()
+            .col_expr(
+                entity::vehicle::Column::Photo,
+                Expr::value(uploaded_photo.clone()),
+            )
+            .filter(entity::vehicle::Column::Id.eq(created_vehicle.id))
+            .exec(&db)
             .await;
 
         if let Err(_) = update_photo_on_db_result {
             let _ = state.s3.delete(uploaded_photo).await;
-            let _ = created_vehicle.delete_self(conn).await;
+            let _ = created_vehicle.delete(&db).await;
 
-            return Err(internal_error_response_with_msg(
-                "failed to set vehicle photo",
-            ));
+            return Err(internal_error_msg("failed to set vehicle photo"));
         }
     }
 

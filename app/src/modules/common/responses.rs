@@ -64,10 +64,10 @@ impl From<&str> for SimpleError {
     }
 }
 
-pub fn internal_error_response() -> (StatusCode, SimpleError) {
+pub fn internal_error_res() -> (StatusCode, SimpleError) {
     (StatusCode::INTERNAL_SERVER_ERROR, SimpleError::internal())
 }
 
-pub fn internal_error_response_with_msg(msg: &str) -> (StatusCode, SimpleError) {
+pub fn internal_error_msg(msg: &str) -> (StatusCode, SimpleError) {
     (StatusCode::INTERNAL_SERVER_ERROR, SimpleError::from(msg))
 }
