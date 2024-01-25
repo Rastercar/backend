@@ -1,0 +1,66 @@
+[package]
+name = "app"
+publish = false
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "app"
+path = "src/lib.rs"
+
+[dependencies]
+envy = "0.4"
+regex = "1.9.3"
+lazy_static = "1.4.0"
+chrono = { version = "0.4.26", features = ["serde"] }
+axum = { version = "0.6.20", features = ["json", "headers", "multipart"] }
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.31.0", features = ["full"] }
+validator = { version = "0.16", features = ["derive"] }
+diesel = { version = "2.1.0", features = [
+    "chrono",
+    "postgres",
+    "network-address",
+] }
+diesel-async = { version = "0.3.2", features = ["deadpool", "postgres"] }
+diesel_geometry = "1.4.0"
+diesel_migrations = "2.1.0"
+anyhow = "1.0.74"
+strum = { version = "0.25", features = ["derive"] }
+convert_case = "0.6.0"
+bcrypt = "0.15.0"
+rand_core = { version = "0.6", features = ["std"] }
+cookie = "0.17"
+rand_chacha = "0.3.1"
+http = "0.2.9"
+axum-client-ip = "0.4.1"
+ipnetwork = "0.20.0"
+utoipa = { version = "3.5.0", features = ["chrono", "uuid"] }
+utoipa-swagger-ui = { version = "3.1.5", features = ["axum"] }
+utoipa-rapidoc = { version = "0.1.0", features = ["axum"] }
+tower-http = { version = "0.4.3", features = ["cors", "trace"] }
+lapin = "2.3.1"
+tokio-executor-trait = "2.1.1"
+tokio-reactor-trait = "1.1.0"
+signal-hook = "0.3.17"
+deadpool-lapin = "0.10.0"
+deadpool = "0.9.5"
+uuid = { version = "1.4.1", features = ["v4", "serde"] }
+serde_json = "1.0.107"
+jsonwebtoken = "8.3.0"
+url = { version = "2.4.1", features = ["serde"] }
+aws-config = "0.56.1"
+aws-sdk-s3 = "0.33.0"
+axum_typed_multipart = "0.10.0"
+tracing = "0.1.39"
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+tower = "0.4.13"
+serde_with = "3.4.0"
+futures-util = "0.3.29"
+
+entity = { path = "../entity" }
+migration = { path = "../migration" }
+
+[dependencies.sea-orm]
+version = "0.12"
+features = ["sqlx-postgres", "runtime-tokio-rustls", "macros", "debug-print"]

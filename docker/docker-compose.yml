@@ -7,8 +7,10 @@ services:
   postgres:
     image: timescale/timescaledb-ha:pg14-latest
     container_name: rastercar-db
-    env_file:
-      - ../env/.development.env
+    environment:
+      POSTGRES_DB: db
+      POSTGRES_USER: raster_user
+      POSTGRES_PASSWORD: raster_pass
     ports:
       - "5432:5432"
     privileged: true

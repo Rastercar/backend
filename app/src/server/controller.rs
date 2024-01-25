@@ -19,6 +19,7 @@ use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection};
 use http::{header, HeaderValue, Method, Request, StatusCode};
 use rand_chacha::ChaCha8Rng;
 use rand_core::{OsRng, RngCore, SeedableRng};
+use sea_orm::DatabaseConnection;
 use tower::ServiceBuilder;
 use tower_http::{
     cors::CorsLayer,
@@ -31,6 +32,7 @@ pub struct AppState {
     pub s3: S3,
     pub auth_service: AuthService,
     pub mailer_service: MailerService,
+    pub db: DatabaseConnection,
     pub db_conn_pool: Pool<AsyncPgConnection>,
 }
 
@@ -44,10 +46,16 @@ impl AppState {
 }
 
 /// Creates the main axum router/controller to be served over https
-pub fn new(db_conn_pool: Pool<AsyncPgConnection>, rmq_conn_pool: RmqPool, s3: S3) -> Router {
+pub fn new(
+    db: DatabaseConnection,
+    s3: S3,
+    db_conn_pool: Pool<AsyncPgConnection>,
+    rmq_conn_pool: RmqPool,
+) -> Router {
     let rng = ChaCha8Rng::seed_from_u64(OsRng.next_u64());
 
     let state = AppState {
+        db,
         s3,
         db_conn_pool: db_conn_pool.clone(),
         mailer_service: MailerService::new(rmq_conn_pool),
