@@ -8,6 +8,8 @@ use diesel_async::pooled_connection::AsyncDieselConnectionManager;
 use diesel_async::AsyncPgConnection;
 use diesel_async::RunQueryDsl;
 
+// TODO: rm me !
+
 type UserAll = Select<user::table, AsSelect<User, diesel::pg::Pg>>;
 
 pub type DbConn = deadpool::managed::Object<AsyncDieselConnectionManager<AsyncPgConnection>>;

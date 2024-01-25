@@ -97,30 +97,32 @@ pub async fn update_me(
     Extension(req_user): Extension<RequestUser>,
     ValidatedJson(payload): ValidatedJson<dto::UpdateUserDto>,
 ) -> Result<Json<auth_dto::UserDto>, (StatusCode, SimpleError)> {
-    use crate::database::schema::user::dsl::*;
+    // use crate::database::schema::user::dsl::*;
 
-    let mut req_user = req_user.0;
+    // let mut req_user = req_user.0;
 
-    diesel::update(user)
-        .filter(id.eq(&req_user.id))
-        .set(&payload)
-        .execute(&mut conn)
-        .await
-        .map_err(|e| DbError::from(e))?;
+    // diesel::update(user)
+    //     .filter(id.eq(&req_user.id))
+    //     .set(&payload)
+    //     .execute(&mut conn)
+    //     .await
+    //     .map_err(|e| DbError::from(e))?;
 
-    if let Some(new_description) = payload.description {
-        req_user.description = new_description;
-    }
+    // if let Some(new_description) = payload.description {
+    //     req_user.description = new_description;
+    // }
 
-    if let Some(new_username) = payload.username {
-        req_user.username = new_username;
-    }
+    // if let Some(new_username) = payload.username {
+    //     req_user.username = new_username;
+    // }
 
-    if let Some(new_email) = payload.email {
-        req_user.email = new_email;
-    }
+    // if let Some(new_email) = payload.email {
+    //     req_user.email = new_email;
+    // }
 
-    Ok(Json(req_user))
+    // Ok(Json(req_user))
+
+    todo!()
 }
 
 /// Changes the user password
@@ -155,31 +157,33 @@ async fn put_password(
     Extension(req_user_password): Extension<RequestUserPassword>,
     ValidatedJson(payload): ValidatedJson<dto::ChangePasswordDto>,
 ) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
-    use crate::database::schema::user::dsl::*;
+    // use crate::database::schema::user::dsl::*;
 
-    let req_user = req_user.0;
+    // let req_user = req_user.0;
 
-    let old_password_valid =
-        verify(payload.old_password, req_user_password.0.as_str()).or(Err(internal_error_res()))?;
+    // let old_password_valid =
+    //     verify(payload.old_password, req_user_password.0.as_str()).or(Err(internal_error_res()))?;
 
-    if !old_password_valid {
-        return Err((
-            StatusCode::UNAUTHORIZED,
-            SimpleError::from("invalid password"),
-        ));
-    }
+    // if !old_password_valid {
+    //     return Err((
+    //         StatusCode::UNAUTHORIZED,
+    //         SimpleError::from("invalid password"),
+    //     ));
+    // }
 
-    let new_password_hash = hash(payload.new_password, DEFAULT_COST)
-        .or(Err(internal_error_msg("error hashing password")))?;
+    // let new_password_hash = hash(payload.new_password, DEFAULT_COST)
+    //     .or(Err(internal_error_msg("error hashing password")))?;
 
-    diesel::update(user)
-        .filter(id.eq(&req_user.id))
-        .set(password.eq(new_password_hash))
-        .execute(&mut conn)
-        .await
-        .or(Err(internal_error_res()))?;
+    // diesel::update(user)
+    //     .filter(id.eq(&req_user.id))
+    //     .set(password.eq(new_password_hash))
+    //     .execute(&mut conn)
+    //     .await
+    //     .or(Err(internal_error_res()))?;
 
-    Ok(Json("password changed successfully"))
+    // Ok(Json("password changed successfully"))
+
+    todo!()
 }
 
 /// Replaces the request user profile picture
@@ -214,51 +218,53 @@ async fn put_profile_picture(
     Extension(req_user): Extension<RequestUser>,
     TypedMultipart(ProfilePicDto { image }): TypedMultipart<ProfilePicDto>,
 ) -> Result<Json<String>, (StatusCode, SimpleError)> {
-    let filename = multipart_form_data::create_filename_with_timestamp_from_uploaded_photo(
-        "profile-picture",
-        &image,
-    )?;
+    // let filename = multipart_form_data::create_filename_with_timestamp_from_uploaded_photo(
+    //     "profile-picture",
+    //     &image,
+    // )?;
 
-    let request_user = req_user.0;
+    // let request_user = req_user.0;
 
-    let folder = match request_user.organization {
-        Some(org) => format!("organization/{}/user/{}", org.id, request_user.id),
-        None => format!("user/{}", request_user.id),
-    };
+    // let folder = match request_user.organization {
+    //     Some(org) => format!("organization/{}/user/{}", org.id, request_user.id),
+    //     None => format!("user/{}", request_user.id),
+    // };
 
-    let key = S3Key { folder, filename };
+    // let key = S3Key { folder, filename };
 
-    state
-        .s3
-        .upload(key.clone().into(), image.contents)
-        .await
-        .map_err(|_| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                SimpleError::from("failed to upload new profile picture"),
-            )
-        })?;
+    // state
+    //     .s3
+    //     .upload(key.clone().into(), image.contents)
+    //     .await
+    //     .map_err(|_| {
+    //         (
+    //             StatusCode::INTERNAL_SERVER_ERROR,
+    //             SimpleError::from("failed to upload new profile picture"),
+    //         )
+    //     })?;
 
-    let conn = &mut state.get_db_conn().await?;
+    // let conn = &mut state.get_db_conn().await?;
 
-    {
-        use crate::database::schema::user::dsl::*;
+    // {
+    //     use crate::database::schema::user::dsl::*;
 
-        diesel::update(user)
-            .filter(id.eq(request_user.id))
-            .set(profile_picture.eq(String::from(key.clone())))
-            .execute(conn)
-            .await
-            .or(Err(internal_error_res()))?;
-    }
+    //     diesel::update(user)
+    //         .filter(id.eq(request_user.id))
+    //         .set(profile_picture.eq(String::from(key.clone())))
+    //         .execute(conn)
+    //         .await
+    //         .or(Err(internal_error_res()))?;
+    // }
 
-    if let Some(old_profile_pic) = request_user.profile_picture {
-        if state.s3.delete(old_profile_pic.clone()).await.is_err() {
-            error!("[] failed to delete S3 object: {}", old_profile_pic);
-        }
-    }
+    // if let Some(old_profile_pic) = request_user.profile_picture {
+    //     if state.s3.delete(old_profile_pic.clone()).await.is_err() {
+    //         error!("[] failed to delete S3 object: {}", old_profile_pic);
+    //     }
+    // }
 
-    Ok(Json(String::from(key)))
+    // Ok(Json(String::from(key)))
+
+    todo!()
 }
 
 /// Removes the request user profile picture
@@ -285,26 +291,28 @@ async fn delete_profile_picture(
     State(state): State<AppState>,
     Extension(req_user): Extension<RequestUser>,
 ) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
-    let conn = &mut state.get_db_conn().await?;
+    // let conn = &mut state.get_db_conn().await?;
 
-    let request_user = req_user.0;
+    // let request_user = req_user.0;
 
-    if let Some(old_profile_pic) = request_user.profile_picture {
-        use crate::database::schema::user::dsl::*;
+    // if let Some(old_profile_pic) = request_user.profile_picture {
+    //     use crate::database::schema::user::dsl::*;
 
-        diesel::update(user)
-            .filter(id.eq(request_user.id))
-            .set(profile_picture.eq::<Option<String>>(None))
-            .execute(conn)
-            .await
-            .or(Err(internal_error_res()))?;
+    //     diesel::update(user)
+    //         .filter(id.eq(request_user.id))
+    //         .set(profile_picture.eq::<Option<String>>(None))
+    //         .execute(conn)
+    //         .await
+    //         .or(Err(internal_error_res()))?;
 
-        let _ = state.s3.delete(old_profile_pic).await;
+    //     let _ = state.s3.delete(old_profile_pic).await;
 
-        return Ok(Json("profile picture removed successfully"));
-    }
+    //     return Ok(Json("profile picture removed successfully"));
+    // }
 
-    Ok(Json("user does not have a profile picture to remove"))
+    // Ok(Json("user does not have a profile picture to remove"))
+
+    todo!()
 }
 
 /// Requests a email address confirmation email

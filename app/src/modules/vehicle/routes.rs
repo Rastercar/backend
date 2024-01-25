@@ -1,6 +1,5 @@
 use super::dto::CreateVehicleDto;
 use crate::{
-    database::{models::Vehicle, models_helpers::DbConn},
     modules::{
         auth::{self, constants::Permission, middleware::AclLayer},
         common::{
@@ -22,11 +21,17 @@ use sea_orm::{ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", post(create_vehicle))
+        .route("/xd", post(xd))
         .layer(AclLayer::new(vec![Permission::CreateVehicle]))
         .layer(axum::middleware::from_fn_with_state(
             state,
             auth::middleware::require_user,
         ))
+}
+
+#[axum::debug_handler]
+pub async fn xd(DbConnection(db): DbConnection) -> String {
+    String::from("dassda")
 }
 
 /// Creates a new vehicle
@@ -61,19 +66,18 @@ pub async fn create_vehicle(
     State(state): State<AppState>,
     OrganizationId(org_id): OrganizationId,
     ValidatedMultipart(dto): ValidatedMultipart<CreateVehicleDto>,
-    DbConnection(db): DbConnection,
 ) -> Result<Json<entity::vehicle::Model>, (StatusCode, SimpleError)> {
-    let created_vehicle = repository::create_vehicle(&db, &dto, org_id).await?;
+    let created_vehicle = repository::create_vehicle(&state.db, &dto, org_id).await?;
 
     if let Some(photo) = dto.photo {
-        let validated_filename = multipart_form_data::filename_from_img("photo", &photo);
+        let img_validation = multipart_form_data::filename_from_img("photo", &photo);
 
-        let filename = match validated_filename {
-            Ok(f) => f,
+        let filename = match img_validation {
+            Ok(filename) => filename,
             Err(e) => {
                 // Creating the vehicle without the uploaded photo is not acceptable
                 // therefore delete the created vehicle and return a error response.
-                let _ = created_vehicle.delete(&db).await;
+                let _ = created_vehicle.delete(&state.db).await;
 
                 return Err(e);
             }
@@ -89,7 +93,7 @@ pub async fn create_vehicle(
             .await
             .is_err()
         {
-            let _ = created_vehicle.delete(&db).await;
+            let _ = created_vehicle.delete(&state.db).await;
 
             return Err(internal_error_msg("failed to upload vehicle photo"));
         };
@@ -102,12 +106,12 @@ pub async fn create_vehicle(
                 Expr::value(uploaded_photo.clone()),
             )
             .filter(entity::vehicle::Column::Id.eq(created_vehicle.id))
-            .exec(&db)
+            .exec(&state.db)
             .await;
 
         if let Err(_) = update_photo_on_db_result {
             let _ = state.s3.delete(uploaded_photo).await;
-            let _ = created_vehicle.delete(&db).await;
+            let _ = created_vehicle.delete(&state.db).await;
 
             return Err(internal_error_msg("failed to set vehicle photo"));
         }

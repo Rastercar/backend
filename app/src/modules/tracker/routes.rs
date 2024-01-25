@@ -68,55 +68,57 @@ pub async fn create_tracker(
     DbConnection(mut conn): DbConnection,
     ValidatedJson(dto): ValidatedJson<CreateTrackerDto>,
 ) -> Result<Json<VehicleTracker>, (StatusCode, SimpleError)> {
-    if let Some(vehicle_id) = dto.vehicle_id {
-        let count: i64 = vehicle::dsl::vehicle
-            .filter(vehicle::dsl::id.eq(vehicle_id))
-            .filter(vehicle::dsl::organization_id.eq(org_id))
-            .count()
-            .get_result(&mut conn)
-            .await
-            .or(Err(internal_error_res()))?;
+    // if let Some(vehicle_id) = dto.vehicle_id {
+    //     let count: i64 = vehicle::dsl::vehicle
+    //         .filter(vehicle::dsl::id.eq(vehicle_id))
+    //         .filter(vehicle::dsl::organization_id.eq(org_id))
+    //         .count()
+    //         .get_result(&mut conn)
+    //         .await
+    //         .or(Err(internal_error_res()))?;
 
-        if count != 1 {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                SimpleError::from(format!(
-                    "vehicle: {} not found for org {}",
-                    vehicle_id, org_id
-                )),
-            ));
-        }
+    //     if count != 1 {
+    //         return Err((
+    //             StatusCode::BAD_REQUEST,
+    //             SimpleError::from(format!(
+    //                 "vehicle: {} not found for org {}",
+    //                 vehicle_id, org_id
+    //             )),
+    //         ));
+    //     }
 
-        let trackers_on_vehicle_cnt: i64 = vehicle_tracker::dsl::vehicle_tracker
-            .filter(vehicle_tracker::dsl::vehicle_id.eq(vehicle_id))
-            .count()
-            .get_result(&mut conn)
-            .await
-            .or(Err(internal_error_res()))?;
+    //     let trackers_on_vehicle_cnt: i64 = vehicle_tracker::dsl::vehicle_tracker
+    //         .filter(vehicle_tracker::dsl::vehicle_id.eq(vehicle_id))
+    //         .count()
+    //         .get_result(&mut conn)
+    //         .await
+    //         .or(Err(internal_error_res()))?;
 
-        if trackers_on_vehicle_cnt > 0 {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                SimpleError::from(format!(
-                    "vehicle: {} already has a tracker installed",
-                    vehicle_id
-                )),
-            ));
-        }
-    }
+    //     if trackers_on_vehicle_cnt > 0 {
+    //         return Err((
+    //             StatusCode::BAD_REQUEST,
+    //             SimpleError::from(format!(
+    //                 "vehicle: {} already has a tracker installed",
+    //                 vehicle_id
+    //             )),
+    //         ));
+    //     }
+    // }
 
-    let created_tracker = diesel::insert_into(vehicle_tracker::dsl::vehicle_tracker)
-        .values((
-            vehicle_tracker::dsl::imei.eq(dto.imei),
-            vehicle_tracker::dsl::model.eq(dto.model),
-            vehicle_tracker::dsl::vehicle_id.eq(dto.vehicle_id),
-            vehicle_tracker::dsl::organization_id.eq(org_id),
-        ))
-        .get_result::<VehicleTracker>(&mut conn)
-        .await
-        .map_err(|e| DbError::from(e))?;
+    // let created_tracker = diesel::insert_into(vehicle_tracker::dsl::vehicle_tracker)
+    //     .values((
+    //         vehicle_tracker::dsl::imei.eq(dto.imei),
+    //         vehicle_tracker::dsl::model.eq(dto.model),
+    //         vehicle_tracker::dsl::vehicle_id.eq(dto.vehicle_id),
+    //         vehicle_tracker::dsl::organization_id.eq(org_id),
+    //     ))
+    //     .get_result::<VehicleTracker>(&mut conn)
+    //     .await
+    //     .map_err(|e| DbError::from(e))?;
 
-    Ok(Json(created_tracker))
+    // Ok(Json(created_tracker))
+
+    todo!()
 }
 
 /// Lists the trackers that belong to the same org as the request user
@@ -147,17 +149,19 @@ pub async fn list_trackers(
     OrganizationId(org_id): OrganizationId,
     DbConnection(mut conn): DbConnection,
 ) -> Result<Json<PaginationResult<VehicleTracker>>, (StatusCode, SimpleError)> {
-    use crate::database::pagination::*;
+    // use crate::database::pagination::*;
 
-    let result = vehicle_tracker::dsl::vehicle_tracker
-        .order(vehicle_tracker::id.asc())
-        .filter(vehicle_tracker::dsl::organization_id.eq(org_id))
-        .select(VehicleTracker::as_select())
-        .paginate(query.page as i64)
-        .per_page(query.page_size as i64)
-        .load_with_pagination::<VehicleTracker>(&mut conn)
-        .await
-        .or(Err(internal_error_res()))?;
+    // let result = vehicle_tracker::dsl::vehicle_tracker
+    //     .order(vehicle_tracker::id.asc())
+    //     .filter(vehicle_tracker::dsl::organization_id.eq(org_id))
+    //     .select(VehicleTracker::as_select())
+    //     .paginate(query.page as i64)
+    //     .per_page(query.page_size as i64)
+    //     .load_with_pagination::<VehicleTracker>(&mut conn)
+    //     .await
+    //     .or(Err(internal_error_res()))?;
 
-    Ok(Json(result))
+    // Ok(Json(result))
+
+    todo!()
 }

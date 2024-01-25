@@ -77,24 +77,26 @@ pub async fn update_org(
     Extension(req_user): Extension<RequestUser>,
     ValidatedJson(payload): ValidatedJson<UpdateOrganizationDto>,
 ) -> Result<Json<auth::dto::OrganizationDto>, (StatusCode, SimpleError)> {
-    if let Some(org) = req_user.0.organization {
-        use crate::database::schema::organization::dsl::*;
+    // if let Some(org) = req_user.0.organization {
+    //     use crate::database::schema::organization::dsl::*;
 
-        let org = diesel::update(organization)
-            .filter(id.eq(&org.id))
-            .set(&payload)
-            .get_result::<models::Organization>(&mut conn)
-            .await
-            .or(Err(internal_error_res()))?;
+    //     let org = diesel::update(organization)
+    //         .filter(id.eq(&org.id))
+    //         .set(&payload)
+    //         .get_result::<models::Organization>(&mut conn)
+    //         .await
+    //         .or(Err(internal_error_res()))?;
 
-        // return Ok(Json(auth::dto::OrganizationDto::from(org)));
-        todo!()
-    }
+    //     // return Ok(Json(auth::dto::OrganizationDto::from(org)));
+    //     todo!()
+    // }
 
-    Err((
-        StatusCode::BAD_REQUEST,
-        SimpleError::from("cannot update org because user does not belong to one"),
-    ))
+    // Err((
+    //     StatusCode::BAD_REQUEST,
+    //     SimpleError::from("cannot update org because user does not belong to one"),
+    // ))
+
+    todo!()
 }
 
 /// Requests org email address confirmation
@@ -199,42 +201,44 @@ pub async fn confirm_email_address_by_token(
     DbConnection(mut conn): DbConnection,
     ValidatedJson(payload): ValidatedJson<common::dto::Token>,
 ) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
-    jwt::decode(&payload.token).or(Err((
-        StatusCode::UNAUTHORIZED,
-        SimpleError::from("invalid token"),
-    )))?;
+    // jwt::decode(&payload.token).or(Err((
+    //     StatusCode::UNAUTHORIZED,
+    //     SimpleError::from("invalid token"),
+    // )))?;
 
-    let maybe_org = organization::table
-        .select(models::Organization::as_select())
-        .filter(organization::dsl::confirm_billing_email_token.eq(&payload.token))
-        .first::<models::Organization>(&mut conn)
-        .await
-        .optional()
-        .or(Err(internal_error_res()))?;
+    // let maybe_org = organization::table
+    //     .select(models::Organization::as_select())
+    //     .filter(organization::dsl::confirm_billing_email_token.eq(&payload.token))
+    //     .first::<models::Organization>(&mut conn)
+    //     .await
+    //     .optional()
+    //     .or(Err(internal_error_res()))?;
 
-    if let Some(org) = maybe_org {
-        if org.billing_email_verified {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                SimpleError::from(EMAIL_ALREADY_VERIFIED),
-            ));
-        }
+    // if let Some(org) = maybe_org {
+    //     if org.billing_email_verified {
+    //         return Err((
+    //             StatusCode::BAD_REQUEST,
+    //             SimpleError::from(EMAIL_ALREADY_VERIFIED),
+    //         ));
+    //     }
 
-        diesel::update(organization::dsl::organization)
-            .filter(organization::dsl::id.eq(org.id))
-            .set((
-                organization::dsl::billing_email_verified.eq(true),
-                organization::dsl::confirm_billing_email_token.eq::<Option<String>>(None),
-            ))
-            .execute(&mut conn)
-            .await
-            .or(Err(internal_error_res()))?;
+    //     diesel::update(organization::dsl::organization)
+    //         .filter(organization::dsl::id.eq(org.id))
+    //         .set((
+    //             organization::dsl::billing_email_verified.eq(true),
+    //             organization::dsl::confirm_billing_email_token.eq::<Option<String>>(None),
+    //         ))
+    //         .execute(&mut conn)
+    //         .await
+    //         .or(Err(internal_error_res()))?;
 
-        return Ok(Json("email confirmed successfully"));
-    }
+    //     return Ok(Json("email confirmed successfully"));
+    // }
 
-    Err((
-        StatusCode::NOT_FOUND,
-        SimpleError::from("user not found with this reset password token"),
-    ))
+    // Err((
+    //     StatusCode::NOT_FOUND,
+    //     SimpleError::from("user not found with this reset password token"),
+    // ))
+
+    todo!()
 }

@@ -134,6 +134,6 @@ impl FromRequestParts<AppState> for DbConnection {
     type Rejection = (http::StatusCode, SimpleError);
 
     async fn from_request_parts(_: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
-        Ok(DbConnection(state.db))
+        Ok(DbConnection(state.db.clone()))
     }
 }
