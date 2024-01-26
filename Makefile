@@ -1,4 +1,6 @@
 # [PROD-TODO] remove me
+# para docs de RUST_LOG, ver EnvFilter
+
 .PHONY: lazy
 lazy:
 	git add . && git commit -m "." && git push origin master

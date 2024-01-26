@@ -2,9 +2,6 @@ use super::dto::{self, SessionDto};
 use super::jwt;
 use super::middleware::RequestUser;
 use super::session::{OptionalSessionId, SessionId};
-use crate::database::models::{self};
-use crate::database::schema::session;
-use crate::database::schema::user::{self};
 use crate::modules::common;
 use crate::modules::common::error_codes::EMAIL_ALREADY_VERIFIED;
 use crate::modules::common::extractors::{DbConnection, ValidatedJson};
@@ -22,8 +19,6 @@ use axum::{
 };
 use axum_client_ip::SecureClientIp;
 use bcrypt::{hash, DEFAULT_COST};
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use http::HeaderMap;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
@@ -471,13 +466,13 @@ pub async fn request_recover_password_email(
     ),
 )]
 pub async fn change_password_by_recovery_token(
-    DbConnection(mut conn): DbConnection,
+    DbConnection(db): DbConnection,
     ValidatedJson(payload): ValidatedJson<dto::ResetPassword>,
 ) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
-    // jwt::decode(&payload.password_reset_token).or(Err((
-    //     StatusCode::UNAUTHORIZED,
-    //     SimpleError::from("invalid token"),
-    // )))?;
+    jwt::decode(&payload.password_reset_token).or(Err((
+        StatusCode::UNAUTHORIZED,
+        SimpleError::from("invalid token"),
+    )))?;
 
     // let maybe_user = models::User::all()
     //     .filter(user::dsl::reset_password_token.eq(&payload.password_reset_token))

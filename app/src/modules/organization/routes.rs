@@ -1,6 +1,6 @@
 use super::dto::UpdateOrganizationDto;
 use crate::{
-    database::{models, schema::organization},
+    database::{error::DbError, models, schema::organization},
     modules::{
         auth::{
             self,
@@ -23,9 +23,9 @@ use axum::{
     routing::{patch, post},
     Extension, Json, Router,
 };
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use http::StatusCode;
+use migration::Expr;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryTrait};
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
@@ -73,30 +73,30 @@ pub fn create_router(state: AppState) -> Router<AppState> {
     ),
 )]
 pub async fn update_org(
-    DbConnection(mut conn): DbConnection,
+    DbConnection(db): DbConnection,
     Extension(req_user): Extension<RequestUser>,
     ValidatedJson(payload): ValidatedJson<UpdateOrganizationDto>,
 ) -> Result<Json<auth::dto::OrganizationDto>, (StatusCode, SimpleError)> {
-    // if let Some(org) = req_user.0.organization {
-    //     use crate::database::schema::organization::dsl::*;
+    if let Some(org) = req_user.0.organization {
+        entity::organization::Entity::update_many()
+            .apply_if(payload.name, |query, v| {
+                query.col_expr(entity::organization::Column::Name, Expr::value(v))
+            })
+            .apply_if(payload.billing_email, |query, v| {
+                query.col_expr(entity::organization::Column::BillingEmail, Expr::value(v))
+            })
+            .filter(entity::organization::Column::Id.eq(org.id))
+            .exec(&db)
+            .await
+            .map_err(DbError::from)?;
 
-    //     let org = diesel::update(organization)
-    //         .filter(id.eq(&org.id))
-    //         .set(&payload)
-    //         .get_result::<models::Organization>(&mut conn)
-    //         .await
-    //         .or(Err(internal_error_res()))?;
+        return Ok(Json(auth::dto::OrganizationDto::from(org)));
+    }
 
-    //     // return Ok(Json(auth::dto::OrganizationDto::from(org)));
-    //     todo!()
-    // }
-
-    // Err((
-    //     StatusCode::BAD_REQUEST,
-    //     SimpleError::from("cannot update org because user does not belong to one"),
-    // ))
-
-    todo!()
+    Err((
+        StatusCode::BAD_REQUEST,
+        SimpleError::from("cannot update org because user does not belong to one"),
+    ))
 }
 
 /// Requests org email address confirmation

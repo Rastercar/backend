@@ -1,4 +1,3 @@
-use crate::database::models;
 use crate::modules::common::validators::{
     REGEX_CONTAINS_LOWERCASE_CHARACTER, REGEX_CONTAINS_NUMBER, REGEX_CONTAINS_SYMBOLIC_CHARACTER,
     REGEX_CONTAINS_UPPERCASE_CHARACTER, REGEX_IS_LOWERCASE_ALPHANUMERIC_WITH_UNDERSCORES,
@@ -115,9 +114,9 @@ pub struct AccessLevelDto {
 pub struct OrganizationDto {
     pub id: i32,
     pub created_at: DateTime<Utc>,
-    pub billing_email: String,
     pub blocked: bool,
     pub name: String,
+    pub billing_email: String,
     pub billing_email_verified: bool,
 }
 

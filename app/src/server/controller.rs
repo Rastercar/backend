@@ -2,7 +2,8 @@ use super::open_api;
 use crate::{
     config::app_config,
     modules::{
-        auth::{self, service::AuthService},
+        auth::{self, middleware::RequestUser, service::AuthService},
+        common::extractors::DbConnection,
         organization, tracker,
         user::{self},
         vehicle,
@@ -10,7 +11,7 @@ use crate::{
     services::{mailer::service::MailerService, s3::S3},
     utils::string::StringExt,
 };
-use axum::{body::Body, routing::get, Router};
+use axum::{body::Body, routing::get, Extension, Router};
 use axum_client_ip::SecureClientIpSource;
 use deadpool_lapin::Pool as RmqPool;
 use http::{header, HeaderValue, Method, Request, StatusCode};

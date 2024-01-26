@@ -7,7 +7,7 @@ use sea_orm::DbErr;
 /// This is useful for wrapping database errors and safely returning them from
 /// axum route handlers without worrying about leaking sensitive information,
 /// as it implements `Into<(StatusCode, SimpleError)>`
-pub struct DbError(DbErr);
+pub struct DbError(pub DbErr);
 
 impl From<DbErr> for DbError {
     fn from(err: DbErr) -> Self {

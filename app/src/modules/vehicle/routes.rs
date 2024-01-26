@@ -3,7 +3,7 @@ use crate::{
     modules::{
         auth::{self, constants::Permission, middleware::AclLayer},
         common::{
-            extractors::{DbConnection, OrganizationId, ValidatedMultipart},
+            extractors::{OrganizationId, ValidatedMultipart},
             multipart_form_data,
             responses::{internal_error_msg, SimpleError},
         },
@@ -21,17 +21,11 @@ use sea_orm::{ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", post(create_vehicle))
-        .route("/xd", post(xd))
         .layer(AclLayer::new(vec![Permission::CreateVehicle]))
         .layer(axum::middleware::from_fn_with_state(
             state,
             auth::middleware::require_user,
         ))
-}
-
-#[axum::debug_handler]
-pub async fn xd(DbConnection(db): DbConnection) -> String {
-    String::from("dassda")
 }
 
 /// Creates a new vehicle

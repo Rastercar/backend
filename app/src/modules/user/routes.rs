@@ -28,6 +28,8 @@ use bcrypt::{hash, verify, DEFAULT_COST};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use http::StatusCode;
+use migration::Expr;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use tracing::error;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
@@ -216,55 +218,48 @@ async fn put_password(
 async fn put_profile_picture(
     State(state): State<AppState>,
     Extension(req_user): Extension<RequestUser>,
+    DbConnection(db): DbConnection,
     TypedMultipart(ProfilePicDto { image }): TypedMultipart<ProfilePicDto>,
 ) -> Result<Json<String>, (StatusCode, SimpleError)> {
-    // let filename = multipart_form_data::create_filename_with_timestamp_from_uploaded_photo(
-    //     "profile-picture",
-    //     &image,
-    // )?;
+    let filename = multipart_form_data::filename_from_img("profile-picture", &image)?;
 
-    // let request_user = req_user.0;
+    let request_user = req_user.0;
 
-    // let folder = match request_user.organization {
-    //     Some(org) => format!("organization/{}/user/{}", org.id, request_user.id),
-    //     None => format!("user/{}", request_user.id),
-    // };
+    let folder = match request_user.organization {
+        Some(org) => format!("organization/{}/user/{}", org.id, request_user.id),
+        None => format!("user/{}", request_user.id),
+    };
 
-    // let key = S3Key { folder, filename };
+    let key = S3Key { folder, filename };
 
-    // state
-    //     .s3
-    //     .upload(key.clone().into(), image.contents)
-    //     .await
-    //     .map_err(|_| {
-    //         (
-    //             StatusCode::INTERNAL_SERVER_ERROR,
-    //             SimpleError::from("failed to upload new profile picture"),
-    //         )
-    //     })?;
+    state
+        .s3
+        .upload(key.clone().into(), image.contents)
+        .await
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                SimpleError::from("failed to upload new profile picture"),
+            )
+        })?;
 
-    // let conn = &mut state.get_db_conn().await?;
+    entity::user::Entity::update_many()
+        .col_expr(
+            entity::user::Column::ProfilePicture,
+            Expr::value(String::from(key.clone())),
+        )
+        .filter(entity::user::Column::Id.eq(request_user.id))
+        .exec(&db)
+        .await
+        .map_err(DbError::from)?;
 
-    // {
-    //     use crate::database::schema::user::dsl::*;
+    if let Some(old_profile_pic) = request_user.profile_picture {
+        if state.s3.delete(old_profile_pic.clone()).await.is_err() {
+            error!("[] failed to delete S3 object: {}", old_profile_pic);
+        }
+    }
 
-    //     diesel::update(user)
-    //         .filter(id.eq(request_user.id))
-    //         .set(profile_picture.eq(String::from(key.clone())))
-    //         .execute(conn)
-    //         .await
-    //         .or(Err(internal_error_res()))?;
-    // }
-
-    // if let Some(old_profile_pic) = request_user.profile_picture {
-    //     if state.s3.delete(old_profile_pic.clone()).await.is_err() {
-    //         error!("[] failed to delete S3 object: {}", old_profile_pic);
-    //     }
-    // }
-
-    // Ok(Json(String::from(key)))
-
-    todo!()
+    Ok(Json(String::from(key)))
 }
 
 /// Removes the request user profile picture
@@ -290,29 +285,27 @@ async fn put_profile_picture(
 async fn delete_profile_picture(
     State(state): State<AppState>,
     Extension(req_user): Extension<RequestUser>,
+    DbConnection(db): DbConnection,
 ) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
-    // let conn = &mut state.get_db_conn().await?;
+    let request_user = req_user.0;
 
-    // let request_user = req_user.0;
+    if let Some(old_profile_pic) = request_user.profile_picture {
+        entity::user::Entity::update_many()
+            .col_expr(
+                entity::user::Column::ProfilePicture,
+                Expr::value::<Option<String>>(None),
+            )
+            .filter(entity::user::Column::Id.eq(request_user.id))
+            .exec(&db)
+            .await
+            .map_err(DbError::from)?;
 
-    // if let Some(old_profile_pic) = request_user.profile_picture {
-    //     use crate::database::schema::user::dsl::*;
+        let _ = state.s3.delete(old_profile_pic).await;
 
-    //     diesel::update(user)
-    //         .filter(id.eq(request_user.id))
-    //         .set(profile_picture.eq::<Option<String>>(None))
-    //         .execute(conn)
-    //         .await
-    //         .or(Err(internal_error_res()))?;
+        return Ok(Json("profile picture removed successfully"));
+    }
 
-    //     let _ = state.s3.delete(old_profile_pic).await;
-
-    //     return Ok(Json("profile picture removed successfully"));
-    // }
-
-    // Ok(Json("user does not have a profile picture to remove"))
-
-    todo!()
+    Ok(Json("user does not have a profile picture to remove"))
 }
 
 /// Requests a email address confirmation email

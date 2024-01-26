@@ -3,7 +3,6 @@ use crate::{
     database::{
         error::DbError,
         models::VehicleTracker,
-        pagination::PaginationResult,
         schema::{vehicle, vehicle_tracker},
     },
     modules::{
@@ -20,8 +19,6 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use http::StatusCode;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
@@ -148,7 +145,7 @@ pub async fn list_trackers(
     ValidatedQuery(query): ValidatedQuery<Pagination>,
     OrganizationId(org_id): OrganizationId,
     DbConnection(mut conn): DbConnection,
-) -> Result<Json<PaginationResult<VehicleTracker>>, (StatusCode, SimpleError)> {
+) -> Result<Json<i32>, (StatusCode, SimpleError)> {
     // use crate::database::pagination::*;
 
     // let result = vehicle_tracker::dsl::vehicle_tracker
