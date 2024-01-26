@@ -18,6 +18,8 @@ pub struct ProfilePicDto {
     pub image: FieldData<Bytes>,
 }
 
+// TODO: RM AS CHANGESET
+
 #[derive(ToSchema, Validate, Deserialize, AsChangeset)]
 #[diesel(table_name = user)]
 pub struct UpdateUserDto {

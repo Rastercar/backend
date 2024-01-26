@@ -25,11 +25,9 @@ use axum::{
 };
 use axum_typed_multipart::TypedMultipart;
 use bcrypt::{hash, verify, DEFAULT_COST};
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use http::StatusCode;
 use migration::Expr;
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryTrait};
 use tracing::error;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
@@ -95,36 +93,40 @@ pub async fn me(Extension(req_user): Extension<RequestUser>) -> Json<UserDto> {
     ),
 )]
 pub async fn update_me(
-    DbConnection(mut conn): DbConnection,
+    DbConnection(db): DbConnection,
     Extension(req_user): Extension<RequestUser>,
     ValidatedJson(payload): ValidatedJson<dto::UpdateUserDto>,
 ) -> Result<Json<auth_dto::UserDto>, (StatusCode, SimpleError)> {
-    // use crate::database::schema::user::dsl::*;
+    let mut req_user = req_user.0;
 
-    // let mut req_user = req_user.0;
+    entity::user::Entity::update_many()
+        .apply_if(payload.description.clone(), |query, v| {
+            query.col_expr(entity::user::Column::Description, Expr::value(v))
+        })
+        .apply_if(payload.email.clone(), |query, v| {
+            query.col_expr(entity::user::Column::Email, Expr::value(v))
+        })
+        .apply_if(payload.username.clone(), |query, v| {
+            query.col_expr(entity::user::Column::Username, Expr::value(v))
+        })
+        .filter(entity::user::Column::Id.eq(req_user.id.clone()))
+        .exec(&db)
+        .await
+        .map_err(DbError::from)?;
 
-    // diesel::update(user)
-    //     .filter(id.eq(&req_user.id))
-    //     .set(&payload)
-    //     .execute(&mut conn)
-    //     .await
-    //     .map_err(|e| DbError::from(e))?;
+    if let Some(new_description) = payload.description {
+        req_user.description = new_description;
+    }
 
-    // if let Some(new_description) = payload.description {
-    //     req_user.description = new_description;
-    // }
+    if let Some(new_username) = payload.username {
+        req_user.username = new_username;
+    }
 
-    // if let Some(new_username) = payload.username {
-    //     req_user.username = new_username;
-    // }
+    if let Some(new_email) = payload.email {
+        req_user.email = new_email;
+    }
 
-    // if let Some(new_email) = payload.email {
-    //     req_user.email = new_email;
-    // }
-
-    // Ok(Json(req_user))
-
-    todo!()
+    Ok(Json(req_user))
 }
 
 /// Changes the user password
@@ -154,38 +156,37 @@ pub async fn update_me(
     ),
 )]
 async fn put_password(
-    DbConnection(mut conn): DbConnection,
+    DbConnection(db): DbConnection,
     Extension(req_user): Extension<RequestUser>,
     Extension(req_user_password): Extension<RequestUserPassword>,
     ValidatedJson(payload): ValidatedJson<dto::ChangePasswordDto>,
 ) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
-    // use crate::database::schema::user::dsl::*;
+    let request_user = req_user.0;
 
-    // let req_user = req_user.0;
+    let old_password_valid =
+        verify(payload.old_password, req_user_password.0.as_str()).or(Err(internal_error_res()))?;
 
-    // let old_password_valid =
-    //     verify(payload.old_password, req_user_password.0.as_str()).or(Err(internal_error_res()))?;
+    if !old_password_valid {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            SimpleError::from("invalid password"),
+        ));
+    }
 
-    // if !old_password_valid {
-    //     return Err((
-    //         StatusCode::UNAUTHORIZED,
-    //         SimpleError::from("invalid password"),
-    //     ));
-    // }
+    let new_password_hash = hash(payload.new_password, DEFAULT_COST)
+        .or(Err(internal_error_msg("error hashing password")))?;
 
-    // let new_password_hash = hash(payload.new_password, DEFAULT_COST)
-    //     .or(Err(internal_error_msg("error hashing password")))?;
+    entity::user::Entity::update_many()
+        .col_expr(
+            entity::user::Column::Password,
+            Expr::value(new_password_hash),
+        )
+        .filter(entity::user::Column::Id.eq(request_user.id))
+        .exec(&db)
+        .await
+        .map_err(DbError::from)?;
 
-    // diesel::update(user)
-    //     .filter(id.eq(&req_user.id))
-    //     .set(password.eq(new_password_hash))
-    //     .execute(&mut conn)
-    //     .await
-    //     .or(Err(internal_error_res()))?;
-
-    // Ok(Json("password changed successfully"))
-
-    todo!()
+    Ok(Json("password changed successfully"))
 }
 
 /// Replaces the request user profile picture
