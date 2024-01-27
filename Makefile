@@ -11,6 +11,10 @@ run_prod:
 
 .PHONY: run_dev
 run_dev:
+	RUST_LOG=warn,sea_orm=debug,sqlx_logging=debug IS_DEVELOPMENT=true AWS_PROFILE=rastercar-vitor cargo watch -x run
+
+.PHONY: run_info
+run_info:
 	RUST_LOG=info IS_DEVELOPMENT=true AWS_PROFILE=rastercar-vitor cargo watch -x run
 
 .PHONY: run_debug

@@ -143,13 +143,31 @@ pub async fn list_trackers(
     OrganizationId(org_id): OrganizationId,
     DbConnection(db): DbConnection,
 ) -> Result<Json<i32>, (StatusCode, SimpleError)> {
-    let mut xd = vehicle_tracker::Entity::find()
+    println!("------------------------------------------");
+
+    let db_q = vehicle_tracker::Entity::find()
         .order_by_asc(vehicle_tracker::Column::Id)
+        .offset(query.page_size as u64)
         .paginate(&db, query.page_size as u64);
 
-    while let Some(cakes) = vehicle_tracker.fetch_and_next().await? {
-        // Do something on cakes: Vec<cake::Model>
-    }
+    let xd = db_q.num_items_and_pages().await.map_err(DbError::from)?;
+
+    let xdd = db_q
+        .fetch_page(query.page as u64)
+        .await
+        .map_err(DbError::from)?;
+
+    // let xd = vehicle_tracker::Entity::find()
+    //     .order_by_asc(vehicle_tracker::Column::Id)
+    //     .offset(query.page_size as u64)
+    //     .paginate(&db, query.page_size as u64)
+    //     .num_items_and_pages()
+    //     // .fetch()
+    //     .await
+    //     .map_err(DbError::from)?;
+
+    dbg!(xd);
+    dbg!(xdd);
 
     // let result = vehicle_tracker::dsl::vehicle_tracker
     //     .order(vehicle_tracker::id.asc())
