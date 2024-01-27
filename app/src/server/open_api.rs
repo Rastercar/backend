@@ -1,15 +1,18 @@
 use crate::modules::{auth, common, user, organization, vehicle, tracker};
 use crate::server::controller;
-use axum::Router;
+use crate::modules::common::PaginatedVehicleTracker;
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use utoipa::openapi::{ContactBuilder, InfoBuilder};
 use utoipa::{openapi::OpenApiBuilder, Modify, OpenApi};
 use utoipa_rapidoc::RapiDoc;
 use utoipa_swagger_ui::SwaggerUi;
+use axum::Router;
 
 #[derive(OpenApi)]
 #[openapi(
     components(schemas(
+        PaginatedVehicleTracker,
+        
         entity::vehicle::Model,
         entity::vehicle_tracker::Model,
 
