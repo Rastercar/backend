@@ -1,11 +1,9 @@
-use crate::database::schema::user;
 use crate::modules::common::validators::{
     REGEX_CONTAINS_LOWERCASE_CHARACTER, REGEX_CONTAINS_NUMBER, REGEX_CONTAINS_SYMBOLIC_CHARACTER,
     REGEX_CONTAINS_UPPERCASE_CHARACTER, REGEX_IS_LOWERCASE_ALPHANUMERIC_WITH_UNDERSCORES,
 };
 use axum::body::Bytes;
 use axum_typed_multipart::{FieldData, TryFromMultipart};
-use diesel::query_builder::AsChangeset;
 use serde::Deserialize;
 use utoipa::ToSchema;
 use validator::Validate;
@@ -18,10 +16,7 @@ pub struct ProfilePicDto {
     pub image: FieldData<Bytes>,
 }
 
-// TODO: RM AS CHANGESET
-
-#[derive(ToSchema, Validate, Deserialize, AsChangeset)]
-#[diesel(table_name = user)]
+#[derive(ToSchema, Validate, Deserialize)]
 pub struct UpdateUserDto {
     #[validate(email)]
     pub email: Option<String>,

@@ -4,9 +4,9 @@ use crate::{
     modules::{
         auth::{self, constants::Permission, middleware::AclLayer},
         common::{
-            dto::Pagination,
+            dto::{Pagination, PaginationResult},
             extractors::{DbConnection, OrganizationId, ValidatedJson, ValidatedQuery},
-            responses::{internal_error_res, SimpleError},
+            responses::SimpleError,
         },
     },
     server::controller::AppState,
@@ -142,71 +142,26 @@ pub async fn list_trackers(
     ValidatedQuery(query): ValidatedQuery<Pagination>,
     OrganizationId(org_id): OrganizationId,
     DbConnection(db): DbConnection,
-) -> Result<Json<i32>, (StatusCode, SimpleError)> {
-    // TODO: aqui temos que ver como fazer paginacao com o utoipa
-    // uma struct como o paginator do diesel orm parece legal + temos problemas
-    // pra converter uma query para o tipo pois ela pode ser `Select`, `SelectA`, `SelectTwo`, etc.
-
-    // Outra ideia interessante é pegar a struct de Paginacao do sea orm e fazer uma conversao
-    // para PaginationResult da branch main, ou ate podemos pensar numa struct parecida
-    //
-    // por exemplo
-    // ```
-    // fn join() {
-    //     let db_query = vehicle_tracker::Entity::find()
-    //         .order_by_asc(vehicle_tracker::Column::Id)
-    //         .offset(query.page_size as u64)
-    //         .paginate(&db, query.page_size as u64);
-    //
-    //     let total_items_and_pages = db_query
-    //     .num_items_and_pages()
-    //     .await
-    //     .map_err(DbError::from)?;
-    //
-    //     let items = db_query
-    //      .fetch_page()
-    //      .await
-    //      .map_err(DbError::from)?;
-    //
-    //     juntar os 2 numa struct
-    // }
-    // ```
-
+) -> Result<Json<PaginationResult<entity::vehicle_tracker::Model>>, (StatusCode, SimpleError)> {
+    // TODO: utoipa (also abstract pagination?)
     let db_query = vehicle_tracker::Entity::find()
+        .filter(vehicle_tracker::Column::OrganizationId.eq(org_id))
         .order_by_asc(vehicle_tracker::Column::Id)
-        .offset(query.page_size as u64)
-        .paginate(&db, query.page_size as u64);
+        .paginate(&db, query.page_size);
 
-    let xd = db_query
-        .num_items_and_pages()
+    let page_count = db_query.num_pages().await.map_err(DbError::from)?;
+
+    let records = db_query
+        .fetch_page(query.page - 1)
         .await
         .map_err(DbError::from)?;
 
-    let trackers = db_query
-        .fetch_page(query.page as u64)
-        .await
-        .map_err(DbError::from)?;
+    let result = PaginationResult {
+        page: query.page,
+        records,
+        page_size: query.page_size,
+        page_count,
+    };
 
-    // let xd = vehicle_tracker::Entity::find()
-    //     .order_by_asc(vehicle_tracker::Column::Id)
-    //     .offset(query.page_size as u64)
-    //     .paginate(&db, query.page_size as u64)
-    //     .num_items_and_pages()
-    //     // .fetch()
-    //     .await
-    //     .map_err(DbError::from)?;
-
-    // let result = vehicle_tracker::dsl::vehicle_tracker
-    //     .order(vehicle_tracker::id.asc())
-    //     .filter(vehicle_tracker::dsl::organization_id.eq(org_id))
-    //     .select(VehicleTracker::as_select())
-    //     .paginate(query.page as i64)
-    //     .per_page(query.page_size as i64)
-    //     .load_with_pagination::<VehicleTracker>(&mut conn)
-    //     .await
-    //     .or(Err(internal_error_res()))?;
-
-    // Ok(Json(result))
-
-    todo!()
+    Ok(Json(result))
 }

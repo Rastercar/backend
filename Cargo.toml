@@ -10,3 +10,15 @@ members = [".", "app", "entity", "migration"]
 app = { path = "app" }
 entity = { path = "entity" }
 migration = { path = "migration" }
+
+# Depencies shared by "sub" workspaces
+[workspace.dependencies]
+sea-orm = { version = "0.12", features = [
+    "macros",
+    "debug-print",
+    "sqlx-postgres",
+    "sea-orm-internal",
+    "runtime-tokio-rustls",
+] }
+serde = { version = "1", features = ["derive"] }
+utoipa = { version = "3.5.0", features = ["chrono", "uuid"] }

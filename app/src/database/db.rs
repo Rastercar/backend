@@ -1,7 +1,7 @@
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use std::time::Duration;
-use tracing::{info, log};
+use tracing::info;
 
 pub async fn create_db_conn(db_url: &str) -> DatabaseConnection {
     let mut opt = ConnectOptions::new(db_url);

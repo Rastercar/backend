@@ -69,7 +69,7 @@ fn sign_in_or_up_response(
 /// List all sessions for the request user
 #[utoipa::path(
     get,
-    path = "/auth/me",
+    path = "/auth/sessions",
     tag = "auth",
     security(("session_id" = [])),
     responses(
