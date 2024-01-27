@@ -143,16 +143,46 @@ pub async fn list_trackers(
     OrganizationId(org_id): OrganizationId,
     DbConnection(db): DbConnection,
 ) -> Result<Json<i32>, (StatusCode, SimpleError)> {
-    println!("------------------------------------------");
+    // TODO: aqui temos que ver como fazer paginacao com o utoipa
+    // uma struct como o paginator do diesel orm parece legal + temos problemas
+    // pra converter uma query para o tipo pois ela pode ser `Select`, `SelectA`, `SelectTwo`, etc.
 
-    let db_q = vehicle_tracker::Entity::find()
+    // Outra ideia interessante é pegar a struct de Paginacao do sea orm e fazer uma conversao
+    // para PaginationResult da branch main, ou ate podemos pensar numa struct parecida
+    //
+    // por exemplo
+    // ```
+    // fn join() {
+    //     let db_query = vehicle_tracker::Entity::find()
+    //         .order_by_asc(vehicle_tracker::Column::Id)
+    //         .offset(query.page_size as u64)
+    //         .paginate(&db, query.page_size as u64);
+    //
+    //     let total_items_and_pages = db_query
+    //     .num_items_and_pages()
+    //     .await
+    //     .map_err(DbError::from)?;
+    //
+    //     let items = db_query
+    //      .fetch_page()
+    //      .await
+    //      .map_err(DbError::from)?;
+    //
+    //     juntar os 2 numa struct
+    // }
+    // ```
+
+    let db_query = vehicle_tracker::Entity::find()
         .order_by_asc(vehicle_tracker::Column::Id)
         .offset(query.page_size as u64)
         .paginate(&db, query.page_size as u64);
 
-    let xd = db_q.num_items_and_pages().await.map_err(DbError::from)?;
+    let xd = db_query
+        .num_items_and_pages()
+        .await
+        .map_err(DbError::from)?;
 
-    let xdd = db_q
+    let trackers = db_query
         .fetch_page(query.page as u64)
         .await
         .map_err(DbError::from)?;
@@ -165,9 +195,6 @@ pub async fn list_trackers(
     //     // .fetch()
     //     .await
     //     .map_err(DbError::from)?;
-
-    dbg!(xd);
-    dbg!(xdd);
 
     // let result = vehicle_tracker::dsl::vehicle_tracker
     //     .order(vehicle_tracker::id.asc())
