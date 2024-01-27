@@ -2,6 +2,7 @@ use super::dto::{self, SessionDto};
 use super::jwt;
 use super::middleware::RequestUser;
 use super::session::{OptionalSessionId, SessionId};
+use crate::database::error::DbError;
 use crate::modules::common;
 use crate::modules::common::error_codes::EMAIL_ALREADY_VERIFIED;
 use crate::modules::common::extractors::{DbConnection, ValidatedJson};
@@ -19,7 +20,10 @@ use axum::{
 };
 use axum_client_ip::SecureClientIp;
 use bcrypt::{hash, DEFAULT_COST};
+use entity::{session, user};
 use http::HeaderMap;
+use migration::Expr;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
@@ -179,57 +183,53 @@ async fn sign_out_session_by_id(
     Extension(req_user): Extension<RequestUser>,
     Extension(req_user_session): Extension<SessionId>,
     Path(public_session_id): Path<i32>,
-    DbConnection(mut conn): DbConnection,
+    DbConnection(db): DbConnection,
     State(state): State<AppState>,
 ) -> Result<(StatusCode, HeaderMap), (StatusCode, SimpleError)> {
-    // let maybe_session_to_delete: Option<models::Session> = session::dsl::session
-    //     .select(models::Session::as_select())
-    //     .filter(session::dsl::public_id.eq(&public_session_id))
-    //     .first::<models::Session>(&mut conn)
-    //     .await
-    //     .optional()
-    //     .or(Err(internal_error_res()))?;
+    let maybe_session_to_delete = session::Entity::find()
+        .filter(session::Column::PublicId.eq(public_session_id))
+        .one(&db)
+        .await
+        .map_err(DbError::from)?;
 
-    // if let Some(session_to_delete) = maybe_session_to_delete {
-    //     let request_user = req_user.0;
+    if let Some(session_to_delete) = maybe_session_to_delete {
+        let request_user = req_user.0;
 
-    //     if session_to_delete.user_id != request_user.id {
-    //         return Err((
-    //             StatusCode::UNAUTHORIZED,
-    //             SimpleError::from("session does not belong to the request user"),
-    //         ));
-    //     }
+        if session_to_delete.user_id != request_user.id {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                SimpleError::from("session does not belong to the request user"),
+            ));
+        }
 
-    //     let session_to_delete_id = SessionId::from_database_value(session_to_delete.session_token)
-    //         .expect("failed to convert session id from database");
+        let session_to_delete_id = SessionId::from_database_value(session_to_delete.session_token)
+            .expect("failed to convert session id from database");
 
-    //     state
-    //         .auth_service
-    //         .delete_session(&session_to_delete_id)
-    //         .await
-    //         .or(Err((
-    //             StatusCode::INTERNAL_SERVER_ERROR,
-    //             SimpleError::from("failed to delete session"),
-    //         )))?;
+        state
+            .auth_service
+            .delete_session(&session_to_delete_id)
+            .await
+            .or(Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                SimpleError::from("failed to delete session"),
+            )))?;
 
-    //     let mut headers = HeaderMap::new();
+        let mut headers = HeaderMap::new();
 
-    //     if req_user_session.get_id() == session_to_delete_id.get_id() {
-    //         headers.insert(
-    //             "Set-Cookie",
-    //             session_to_delete_id.into_delete_cookie_header(),
-    //         );
-    //     }
+        if req_user_session.get_id() == session_to_delete_id.get_id() {
+            headers.insert(
+                "Set-Cookie",
+                session_to_delete_id.into_delete_cookie_header(),
+            );
+        }
 
-    //     return Ok((StatusCode::OK, headers));
-    // }
+        return Ok((StatusCode::OK, headers));
+    }
 
-    // Err((
-    //     StatusCode::BAD_REQUEST,
-    //     SimpleError::from("session does not exist"),
-    // ))
-
-    todo!()
+    Err((
+        StatusCode::BAD_REQUEST,
+        SimpleError::from("session does not exist"),
+    ))
 }
 
 /// Signs in
@@ -403,38 +403,36 @@ pub async fn sign_up(
     ),
 )]
 pub async fn request_recover_password_email(
-    DbConnection(mut conn): DbConnection,
+    DbConnection(db): DbConnection,
     State(state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<common::dto::EmailAddress>,
 ) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
-    // let maybe_user = models::User::by_email(&payload.email)
-    //     .first::<models::User>(&mut conn)
-    //     .await
-    //     .optional()
-    //     .or(Err(internal_error_res()))?;
+    let maybe_user = user::Entity::find()
+        .filter(user::Column::Email.eq(&payload.email))
+        .one(&db)
+        .await
+        .map_err(DbError::from)?;
 
-    // if let Some(usr) = maybe_user {
-    //     let token = state
-    //         .auth_service
-    //         .gen_and_set_user_reset_password_token(usr.id)
-    //         .await
-    //         .or(Err(internal_error_res()))?;
+    if let Some(usr) = maybe_user {
+        let token = state
+            .auth_service
+            .gen_and_set_user_reset_password_token(usr.id)
+            .await
+            .or(Err(internal_error_res()))?;
 
-    //     state
-    //         .mailer_service
-    //         .send_recover_password_email(payload.email, token, usr.username)
-    //         .await
-    //         .or(Err(internal_error_res()))?;
+        state
+            .mailer_service
+            .send_recover_password_email(payload.email, token, usr.username)
+            .await
+            .or(Err(internal_error_res()))?;
 
-    //     return Ok(Json("password recovery email queued successfully"));
-    // }
+        return Ok(Json("password recovery email queued successfully"));
+    }
 
-    // Err((
-    //     StatusCode::NOT_FOUND,
-    //     SimpleError::from("user not found with this email"),
-    // ))
-
-    todo!()
+    Err((
+        StatusCode::NOT_FOUND,
+        SimpleError::from("user not found with this email"),
+    ))
 }
 
 /// Recover password by token
@@ -474,36 +472,34 @@ pub async fn change_password_by_recovery_token(
         SimpleError::from("invalid token"),
     )))?;
 
-    // let maybe_user = models::User::all()
-    //     .filter(user::dsl::reset_password_token.eq(&payload.password_reset_token))
-    //     .first::<models::User>(&mut conn)
-    //     .await
-    //     .optional()
-    //     .or(Err(internal_error_res()))?;
+    let maybe_user = user::Entity::find()
+        .filter(user::Column::ResetPasswordToken.eq(&payload.password_reset_token))
+        .one(&db)
+        .await
+        .map_err(DbError::from)?;
 
-    // if let Some(usr) = maybe_user {
-    //     let new_password_hash =
-    //         hash(&payload.new_password, DEFAULT_COST).or(Err(internal_error_res()))?;
+    if let Some(usr) = maybe_user {
+        let new_password_hash =
+            hash(&payload.new_password, DEFAULT_COST).or(Err(internal_error_res()))?;
 
-    //     diesel::update(user::dsl::user)
-    //         .filter(user::dsl::id.eq(usr.id))
-    //         .set((
-    //             user::dsl::reset_password_token.eq::<Option<String>>(None),
-    //             user::dsl::password.eq(new_password_hash),
-    //         ))
-    //         .execute(&mut conn)
-    //         .await
-    //         .or(Err(internal_error_res()))?;
+        user::Entity::update_many()
+            .filter(entity::organization::Column::Id.eq(usr.id))
+            .col_expr(user::Column::Password, Expr::value(new_password_hash))
+            .col_expr(
+                user::Column::ResetPasswordToken,
+                Expr::value::<Option<String>>(None),
+            )
+            .exec(&db)
+            .await
+            .map_err(DbError::from)?;
 
-    //     return Ok(Json("password changed successfully"));
-    // }
+        return Ok(Json("password changed successfully"));
+    }
 
-    // Err((
-    //     StatusCode::NOT_FOUND,
-    //     SimpleError::from("user not found with this reset password token"),
-    // ))
-
-    todo!()
+    Err((
+        StatusCode::NOT_FOUND,
+        SimpleError::from("user not found with this reset password token"),
+    ))
 }
 
 /// Confirm email address by token
@@ -535,46 +531,44 @@ pub async fn change_password_by_recovery_token(
     ),
 )]
 pub async fn confirm_email_address_by_token(
-    DbConnection(mut conn): DbConnection,
+    DbConnection(db): DbConnection,
     ValidatedJson(payload): ValidatedJson<common::dto::Token>,
 ) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
-    // jwt::decode(&payload.token).or(Err((
-    //     StatusCode::UNAUTHORIZED,
-    //     SimpleError::from("invalid token"),
-    // )))?;
+    jwt::decode(&payload.token).or(Err((
+        StatusCode::UNAUTHORIZED,
+        SimpleError::from("invalid token"),
+    )))?;
 
-    // let maybe_user = models::User::all()
-    //     .filter(user::dsl::confirm_email_token.eq(&payload.token))
-    //     .first::<models::User>(&mut conn)
-    //     .await
-    //     .optional()
-    //     .or(Err(internal_error_res()))?;
+    let maybe_user = user::Entity::find()
+        .filter(user::Column::ConfirmEmailToken.eq(&payload.token))
+        .one(&db)
+        .await
+        .map_err(DbError::from)?;
 
-    // if let Some(usr) = maybe_user {
-    //     if usr.email_verified {
-    //         return Err((
-    //             StatusCode::BAD_REQUEST,
-    //             SimpleError::from(EMAIL_ALREADY_VERIFIED),
-    //         ));
-    //     }
+    if let Some(usr) = maybe_user {
+        if usr.email_verified {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                SimpleError::from(EMAIL_ALREADY_VERIFIED),
+            ));
+        }
 
-    //     diesel::update(user::dsl::user)
-    //         .filter(user::dsl::id.eq(usr.id))
-    //         .set((
-    //             user::dsl::email_verified.eq(true),
-    //             user::dsl::confirm_email_token.eq::<Option<String>>(None),
-    //         ))
-    //         .execute(&mut conn)
-    //         .await
-    //         .or(Err(internal_error_res()))?;
+        user::Entity::update_many()
+            .filter(entity::organization::Column::Id.eq(usr.id))
+            .col_expr(user::Column::EmailVerified, Expr::value(false))
+            .col_expr(
+                user::Column::ConfirmEmailToken,
+                Expr::value::<Option<String>>(None),
+            )
+            .exec(&db)
+            .await
+            .map_err(DbError::from)?;
 
-    //     return Ok(Json("email confirmed successfully"));
-    // }
+        return Ok(Json("email confirmed successfully"));
+    }
 
-    // Err((
-    //     StatusCode::NOT_FOUND,
-    //     SimpleError::from("user not found with this reset password token"),
-    // ))
-
-    todo!()
+    Err((
+        StatusCode::NOT_FOUND,
+        SimpleError::from("user not found with this reset password token"),
+    ))
 }

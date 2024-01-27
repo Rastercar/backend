@@ -1,6 +1,6 @@
 use super::dto::UpdateOrganizationDto;
 use crate::{
-    database::{error::DbError, models, schema::organization},
+    database::error::DbError,
     modules::{
         auth::{
             self,
@@ -198,47 +198,47 @@ pub async fn request_email_address_confirmation(
     ),
 )]
 pub async fn confirm_email_address_by_token(
-    DbConnection(mut conn): DbConnection,
+    DbConnection(db): DbConnection,
     ValidatedJson(payload): ValidatedJson<common::dto::Token>,
 ) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
-    // jwt::decode(&payload.token).or(Err((
-    //     StatusCode::UNAUTHORIZED,
-    //     SimpleError::from("invalid token"),
-    // )))?;
+    jwt::decode(&payload.token).or(Err((
+        StatusCode::UNAUTHORIZED,
+        SimpleError::from("invalid token"),
+    )))?;
 
-    // let maybe_org = organization::table
-    //     .select(models::Organization::as_select())
-    //     .filter(organization::dsl::confirm_billing_email_token.eq(&payload.token))
-    //     .first::<models::Organization>(&mut conn)
-    //     .await
-    //     .optional()
-    //     .or(Err(internal_error_res()))?;
+    let maybe_org = entity::organization::Entity::find()
+        .filter(entity::organization::Column::ConfirmBillingEmailToken.eq(&payload.token))
+        .one(&db)
+        .await
+        .map_err(DbError::from)?;
 
-    // if let Some(org) = maybe_org {
-    //     if org.billing_email_verified {
-    //         return Err((
-    //             StatusCode::BAD_REQUEST,
-    //             SimpleError::from(EMAIL_ALREADY_VERIFIED),
-    //         ));
-    //     }
+    if let Some(org) = maybe_org {
+        if org.billing_email_verified {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                SimpleError::from(EMAIL_ALREADY_VERIFIED),
+            ));
+        }
 
-    //     diesel::update(organization::dsl::organization)
-    //         .filter(organization::dsl::id.eq(org.id))
-    //         .set((
-    //             organization::dsl::billing_email_verified.eq(true),
-    //             organization::dsl::confirm_billing_email_token.eq::<Option<String>>(None),
-    //         ))
-    //         .execute(&mut conn)
-    //         .await
-    //         .or(Err(internal_error_res()))?;
+        entity::organization::Entity::update_many()
+            .col_expr(
+                entity::organization::Column::BillingEmailVerified,
+                Expr::value(false),
+            )
+            .col_expr(
+                entity::organization::Column::ConfirmBillingEmailToken,
+                Expr::value::<Option<String>>(None),
+            )
+            .filter(entity::organization::Column::Id.eq(org.id))
+            .exec(&db)
+            .await
+            .map_err(DbError::from)?;
 
-    //     return Ok(Json("email confirmed successfully"));
-    // }
+        return Ok(Json("email confirmed successfully"));
+    }
 
-    // Err((
-    //     StatusCode::NOT_FOUND,
-    //     SimpleError::from("user not found with this reset password token"),
-    // ))
-
-    todo!()
+    Err((
+        StatusCode::NOT_FOUND,
+        SimpleError::from("user not found with this reset password token"),
+    ))
 }

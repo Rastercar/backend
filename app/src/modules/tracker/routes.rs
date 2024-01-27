@@ -1,10 +1,6 @@
 use super::dto::CreateTrackerDto;
 use crate::{
-    database::{
-        error::DbError,
-        models::VehicleTracker,
-        schema::{vehicle, vehicle_tracker},
-    },
+    database::error::DbError,
     modules::{
         auth::{self, constants::Permission, middleware::AclLayer},
         common::{
@@ -19,7 +15,12 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use entity::vehicle_tracker;
 use http::StatusCode;
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder,
+    QuerySelect, Set, TryIntoModel,
+};
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
@@ -62,60 +63,56 @@ pub fn create_router(state: AppState) -> Router<AppState> {
 )]
 pub async fn create_tracker(
     OrganizationId(org_id): OrganizationId,
-    DbConnection(mut conn): DbConnection,
+    DbConnection(db): DbConnection,
     ValidatedJson(dto): ValidatedJson<CreateTrackerDto>,
-) -> Result<Json<VehicleTracker>, (StatusCode, SimpleError)> {
-    // if let Some(vehicle_id) = dto.vehicle_id {
-    //     let count: i64 = vehicle::dsl::vehicle
-    //         .filter(vehicle::dsl::id.eq(vehicle_id))
-    //         .filter(vehicle::dsl::organization_id.eq(org_id))
-    //         .count()
-    //         .get_result(&mut conn)
-    //         .await
-    //         .or(Err(internal_error_res()))?;
+) -> Result<Json<entity::vehicle_tracker::Model>, (StatusCode, SimpleError)> {
+    if let Some(vehicle_id) = dto.vehicle_id {
+        let count: i64 = entity::vehicle::Entity::find()
+            .select_only()
+            .column_as(entity::vehicle::Column::Id.count(), "count")
+            .filter(entity::vehicle::Column::Id.eq(vehicle_id))
+            .filter(entity::vehicle::Column::OrganizationId.eq(org_id))
+            .into_tuple()
+            .one(&db)
+            .await
+            .map_err(DbError::from)?
+            .unwrap_or(0);
 
-    //     if count != 1 {
-    //         return Err((
-    //             StatusCode::BAD_REQUEST,
-    //             SimpleError::from(format!(
-    //                 "vehicle: {} not found for org {}",
-    //                 vehicle_id, org_id
-    //             )),
-    //         ));
-    //     }
+        if count < 1 {
+            let err_msg = format!("vehicle: {} not found for org {}", vehicle_id, org_id);
+            return Err((StatusCode::BAD_REQUEST, SimpleError::from(err_msg)));
+        }
 
-    //     let trackers_on_vehicle_cnt: i64 = vehicle_tracker::dsl::vehicle_tracker
-    //         .filter(vehicle_tracker::dsl::vehicle_id.eq(vehicle_id))
-    //         .count()
-    //         .get_result(&mut conn)
-    //         .await
-    //         .or(Err(internal_error_res()))?;
+        let trackers_on_vehicle_cnt: i64 = entity::vehicle_tracker::Entity::find()
+            .select_only()
+            .column_as(entity::vehicle_tracker::Column::Id.count(), "count")
+            .filter(entity::vehicle_tracker::Column::VehicleId.eq(vehicle_id))
+            .into_tuple()
+            .one(&db)
+            .await
+            .map_err(DbError::from)?
+            .unwrap_or(0);
 
-    //     if trackers_on_vehicle_cnt > 0 {
-    //         return Err((
-    //             StatusCode::BAD_REQUEST,
-    //             SimpleError::from(format!(
-    //                 "vehicle: {} already has a tracker installed",
-    //                 vehicle_id
-    //             )),
-    //         ));
-    //     }
-    // }
+        if trackers_on_vehicle_cnt > 0 {
+            let err_msg = format!("vehicle: {} already has a tracker installed", vehicle_id);
+            return Err((StatusCode::BAD_REQUEST, SimpleError::from(err_msg)));
+        }
+    }
 
-    // let created_tracker = diesel::insert_into(vehicle_tracker::dsl::vehicle_tracker)
-    //     .values((
-    //         vehicle_tracker::dsl::imei.eq(dto.imei),
-    //         vehicle_tracker::dsl::model.eq(dto.model),
-    //         vehicle_tracker::dsl::vehicle_id.eq(dto.vehicle_id),
-    //         vehicle_tracker::dsl::organization_id.eq(org_id),
-    //     ))
-    //     .get_result::<VehicleTracker>(&mut conn)
-    //     .await
-    //     .map_err(|e| DbError::from(e))?;
+    let created_tracker = entity::vehicle_tracker::ActiveModel {
+        imei: Set(dto.imei),
+        model: Set(dto.model),
+        vehicle_id: Set(dto.vehicle_id),
+        organization_id: Set(org_id),
+        ..Default::default()
+    }
+    .save(&db)
+    .await
+    .map_err(DbError::from)?
+    .try_into_model()
+    .map_err(DbError::from)?;
 
-    // Ok(Json(created_tracker))
-
-    todo!()
+    Ok(Json(created_tracker))
 }
 
 /// Lists the trackers that belong to the same org as the request user
@@ -144,9 +141,15 @@ pub async fn create_tracker(
 pub async fn list_trackers(
     ValidatedQuery(query): ValidatedQuery<Pagination>,
     OrganizationId(org_id): OrganizationId,
-    DbConnection(mut conn): DbConnection,
+    DbConnection(db): DbConnection,
 ) -> Result<Json<i32>, (StatusCode, SimpleError)> {
-    // use crate::database::pagination::*;
+    let mut xd = vehicle_tracker::Entity::find()
+        .order_by_asc(vehicle_tracker::Column::Id)
+        .paginate(&db, query.page_size as u64);
+
+    while let Some(cakes) = vehicle_tracker.fetch_and_next().await? {
+        // Do something on cakes: Vec<cake::Model>
+    }
 
     // let result = vehicle_tracker::dsl::vehicle_tracker
     //     .order(vehicle_tracker::id.asc())
