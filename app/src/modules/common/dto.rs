@@ -1,4 +1,3 @@
-use entity::vehicle_tracker::Model;
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 use validator::Validate;

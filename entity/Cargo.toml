@@ -11,4 +11,5 @@ path = "src/lib.rs"
 [dependencies]
 serde = { workspace = true }
 utoipa = { workspace = true }
+chrono = { workspace = true }
 sea-orm = { workspace = true, features = [] }

@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use sea_orm::entity::prelude::*;
 use serde::Serialize;
 use utoipa::ToSchema;
@@ -8,7 +9,7 @@ use utoipa::ToSchema;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    pub created_at: DateTimeWithTimeZone,
+    pub created_at: DateTime<Utc>,
     pub model: String,
     pub imei: String,
     pub organization_id: i32,

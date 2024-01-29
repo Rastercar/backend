@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
@@ -6,7 +7,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
 
-    pub created_at: DateTimeWithTimeZone,
+    pub created_at: DateTime<Utc>,
 
     #[sea_orm(unique)]
     pub username: String,

@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
@@ -11,8 +12,8 @@ pub struct Model {
         column_type = "Binary(BlobSize::Blob(None))"
     )]
     pub session_token: Vec<u8>,
-    pub created_at: DateTimeWithTimeZone,
-    pub expires_at: DateTimeWithTimeZone,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
     pub user_agent: String,
     #[sea_orm(column_type = "custom(\"inet\")", select_as = "text", save_as = "inet")]
     pub ip: String,
