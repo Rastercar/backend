@@ -3,6 +3,7 @@ use serde::Serialize;
 use utoipa::ToSchema;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, ToSchema)]
+#[schema(title = "VehicleTracker")]
 #[sea_orm(table_name = "vehicle_tracker")]
 pub struct Model {
     #[sea_orm(primary_key)]

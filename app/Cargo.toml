@@ -11,12 +11,16 @@ path = "src/lib.rs"
 [dependencies]
 # Sub workspaces
 entity = { path = "../entity" }
+shared = { path = "../shared" }
 migration = { path = "../migration" }
 
 # Workspace inherited dependencies
 serde = { workspace = true }
+strum = { workspace = true }
+bcrypt = { workspace = true }
 utoipa = { workspace = true }
 sea-orm = { workspace = true }
+convert_case = { workspace = true }
 
 # Serde
 serde_with = "3.4.0"
@@ -54,7 +58,6 @@ aws-config = "0.56.1"
 aws-sdk-s3 = "0.33.0"
 
 # Crypto
-bcrypt = "0.15.0"
 jsonwebtoken = "8.3.0"
 
 # RNG
@@ -88,14 +91,8 @@ validator = { version = "0.16", features = ["derive"] }
 # Error handling
 anyhow = "1.0.74"
 
-# String Utils
-convert_case = "0.6.0"
-
 # Shutdown signals
 signal-hook = "0.3.17"
-
-# Enum Utils
-strum = { version = "0.25", features = ["derive"] }
 
 # Async Utils
 lazy_static = "1.4.0"

@@ -2,7 +2,7 @@ use super::dto::CreateTrackerDto;
 use crate::{
     database::error::DbError,
     modules::{
-        auth::{self, constants::Permission, middleware::AclLayer},
+        auth::{self, middleware::AclLayer},
         common::{
             dto::{Pagination, PaginationResult},
             extractors::{DbConnection, OrganizationId, ValidatedJson, ValidatedQuery},
@@ -21,6 +21,7 @@ use sea_orm::{
     ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder,
     QuerySelect, Set, TryIntoModel,
 };
+use shared::Permission;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
@@ -143,7 +144,7 @@ pub async fn list_trackers(
     OrganizationId(org_id): OrganizationId,
     DbConnection(db): DbConnection,
 ) -> Result<Json<PaginationResult<entity::vehicle_tracker::Model>>, (StatusCode, SimpleError)> {
-    // TODO: utoipa (also abstract pagination?)
+    // TODO: utoipa / list free trackers depending on query
     let db_query = vehicle_tracker::Entity::find()
         .filter(vehicle_tracker::Column::OrganizationId.eq(org_id))
         .order_by_asc(vehicle_tracker::Column::Id)

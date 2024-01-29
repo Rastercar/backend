@@ -1,3 +1,4 @@
+use entity::vehicle_tracker::Model as VehicleTracker;
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 use validator::Validate;
@@ -37,7 +38,9 @@ pub struct Pagination {
 /// Pagination metadata of a executed query
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-#[aliases(PaginatedVehicleTracker = PaginationResult<entity::vehicle_tracker::Model>)]
+#[aliases(
+    PaginatedVehicleTracker = PaginationResult<VehicleTracker>
+)]
 pub struct PaginationResult<T: for<'_s> ToSchema<'_s>> {
     /// 1 Indexed Page number
     ///

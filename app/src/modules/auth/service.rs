@@ -1,4 +1,3 @@
-use super::constants::Permission;
 use super::dto::{self, OrganizationDto, UserDto};
 use super::jwt::{self, Claims};
 use crate::modules::auth::session::{SessionId, SESSION_DAYS_DURATION};
@@ -12,6 +11,7 @@ use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, Set,
     TransactionTrait, TryIntoModel,
 };
+use shared::Permission;
 use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 

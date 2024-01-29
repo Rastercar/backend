@@ -1,7 +1,7 @@
 use super::dto::CreateVehicleDto;
 use crate::{
     modules::{
-        auth::{self, constants::Permission, middleware::AclLayer},
+        auth::{self, middleware::AclLayer},
         common::{
             extractors::{OrganizationId, ValidatedMultipart},
             multipart_form_data,
@@ -17,6 +17,7 @@ use axum::{routing::post, Json, Router};
 use http::StatusCode;
 use migration::Expr;
 use sea_orm::{ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
+use shared::Permission;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()

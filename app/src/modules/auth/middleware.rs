@@ -1,5 +1,4 @@
 use super::{
-    constants::Permission,
     dto::{self, UserDto},
     service::UserDtoEntities,
     session::get_session_id_from_request_headers,
@@ -25,6 +24,7 @@ use convert_case::{Case, Casing};
 use futures_util::future::BoxFuture;
 use http::Request;
 use http::StatusCode;
+use shared::Permission;
 use std::convert::Infallible;
 use std::task::Context;
 use std::task::Poll;

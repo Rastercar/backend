@@ -3,9 +3,7 @@ use crate::{
     database::error::DbError,
     modules::{
         auth::{
-            self,
-            constants::Permission,
-            jwt,
+            self, jwt,
             middleware::{AclLayer, RequestUser},
         },
         common::{
@@ -26,6 +24,7 @@ use axum::{
 use http::StatusCode;
 use migration::Expr;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryTrait};
+use shared::Permission;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()

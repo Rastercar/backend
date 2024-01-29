@@ -13,6 +13,8 @@ migration = { path = "migration" }
 
 # Depencies shared by "sub" workspaces
 [workspace.dependencies]
+bcrypt = "0.15.0"
+convert_case = "0.6.0"
 sea-orm = { version = "0.12", features = [
     "macros",
     "debug-print",
@@ -21,4 +23,5 @@ sea-orm = { version = "0.12", features = [
     "runtime-tokio-rustls",
 ] }
 serde = { version = "1", features = ["derive"] }
+strum = { version = "0.25", features = ["derive"] }
 utoipa = { version = "3.5.0", features = ["chrono", "uuid"] }
