@@ -40,7 +40,7 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         )
         .route(
             "/me/request-email-address-confirmation",
-            post(request_email_address_confirmation),
+            post(request_user_email_address_confirmation),
         )
         .layer(axum::middleware::from_fn_with_state(
             state,
@@ -336,7 +336,7 @@ async fn delete_profile_picture(
         ),
     ),
 )]
-pub async fn request_email_address_confirmation(
+pub async fn request_user_email_address_confirmation(
     State(state): State<AppState>,
     Extension(req_user): Extension<RequestUser>,
 ) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {

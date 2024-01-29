@@ -1,4 +1,4 @@
-use entity::vehicle_tracker::Model as VehicleTracker;
+use entity::vehicle_tracker::Model;
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 use validator::Validate;
@@ -25,6 +25,7 @@ fn default_page_size() -> u64 {
 
 #[derive(Deserialize, IntoParams, Validate)]
 #[serde(rename_all = "camelCase")]
+#[into_params(parameter_in = Query)]
 pub struct Pagination {
     #[serde(default = "default_page")]
     #[validate(range(min = 1, max = 99999))]
@@ -39,7 +40,7 @@ pub struct Pagination {
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[aliases(
-    PaginatedVehicleTracker = PaginationResult<VehicleTracker>
+    PaginatedVehicleTracker = PaginationResult<entity::vehicle_tracker::Model>
 )]
 pub struct PaginationResult<T: for<'_s> ToSchema<'_s>> {
     /// 1 Indexed Page number

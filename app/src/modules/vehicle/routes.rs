@@ -43,7 +43,7 @@ pub fn create_router(state: AppState) -> Router<AppState> {
             status = OK,
             description = "the created vehicle",
             content_type = "application/json",
-            body = Vehicle,
+            body = entity::vehicle::Model,
         ),
         (
             status = UNAUTHORIZED,

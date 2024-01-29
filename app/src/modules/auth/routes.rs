@@ -49,7 +49,7 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         )
         .route(
             "/confirm-email-address-by-token",
-            post(confirm_email_address_by_token),
+            post(confirm_user_email_address_by_token),
         )
 }
 
@@ -160,7 +160,7 @@ pub async fn sign_out(
 /// deletes the user session with the provided public ID, a public id can be found on any endpoint that list sessions
 #[utoipa::path(
     delete,
-    path = "/auth/sign-out/{public_session_id}",
+    path = "/auth/sign-out/{session_id}",
     tag = "auth",
     params(
         ("session_id" = u128, Path, description = "public id of the session to delete"),
@@ -530,7 +530,7 @@ pub async fn change_password_by_recovery_token(
         ),
     ),
 )]
-pub async fn confirm_email_address_by_token(
+pub async fn confirm_user_email_address_by_token(
     DbConnection(db): DbConnection,
     ValidatedJson(payload): ValidatedJson<common::dto::Token>,
 ) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {

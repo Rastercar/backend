@@ -2,8 +2,10 @@ use sea_orm::entity::prelude::*;
 use serde::Serialize;
 use utoipa::ToSchema;
 
+// TODO:!
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, ToSchema)]
-#[schema(title = "VehicleTracker")]
+// #[schema(title = "VehicleTracker")]
+#[schema(as = entity::vehicle_tracker::Model)]
 #[sea_orm(table_name = "vehicle_tracker")]
 pub struct Model {
     #[sea_orm(primary_key)]

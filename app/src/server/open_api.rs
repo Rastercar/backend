@@ -6,14 +6,13 @@ use utoipa::{openapi::OpenApiBuilder, Modify, OpenApi};
 use utoipa_swagger_ui::SwaggerUi;
 use utoipa_rapidoc::RapiDoc;
 use axum::Router;
-use entity::vehicle_tracker::Model as VehicleTracker;
 
 #[derive(OpenApi)]
 #[openapi(
     components(schemas(
         entity::vehicle::Model,
+        entity::vehicle_tracker::Model,
         
-        VehicleTracker,
         common::dto::PaginatedVehicleTracker,
 
         common::dto::Token,
@@ -47,7 +46,7 @@ use entity::vehicle_tracker::Model as VehicleTracker;
         user::routes::put_password,
         user::routes::put_profile_picture,
         user::routes::delete_profile_picture,
-        user::routes::request_email_address_confirmation,
+        user::routes::request_user_email_address_confirmation,
         
         auth::routes::sign_up,
         auth::routes::sign_in,
@@ -55,8 +54,8 @@ use entity::vehicle_tracker::Model as VehicleTracker;
         auth::routes::list_sessions,
         auth::routes::sign_out_session_by_id,
         auth::routes::request_recover_password_email,
-        auth::routes::confirm_email_address_by_token,
         auth::routes::change_password_by_recovery_token,
+        auth::routes::confirm_user_email_address_by_token,
         
         vehicle::routes::create_vehicle,
 

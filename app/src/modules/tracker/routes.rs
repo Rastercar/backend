@@ -48,7 +48,7 @@ pub fn create_router(state: AppState) -> Router<AppState> {
             status = OK,
             description = "the created tracker",
             content_type = "application/json",
-            body = VehicleTracker,
+            body = entity::vehicle_tracker::Model,
         ),
         (
             status = UNAUTHORIZED,
