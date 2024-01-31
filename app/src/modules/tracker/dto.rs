@@ -1,8 +1,7 @@
 use serde::Deserialize;
+use shared::TrackerModel;
 use utoipa::ToSchema;
 use validator::{Validate, ValidationError};
-
-use super::constants::TrackerModel;
 
 fn is_supported_tracker_model(model: &str) -> Result<(), ValidationError> {
     let allowed_models = TrackerModel::to_string_vec();

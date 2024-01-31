@@ -144,13 +144,16 @@ pub async fn list_trackers(
     OrganizationId(org_id): OrganizationId,
     DbConnection(db): DbConnection,
 ) -> Result<Json<PaginationResult<entity::vehicle_tracker::Model>>, (StatusCode, SimpleError)> {
-    // TODO: utoipa / list free trackers depending on query
+    // TODO: list free trackers depending on query
     let db_query = vehicle_tracker::Entity::find()
         .filter(vehicle_tracker::Column::OrganizationId.eq(org_id))
         .order_by_asc(vehicle_tracker::Column::Id)
         .paginate(&db, query.page_size);
 
-    let page_count = db_query.num_pages().await.map_err(DbError::from)?;
+    let n = db_query
+        .num_items_and_pages()
+        .await
+        .map_err(DbError::from)?;
 
     let records = db_query
         .fetch_page(query.page - 1)
@@ -161,7 +164,8 @@ pub async fn list_trackers(
         page: query.page,
         records,
         page_size: query.page_size,
-        page_count,
+        item_count: n.number_of_items,
+        page_count: n.number_of_pages,
     };
 
     Ok(Json(result))

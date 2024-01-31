@@ -6,6 +6,7 @@ mod m20240125_135000_hypertable_tracker_last_location;
 mod m20240125_135052_last_position_trigger;
 mod m20240128_013232_seed_test_data;
 mod seeder;
+mod seeder_consts;
 
 pub struct Migrator;
 

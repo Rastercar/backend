@@ -114,7 +114,6 @@ impl AuthService {
         user_password: String,
     ) -> Result<dto::UserDto, UserFromCredentialsError> {
         let result = entity::user::Entity::find()
-            .inner_join(entity::session::Entity)
             .filter(entity::user::Column::Email.eq(user_email))
             .find_also_related(entity::organization::Entity)
             .one(&self.db)
@@ -305,7 +304,7 @@ impl From<UserDtoEntities> for UserDto {
 
         Self {
             id: user.id,
-            created_at: user.created_at.into(),
+            created_at: user.created_at,
             username: user.username,
             email: user.email,
             email_verified: user.email_verified,

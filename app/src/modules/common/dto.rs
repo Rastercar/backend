@@ -47,8 +47,11 @@ pub struct PaginationResult<T: for<'_s> ToSchema<'_s>> {
     /// used to determine the offset used in the query
     pub page: u64,
 
-    /// Total records available for the given query
+    /// Total pages available for the given query
     pub page_count: u64,
+
+    /// Total items available for the given query
+    pub item_count: u64,
 
     /// Amount of records per page
     pub page_size: u64,

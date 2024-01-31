@@ -31,7 +31,7 @@ pub async fn main() {
 
     let cfg = app_config();
 
-    let db = database::db::create_db_conn(&cfg.db_url).await;
+    let db = database::db::connect(&cfg.db_url).await;
 
     database::db::run_migrations(&db).await;
 

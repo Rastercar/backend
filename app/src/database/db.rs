@@ -3,7 +3,7 @@ use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use std::time::Duration;
 use tracing::info;
 
-pub async fn create_db_conn(db_url: &str) -> DatabaseConnection {
+pub async fn connect(db_url: &str) -> DatabaseConnection {
     let mut opt = ConnectOptions::new(db_url);
 
     opt.max_connections(100)

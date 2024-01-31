@@ -19,3 +19,17 @@ impl Permission {
             .collect::<Vec<_>>()
     }
 }
+
+/// All the tracker models that are supported by rastercar
+#[derive(Debug, EnumIter, Display, Clone)]
+pub enum TrackerModel {
+    H02,
+}
+
+impl TrackerModel {
+    pub fn to_string_vec() -> Vec<String> {
+        TrackerModel::iter()
+            .map(|e| e.to_string())
+            .collect::<Vec<_>>()
+    }
+}

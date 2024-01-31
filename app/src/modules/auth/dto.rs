@@ -139,7 +139,7 @@ impl From<entity::organization::Model> for OrganizationDto {
     fn from(m: entity::organization::Model) -> Self {
         Self {
             id: m.id,
-            created_at: m.created_at.into(),
+            created_at: m.created_at,
             billing_email: m.billing_email,
             name: m.name,
             blocked: m.blocked,
@@ -154,8 +154,8 @@ impl From<entity::session::Model> for SessionDto {
             ip: m.ip.to_string(),
             public_id: m.public_id,
             user_agent: m.user_agent,
-            created_at: m.created_at.into(),
-            expires_at: m.expires_at.into(),
+            created_at: m.created_at,
+            expires_at: m.expires_at,
             same_as_from_request: false,
         }
     }
@@ -165,7 +165,7 @@ impl From<entity::access_level::Model> for AccessLevelDto {
     fn from(m: entity::access_level::Model) -> Self {
         Self {
             id: m.id,
-            created_at: m.created_at.into(),
+            created_at: m.created_at,
             name: m.name,
             description: m.description,
             is_fixed: m.is_fixed,
