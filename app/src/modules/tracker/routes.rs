@@ -1,4 +1,4 @@
-use super::dto::CreateTrackerDto;
+use super::dto::{CreateTrackerDto, ListTrackersDto};
 use crate::{
     database::error::DbError,
     modules::{
@@ -17,9 +17,11 @@ use axum::{
 };
 use entity::vehicle_tracker;
 use http::StatusCode;
+use migration::Expr;
+use sea_orm::sea_query::extension::postgres::PgExpr;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder,
-    QuerySelect, Set, TryIntoModel,
+    QuerySelect, QueryTrait, Set, TryIntoModel,
 };
 use shared::Permission;
 
@@ -141,21 +143,40 @@ pub async fn create_tracker(
 )]
 pub async fn list_trackers(
     ValidatedQuery(query): ValidatedQuery<Pagination>,
+    ValidatedQuery(filter): ValidatedQuery<ListTrackersDto>,
     OrganizationId(org_id): OrganizationId,
     DbConnection(db): DbConnection,
 ) -> Result<Json<PaginationResult<entity::vehicle_tracker::Model>>, (StatusCode, SimpleError)> {
-    // TODO: list free trackers depending on query
     let db_query = vehicle_tracker::Entity::find()
         .filter(vehicle_tracker::Column::OrganizationId.eq(org_id))
+        .apply_if(filter.with_associated_vehicle, |query, with_vehicle| {
+            if with_vehicle {
+                query.filter(vehicle_tracker::Column::VehicleId.is_not_null())
+            } else {
+                query.filter(vehicle_tracker::Column::VehicleId.is_null())
+            }
+        })
+        .apply_if(filter.imei, |query, imei| {
+            if imei != "" {
+                query.filter(
+                    Expr::col((vehicle_tracker::Entity, vehicle_tracker::Column::Imei))
+                        .ilike(format!("%{}%", imei)),
+                )
+            } else {
+                query
+            }
+        });
+
+    let paginated_query = db_query
         .order_by_asc(vehicle_tracker::Column::Id)
         .paginate(&db, query.page_size);
 
-    let n = db_query
+    let n = paginated_query
         .num_items_and_pages()
         .await
         .map_err(DbError::from)?;
 
-    let records = db_query
+    let records = paginated_query
         .fetch_page(query.page - 1)
         .await
         .map_err(DbError::from)?;

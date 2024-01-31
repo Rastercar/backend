@@ -34,6 +34,7 @@ use axum::Router;
 
         vehicle::dto::CreateVehicleDto,
 
+        tracker::dto::ListTrackersDto,
         tracker::dto::CreateTrackerDto,
 
         organization::dto::UpdateOrganizationDto,

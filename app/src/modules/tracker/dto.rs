@@ -26,3 +26,15 @@ pub struct CreateTrackerDto {
     #[validate(range(min = 1))]
     pub vehicle_id: Option<i32>,
 }
+
+// TODO: remove debug
+#[derive(Deserialize, ToSchema, Validate, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ListTrackersDto {
+    /// Search trackers by IMEI
+    pub imei: Option<String>,
+
+    /// If the trackers should be filtered if they are associated
+    /// to a vehicle or not, `None` means `any`
+    pub with_associated_vehicle: Option<bool>,
+}
