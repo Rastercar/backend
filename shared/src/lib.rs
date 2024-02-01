@@ -5,9 +5,12 @@ use strum::{Display, EnumIter, IntoEnumIterator};
 #[derive(Debug, EnumIter, Display, Clone)]
 pub enum Permission {
     CreateTracker,
+    UpdateTracker,
+
     CreateVehicle,
     UpdateVehicle,
     DeleteVehicle,
+
     UpdateOrganization,
 }
 

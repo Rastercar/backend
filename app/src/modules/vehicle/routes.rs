@@ -34,8 +34,8 @@ pub fn create_router(state: AppState) -> Router<AppState> {
 /// Required permissions: CREATE_VEHICLE
 #[utoipa::path(
     post,
-    path = "/vehicle",
     tag = "vehicle",
+    path = "/vehicle",
     security(("session_id" = [])),
     request_body(content = CreateVehicleDto, content_type = "multipart/form-data"),
     responses(

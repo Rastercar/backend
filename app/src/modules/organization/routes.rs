@@ -49,8 +49,8 @@ pub fn create_router(state: AppState) -> Router<AppState> {
 /// Required permissions: UPDATE_ORGANIZATION
 #[utoipa::path(
     patch,
-    path = "/organization",
     tag = "organization",
+    path = "/organization",
     security(("session_id" = [])),
     request_body = UpdateOrganizationDto,
     responses(
@@ -105,8 +105,8 @@ pub async fn update_org(
 /// Sends a billing email address confirmation email to the request user organization email address
 #[utoipa::path(
     post,
-    path = "/organization/request-billing-email-address-confirmation",
     tag = "organization",
+    path = "/organization/request-billing-email-address-confirmation",
     security(("session_id" = [])),
     responses(
         (
@@ -172,8 +172,8 @@ pub async fn request_email_address_confirmation(
 /// Confirms the email address of the organization with this token
 #[utoipa::path(
     post,
-    path = "/organization/confirm-email-address-by-token",
     tag = "organization",
+    path = "/organization/confirm-email-address-by-token",
     request_body = Token,
     security(("session_id" = [])),
     responses(

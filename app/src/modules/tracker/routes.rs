@@ -1,4 +1,4 @@
-use super::dto::{CreateTrackerDto, ListTrackersDto};
+use super::dto::{self, CreateTrackerDto, ListTrackersDto};
 use crate::{
     database::error::DbError,
     modules::{
@@ -12,7 +12,8 @@ use crate::{
     server::controller::AppState,
 };
 use axum::{
-    routing::{get, post},
+    extract::Path,
+    routing::{get, post, put},
     Json, Router,
 };
 use entity::vehicle_tracker;
@@ -30,10 +31,103 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         .route("/", post(create_tracker))
         .layer(AclLayer::new(vec![Permission::CreateTracker]))
         .route("/", get(list_trackers))
+        .route("/:tracker_id/vehicle", put(set_tracker_vehicle))
+        .layer(AclLayer::new(vec![Permission::UpdateTracker]))
         .layer(axum::middleware::from_fn_with_state(
             state,
             auth::middleware::require_user,
         ))
+}
+
+/// Sets a tracker vehicle
+///
+/// Required permissions: UPDATE_TRACKER
+#[utoipa::path(
+    put,
+    tag = "tracker",
+    path = "/tracker/{tracker_id}/vehicle",
+    security(("session_id" = [])),
+    params(
+        ("tracker_id" = u128, Path, description = "id of the tracker to associate to the vehicle"),
+    ),
+    request_body(content = SetTrackerVehicleDto),
+    responses(
+        (
+            status = OK,
+            description = "success message",
+            body = String,
+            content_type = "application/json",
+            example = json!("tracker vehicle set successfully"),
+        ),
+        (
+            status = UNAUTHORIZED,
+            description = "expired or invalid token",
+            body = SimpleError,
+        ),
+        (
+            status = BAD_REQUEST,
+            description = "tracker <id> is already has a vehicle",
+            body = SimpleError,
+        ),
+    ),
+)]
+pub async fn set_tracker_vehicle(
+    Path(tracker_id): Path<i32>,
+    OrganizationId(org_id): OrganizationId,
+    DbConnection(db): DbConnection,
+    ValidatedJson(payload): ValidatedJson<dto::SetTrackerVehicleDto>,
+) -> Result<Json<String>, (StatusCode, SimpleError)> {
+    let tracker = entity::vehicle_tracker::Entity::find_by_id(tracker_id)
+        .filter(entity::vehicle_tracker::Column::OrganizationId.eq(org_id))
+        .one(&db)
+        .await
+        .map_err(DbError::from)?
+        .ok_or((
+            StatusCode::NOT_FOUND,
+            SimpleError::from("tracker not found"),
+        ))?;
+
+    let vehicle = entity::vehicle::Entity::find_by_id(payload.vehicle_id)
+        .filter(entity::vehicle::Column::OrganizationId.eq(org_id))
+        .one(&db)
+        .await
+        .map_err(DbError::from)?
+        .ok_or((
+            StatusCode::NOT_FOUND,
+            SimpleError::from("vehicle not found"),
+        ))?;
+
+    if tracker.vehicle_id.is_some() {
+        let err_msg = format!("tracker {} is already has a vehicle", tracker.id);
+        return Err((StatusCode::BAD_REQUEST, SimpleError::from(err_msg)));
+    }
+
+    let trackers_associated_with_vehicle: i64 = entity::vehicle_tracker::Entity::find()
+        .select_only()
+        .column_as(entity::vehicle_tracker::Column::Id.count(), "count")
+        .filter(entity::vehicle_tracker::Column::VehicleId.eq(payload.vehicle_id))
+        .into_tuple()
+        .one(&db)
+        .await
+        .map_err(DbError::from)?
+        .unwrap_or(0);
+
+    if trackers_associated_with_vehicle > 0 {
+        let err_msg = format!("vehicle: {} already has a tracker", payload.vehicle_id);
+        return Err((StatusCode::BAD_REQUEST, SimpleError::from(err_msg)));
+    }
+
+    entity::vehicle_tracker::Entity::update_many()
+        .col_expr(
+            entity::vehicle_tracker::Column::VehicleId,
+            Expr::value(vehicle.id),
+        )
+        .filter(entity::vehicle_tracker::Column::Id.eq(tracker.id))
+        .exec(&db)
+        .await
+        .map_err(DbError::from)?;
+
+    Ok(Json(String::from("tracker vehicle set successfully")))
 }
 
 /// Creates a new tracker
@@ -41,8 +135,8 @@ pub fn create_router(state: AppState) -> Router<AppState> {
 /// Required permissions: CREATE_TRACKER
 #[utoipa::path(
     post,
-    path = "/tracker",
     tag = "tracker",
+    path = "/tracker",
     security(("session_id" = [])),
     request_body = CreateTrackerDto,
     responses(
@@ -121,8 +215,8 @@ pub async fn create_tracker(
 /// Lists the trackers that belong to the same org as the request user
 #[utoipa::path(
     get,
-    path = "/tracker",
     tag = "tracker",
+    path = "/tracker",
     security(("session_id" = [])),
     params(
         Pagination

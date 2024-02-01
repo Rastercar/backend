@@ -53,8 +53,8 @@ pub fn create_router(state: AppState) -> Router<AppState> {
 /// the request user is the user that owns the session on the session id (sid) cookie
 #[utoipa::path(
     get,
-    path = "/user/me",
     tag = "user",
+    path = "/user/me",
     security(("session_id" = [])),
     responses(
         (
@@ -75,8 +75,8 @@ pub async fn me(Extension(req_user): Extension<RequestUser>) -> Json<UserDto> {
 /// Updates the request user
 #[utoipa::path(
     patch,
-    path = "/user/me",
     tag = "user",
+    path = "/user/me",
     security(("session_id" = [])),
     request_body = UpdateUserDto,
     responses(
@@ -132,8 +132,8 @@ pub async fn update_me(
 /// Changes the user password
 #[utoipa::path(
     put,
-    path = "/user/me/password",
     tag = "user",
+    path = "/user/me/password",
     security(("session_id" = [])),
     request_body(content = ChangePasswordDto),
     responses(
@@ -192,8 +192,8 @@ async fn put_password(
 /// Replaces the request user profile picture
 #[utoipa::path(
     put,
-    path = "/user/me/profile-picture",
     tag = "user",
+    path = "/user/me/profile-picture",
     security(("session_id" = [])),
     request_body(content = ProfilePicDto, content_type = "multipart/form-data"),
     responses(
@@ -266,8 +266,8 @@ async fn put_profile_picture(
 /// Removes the request user profile picture
 #[utoipa::path(
     delete,
-    path = "/user/me/profile-picture",
     tag = "user",
+    path = "/user/me/profile-picture",
     security(("session_id" = [])),
     responses(
         (
@@ -314,8 +314,8 @@ async fn delete_profile_picture(
 /// sends a email address confirmation email to be sent to the request user email address
 #[utoipa::path(
     post,
-    path = "/user/me/request-email-address-confirmation",
     tag = "user",
+    path = "/user/me/request-email-address-confirmation",
     responses(
         (
             status = OK,

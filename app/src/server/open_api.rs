@@ -33,9 +33,10 @@ use axum::Router;
         auth::dto::RegisterOrganization,
 
         vehicle::dto::CreateVehicleDto,
-
+        
         tracker::dto::ListTrackersDto,
         tracker::dto::CreateTrackerDto,
+        tracker::dto::SetTrackerVehicleDto,
 
         organization::dto::UpdateOrganizationDto,
     )),
@@ -59,9 +60,10 @@ use axum::Router;
         auth::routes::confirm_user_email_address_by_token,
         
         vehicle::routes::create_vehicle,
-
+        
         tracker::routes::list_trackers,
         tracker::routes::create_tracker,
+        tracker::routes::set_tracker_vehicle,
 
         organization::routes::update_org,
         organization::routes::confirm_email_address_by_token,

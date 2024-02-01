@@ -69,8 +69,8 @@ fn sign_in_or_up_response(
 /// List all sessions for the request user
 #[utoipa::path(
     get,
-    path = "/auth/sessions",
     tag = "auth",
+    path = "/auth/sessions",
     security(("session_id" = [])),
     responses(
         (
@@ -124,8 +124,8 @@ pub async fn list_sessions(
 /// request cookie
 #[utoipa::path(
     post,
-    path = "/auth/sign-out",
     tag = "auth",
+    path = "/auth/sign-out",
     security(("session_id" = [])),
     responses(
         (
@@ -160,8 +160,8 @@ pub async fn sign_out(
 /// deletes the user session with the provided public ID, a public id can be found on any endpoint that list sessions
 #[utoipa::path(
     delete,
-    path = "/auth/sign-out/{session_id}",
     tag = "auth",
+    path = "/auth/sign-out/{session_id}",
     params(
         ("session_id" = u128, Path, description = "public id of the session to delete"),
     ),
@@ -237,8 +237,8 @@ async fn sign_out_session_by_id(
 /// Sign in by credentials (email, password)
 #[utoipa::path(
     post,
-    path = "/auth/sign-in",
     tag = "auth",
+    path = "/auth/sign-in",
     request_body = SignIn,
     responses(
         (
@@ -308,8 +308,8 @@ pub async fn sign_in(
 /// and his new session cookie.
 #[utoipa::path(
     post,
-    path = "/auth/sign-up",
     tag = "auth",
+    path = "/auth/sign-up",
     request_body = RegisterOrganization,
     responses(
         (
@@ -379,8 +379,8 @@ pub async fn sign_up(
 /// a active user account exists with it.
 #[utoipa::path(
     post,
-    path = "/auth/request-recover-password-email",
     tag = "auth",
+    path = "/auth/request-recover-password-email",
     request_body = EmailAddress,
     responses(
         (
@@ -440,8 +440,8 @@ pub async fn request_recover_password_email(
 /// Sets a new password for the account in the recover password JWT.
 #[utoipa::path(
     post,
-    path = "/auth/change-password-by-recovery-token",
     tag = "auth",
+    path = "/auth/change-password-by-recovery-token",
     request_body = ResetPassword,
     responses(
         (
@@ -507,8 +507,8 @@ pub async fn change_password_by_recovery_token(
 /// Confirms the email address of the user with this token
 #[utoipa::path(
     post,
-    path = "/auth/confirm-email-address-by-token",
     tag = "auth",
+    path = "/auth/confirm-email-address-by-token",
     request_body = Token,
     responses(
         (

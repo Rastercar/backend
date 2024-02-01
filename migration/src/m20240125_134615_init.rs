@@ -108,6 +108,11 @@ impl MigrationTrait for Migration {
             "vehicle_tracker"
         add
             constraint "vehicle_tracker_imei_unique" unique ("imei", "organization_id");
+
+        alter table
+            "vehicle_tracker"
+        add
+            constraint "vehicle_tracker_vehicle_id_unique" unique ("vehicle_id");
         
         create table "sim_card" (
             "id" serial primary key,
