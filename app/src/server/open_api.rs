@@ -1,4 +1,4 @@
-use crate::modules::{auth, common, user, organization, vehicle, tracker};
+use crate::modules::{auth, common, user, organization, vehicle, tracker, sim_card};
 use crate::server::controller;
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use utoipa::openapi::{ContactBuilder, InfoBuilder};
@@ -11,8 +11,10 @@ use axum::Router;
 #[openapi(
     components(schemas(
         entity::vehicle::Model,
+        entity::sim_card::Model,
         entity::vehicle_tracker::Model,
         
+        common::dto::PaginatedSimCard,
         common::dto::PaginatedVehicleTracker,
 
         common::dto::Token,
@@ -34,7 +36,6 @@ use axum::Router;
 
         vehicle::dto::CreateVehicleDto,
         
-        tracker::dto::ListTrackersDto,
         tracker::dto::CreateTrackerDto,
         tracker::dto::SetTrackerVehicleDto,
 
@@ -61,9 +62,12 @@ use axum::Router;
         
         vehicle::routes::create_vehicle,
         
+        sim_card::routes::list_sim_cards,
+        
         tracker::routes::list_trackers,
         tracker::routes::create_tracker,
         tracker::routes::set_tracker_vehicle,
+        tracker::routes::list_tracker_sim_cards,
 
         organization::routes::update_org,
         organization::routes::confirm_email_address_by_token,

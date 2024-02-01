@@ -21,6 +21,7 @@ bcrypt = { workspace = true }
 utoipa = { workspace = true }
 chrono = { workspace = true }
 sea-orm = { workspace = true }
+lazy_static = { workspace = true }
 convert_case = { workspace = true }
 
 # Serde
@@ -95,5 +96,4 @@ anyhow = "1.0.74"
 signal-hook = "0.3.17"
 
 # Async Utils
-lazy_static = "1.4.0"
 futures-util = "0.3.29"

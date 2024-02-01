@@ -2374,6 +2374,7 @@ dependencies = [
  "bcrypt",
  "entity",
  "fake",
+ "lazy_static",
  "rand",
  "sea-orm-migration",
  "shared",

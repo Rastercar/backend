@@ -33,10 +33,49 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         .route("/", get(list_trackers))
         .route("/:tracker_id/vehicle", put(set_tracker_vehicle))
         .layer(AclLayer::new(vec![Permission::UpdateTracker]))
+        .route("/:tracker_id/sim-cards", get(list_tracker_sim_cards))
         .layer(axum::middleware::from_fn_with_state(
             state,
             auth::middleware::require_user,
         ))
+}
+
+/// List SIM cards that belong to a tracker
+#[utoipa::path(
+    get,
+    tag = "tracker",
+    path = "/tracker/{tracker_id}/sim-cards",
+    security(("session_id" = [])),
+    params(
+        ("tracker_id" = u128, Path, description = "id of the tracker"),
+    ),
+    responses(
+        (
+            status = OK,
+            description = "tracker sim cards",
+            body = Vec<entity::sim_card::Model>,
+            content_type = "application/json",
+        ),
+        (
+            status = UNAUTHORIZED,
+            description = "expired or invalid token",
+            body = SimpleError,
+        ),
+    ),
+)]
+pub async fn list_tracker_sim_cards(
+    Path(tracker_id): Path<i32>,
+    OrganizationId(org_id): OrganizationId,
+    DbConnection(db): DbConnection,
+) -> Result<Json<Vec<entity::sim_card::Model>>, (StatusCode, SimpleError)> {
+    let trackers = entity::sim_card::Entity::find()
+        .filter(entity::sim_card::Column::TrackerId.eq(tracker_id))
+        .filter(entity::sim_card::Column::OrganizationId.eq(org_id))
+        .all(&db)
+        .await
+        .map_err(DbError::from)?;
+
+    Ok(Json(trackers))
 }
 
 /// Sets a tracker vehicle
@@ -219,7 +258,8 @@ pub async fn create_tracker(
     path = "/tracker",
     security(("session_id" = [])),
     params(
-        Pagination
+        Pagination,
+        ListTrackersDto
     ),
     responses(
         (
@@ -252,10 +292,8 @@ pub async fn list_trackers(
         })
         .apply_if(filter.imei, |query, imei| {
             if imei != "" {
-                query.filter(
-                    Expr::col((vehicle_tracker::Entity, vehicle_tracker::Column::Imei))
-                        .ilike(format!("%{}%", imei)),
-                )
+                let col = Expr::col((vehicle_tracker::Entity, vehicle_tracker::Column::Imei));
+                query.filter(col.ilike(format!("%{}%", imei)))
             } else {
                 query
             }

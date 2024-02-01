@@ -1,3 +1,6 @@
+use lazy_static::lazy_static;
+use rand::seq::SliceRandom;
+
 /// SEE: https://github.com/cheprasov/json-colors/blob/master/colors.json
 pub const COLORS: [&'static str; 1302] = [
     "Absolute Zero",
@@ -2241,3 +2244,124 @@ pub const VEHICLE_MODELS: [&'static str; 892] = [
     "Fortwo coupé",
     "Roadster",
 ];
+
+#[derive(Clone)]
+pub struct FakeApn {
+    pub apn: String,
+    pub user: String,
+    pub pass: String,
+}
+
+lazy_static! {
+    pub static ref APN_LIST: Vec<FakeApn> = vec![
+        FakeApn {
+            apn: String::from("soracom.io"),
+            user: String::from("sora"),
+            pass: String::from("sora"),
+        },
+        FakeApn {
+            apn: String::from("soracom.io-docomo"),
+            user: String::from("sora"),
+            pass: String::from("sora"),
+        },
+        FakeApn {
+            apn: String::from("lte-d.ocn.ne.jp"),
+            user: String::from("mobileid@ocn"),
+            pass: String::from("mobile"),
+        },
+        FakeApn {
+            apn: String::from("3g-d-2.ocn.ne.jp"),
+            user: String::from("mobileid@ocn"),
+            pass: String::from("mobile"),
+        },
+        FakeApn {
+            apn: String::from("iijmio.jp"),
+            user: String::from("mio@iij"),
+            pass: String::from("iij"),
+        },
+        FakeApn {
+            apn: String::from("iijmio.jp-ipv4v6"),
+            user: String::from("mio@iij"),
+            pass: String::from("iij"),
+        },
+        FakeApn {
+            apn: String::from("iijmio.jp-ipv6"),
+            user: String::from("mio@iij"),
+            pass: String::from("iij"),
+        },
+        FakeApn {
+            apn: String::from("iijmobile.jp"),
+            user: String::from("mobile@iij"),
+            pass: String::from("iij"),
+        },
+        FakeApn {
+            apn: String::from("iijmobile.jp-ipv4v6"),
+            user: String::from("mobile@iij"),
+            pass: String::from("iij"),
+        },
+        FakeApn {
+            apn: String::from("iijmobile.jp-ipv6"),
+            user: String::from("mobile@iij"),
+            pass: String::from("iij"),
+        },
+        FakeApn {
+            apn: String::from("iijmobile.biz"),
+            user: String::from("biz@iij"),
+            pass: String::from("iij"),
+        },
+        FakeApn {
+            apn: String::from("iijmobile.biz-ipv4v6"),
+            user: String::from("biz@iij"),
+            pass: String::from("iij"),
+        },
+        FakeApn {
+            apn: String::from("iijmobile.biz-ipv6"),
+            user: String::from("biz@iij"),
+            pass: String::from("iij"),
+        },
+        FakeApn {
+            apn: String::from("internet4gd.gdsp"),
+            user: String::from("web"),
+            pass: String::from("web"),
+        },
+        FakeApn {
+            apn: String::from("sd.iijmobile.jp"),
+            user: String::from("mobile@iij"),
+            pass: String::from("iij"),
+        },
+        FakeApn {
+            apn: String::from("m2m4biz.softbank"),
+            user: String::from("m2mbiz"),
+            pass: String::from("m2mbiz"),
+        },
+        FakeApn {
+            apn: String::from("isp.docomoiot.net"),
+            user: String::from("web"),
+            pass: String::from("web"),
+        },
+        FakeApn {
+            apn: String::from("ipsim.net"),
+            user: String::from("sim@with"),
+            pass: String::from("sim"),
+        },
+        FakeApn {
+            apn: String::from("rokemoba"),
+            user: String::from("roke@moba"),
+            pass: String::from("roke@moba"),
+        },
+        FakeApn {
+            apn: String::from("au.au-net.ne.jp"),
+            user: String::from("user@au.au-net.ne.jp"),
+            pass: String::from("au"),
+        },
+        FakeApn {
+            apn: String::from("uqmobile.jp"),
+            user: String::from("uq@uqmobile.jp"),
+            pass: String::from("uq"),
+        },
+    ];
+}
+
+pub fn get_fake_apn() -> FakeApn {
+    APN_LIST.choose(&mut rand::thread_rng()).unwrap().clone()
+}

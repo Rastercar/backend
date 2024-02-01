@@ -3,7 +3,7 @@ use crate::{
     config::app_config,
     modules::{
         auth::{self, service::AuthService},
-        organization, tracker,
+        organization, sim_card, tracker,
         user::{self},
         vehicle,
     },
@@ -88,6 +88,7 @@ pub fn new(db: DatabaseConnection, s3: S3, rmq_conn_pool: RmqPool) -> Router {
         .nest("/auth", auth::routes::create_router(state.clone()))
         .nest("/user", user::routes::create_router(state.clone()))
         .nest("/vehicle", vehicle::routes::create_router(state.clone()))
+        .nest("/sim-card", sim_card::routes::create_router(state.clone()))
         .nest("/tracker", tracker::routes::create_router(state.clone()))
         .nest(
             "/organization",

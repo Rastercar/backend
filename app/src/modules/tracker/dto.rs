@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use shared::TrackerModel;
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 use validator::{Validate, ValidationError};
 
 fn is_supported_tracker_model(model: &str) -> Result<(), ValidationError> {
@@ -27,8 +27,9 @@ pub struct CreateTrackerDto {
     pub vehicle_id: Option<i32>,
 }
 
-#[derive(Deserialize, ToSchema, Validate)]
+#[derive(Deserialize, IntoParams, Validate)]
 #[serde(rename_all = "camelCase")]
+#[into_params(parameter_in = Query)]
 pub struct ListTrackersDto {
     /// Search trackers by IMEI
     pub imei: Option<String>,

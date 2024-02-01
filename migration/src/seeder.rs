@@ -1,4 +1,4 @@
-use entity::{access_level, organization, user, vehicle, vehicle_tracker};
+use entity::{access_level, organization, sim_card, user, vehicle, vehicle_tracker};
 use fake::{faker, Fake};
 use rand::{seq::SliceRandom, Rng};
 use sea_orm_migration::{
@@ -51,6 +51,28 @@ fn fake_bool_with_chance(chance_to_be_true: u8) -> bool {
     n < chance_to_be_true
 }
 
+/// Creates a random SIM card PIN (personal identification number)
+///
+/// see: https://www.sciencedirect.com/topics/computer-science/personal-identification-number
+fn fake_pin_number() -> String {
+    rand::thread_rng().gen_range(1000..9999).to_string()
+}
+
+/// Creates a random SIM card PUK (personal unlocking key)
+///
+/// see: https://www.sciencedirect.com/topics/computer-science/personal-identification-number
+fn fake_puk_code() -> String {
+    rand::thread_rng().gen_range(10000..999999).to_string()
+}
+
+/// Creates a random SIM card SSN
+fn fake_sim_ssn() -> String {
+    format!(
+        "00{}",
+        rand::thread_rng().gen_range(10000..999999).to_string()
+    )
+}
+
 pub async fn organization(db: &DatabaseTransaction) -> Result<organization::Model, DbErr> {
     let org = organization::ActiveModel {
         name: Set(faker::company::en::CompanyName().fake::<String>()),
@@ -74,6 +96,35 @@ pub async fn tracker(
         model: Set(shared::TrackerModel::H02.to_string()),
         imei: Set(fake_imei()),
         vehicle_id: Set(vehicle_id),
+        organization_id: Set(org_id),
+        ..Default::default()
+    }
+    .insert(db)
+    .await?;
+
+    Ok(t)
+}
+
+pub async fn sim_card(
+    db: &DatabaseTransaction,
+    org_id: i32,
+    tracker_id: Option<i32>,
+) -> Result<sim_card::Model, DbErr> {
+    let apn = seeder_consts::get_fake_apn();
+
+    let phone: String = faker::phone_number::en::CellNumber().fake();
+
+    let t = sim_card::ActiveModel {
+        phone_number: Set(phone),
+        ssn: Set(fake_sim_ssn()),
+        apn_user: Set(apn.user),
+        apn_address: Set(apn.apn),
+        apn_password: Set(apn.pass),
+        puk: Set(Some(fake_puk_code())),
+        puk2: Set(Some(fake_puk_code())),
+        pin: Set(Some(fake_pin_number())),
+        pin2: Set(Some(fake_pin_number())),
+        tracker_id: Set(tracker_id),
         organization_id: Set(org_id),
         ..Default::default()
     }
@@ -185,19 +236,34 @@ pub async fn test_user(db: &DatabaseTransaction) -> Result<user::Model, DbErr> {
 }
 
 pub async fn create_entities_for_org(db: &DatabaseTransaction, org_id: i32) -> Result<(), DbErr> {
-    for _ in 1..20 {
+    for _ in 0..20 {
         let vehicle = vehicle(db, org_id).await?;
 
+        // for 75% of the vehicles, create a tracker and possibly its SIM card(s)
         if fake_bool_with_chance(75) {
-            // Give only half the vehicles a associated tracker
-            let tracker_vehicle_id_or_none = if fake_bool_with_chance(50) {
-                Some(vehicle.id)
-            } else {
-                None
-            };
+            let tracker = tracker(db, org_id, Some(vehicle.id)).await?;
 
-            tracker(db, org_id, tracker_vehicle_id_or_none).await?;
+            // the tracker has a 80% chance of having a SIM CARD
+            if fake_bool_with_chance(80) {
+                sim_card(db, org_id, Some(tracker.id)).await?;
+
+                // the tracker has a 8% chance (0.8 * 0.1) of having a second sim card
+                // (some tracker models can have 2 sim cards in case one looses connection)
+                if fake_bool_with_chance(10) {
+                    sim_card(db, org_id, Some(tracker.id)).await?;
+                }
+            }
         }
+    }
+
+    // create some trackers that are not associated with a vehicle
+    for _ in 0..5 {
+        tracker(db, org_id, None).await?;
+    }
+
+    // create some SIM cards that are not associated with trackers
+    for _ in 0..5 {
+        sim_card(db, org_id, None).await?;
     }
 
     Ok(())

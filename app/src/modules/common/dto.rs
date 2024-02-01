@@ -39,6 +39,7 @@ pub struct Pagination {
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[aliases(
+    PaginatedSimCard = PaginationResult<entity::sim_card::Model>,
     PaginatedVehicleTracker = PaginationResult<entity::vehicle_tracker::Model>
 )]
 pub struct PaginationResult<T: for<'_s> ToSchema<'_s>> {

@@ -14,6 +14,7 @@ migration = { path = "migration" }
 # Depencies shared by "sub" workspaces
 [workspace.dependencies]
 bcrypt = "0.15.0"
+lazy_static = "1.4.0"
 convert_case = "0.6.0"
 sea-orm = { version = "0.12", features = [
     "macros",
