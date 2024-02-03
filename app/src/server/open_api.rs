@@ -63,6 +63,7 @@ use axum::Router;
         vehicle::routes::create_vehicle,
         
         sim_card::routes::list_sim_cards,
+        sim_card::routes::delete_sim_card,
         
         tracker::routes::list_trackers,
         tracker::routes::create_tracker,

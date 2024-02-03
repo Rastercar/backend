@@ -46,11 +46,6 @@ pub fn create_router(state: AppState) -> Router<AppState> {
             body = entity::vehicle::Model,
         ),
         (
-            status = UNAUTHORIZED,
-            description = "expired or invalid token",
-            body = SimpleError,
-        ),
-        (
             status = BAD_REQUEST,
             description = "invalid dto error message / PLATE_IN_USE",
             body = SimpleError,

@@ -185,11 +185,6 @@ pub async fn request_email_address_confirmation(
             example = json!("password recovery email queued to be sent successfully"),
         ),
         (
-            status = UNAUTHORIZED,
-            description = "expired or invalid token",
-            body = SimpleError,
-        ),
-        (
             status = BAD_REQUEST,
             description = "invalid dto error message / EMAIL_ALREADY_CONFIRMED",
             body = SimpleError,

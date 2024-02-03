@@ -2,7 +2,6 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::{DateTime, Utc};
 use http::StatusCode;
 use serde::Serialize;
 use utoipa::ToSchema;
@@ -17,7 +16,6 @@ use validator::ValidationErrors;
 #[serde(rename_all = "camelCase")]
 pub struct SimpleError {
     error: String,
-    timestamp: DateTime<Utc>,
 }
 
 impl SimpleError {
@@ -31,10 +29,7 @@ impl SimpleError {
 
 impl From<String> for SimpleError {
     fn from(v: String) -> Self {
-        SimpleError {
-            error: v,
-            timestamp: Utc::now(),
-        }
+        SimpleError { error: v }
     }
 }
 

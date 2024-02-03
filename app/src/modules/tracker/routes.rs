@@ -1,6 +1,6 @@
 use super::dto::{self, CreateTrackerDto, ListTrackersDto};
 use crate::{
-    database::error::DbError,
+    database::{self, error::DbError},
     modules::{
         auth::{self, middleware::AclLayer},
         common::{
@@ -56,11 +56,6 @@ pub fn create_router(state: AppState) -> Router<AppState> {
             body = Vec<entity::sim_card::Model>,
             content_type = "application/json",
         ),
-        (
-            status = UNAUTHORIZED,
-            description = "expired or invalid token",
-            body = SimpleError,
-        ),
     ),
 )]
 pub async fn list_tracker_sim_cards(
@@ -99,11 +94,6 @@ pub async fn list_tracker_sim_cards(
             example = json!("tracker vehicle set successfully"),
         ),
         (
-            status = UNAUTHORIZED,
-            description = "expired or invalid token",
-            body = SimpleError,
-        ),
-        (
             status = BAD_REQUEST,
             description = "tracker <id> is already has a vehicle",
             body = SimpleError,
@@ -116,8 +106,8 @@ pub async fn set_tracker_vehicle(
     DbConnection(db): DbConnection,
     ValidatedJson(payload): ValidatedJson<dto::SetTrackerVehicleDto>,
 ) -> Result<Json<String>, (StatusCode, SimpleError)> {
-    let tracker = entity::vehicle_tracker::Entity::find_by_id(tracker_id)
-        .filter(entity::vehicle_tracker::Column::OrganizationId.eq(org_id))
+    let tracker = vehicle_tracker::Entity::find_by_id(tracker_id)
+        .filter(vehicle_tracker::Column::OrganizationId.eq(org_id))
         .one(&db)
         .await
         .map_err(DbError::from)?
@@ -141,10 +131,10 @@ pub async fn set_tracker_vehicle(
         return Err((StatusCode::BAD_REQUEST, SimpleError::from(err_msg)));
     }
 
-    let trackers_associated_with_vehicle: i64 = entity::vehicle_tracker::Entity::find()
+    let trackers_associated_with_vehicle: i64 = vehicle_tracker::Entity::find()
         .select_only()
-        .column_as(entity::vehicle_tracker::Column::Id.count(), "count")
-        .filter(entity::vehicle_tracker::Column::VehicleId.eq(payload.vehicle_id))
+        .column_as(vehicle_tracker::Column::Id.count(), "count")
+        .filter(vehicle_tracker::Column::VehicleId.eq(payload.vehicle_id))
         .into_tuple()
         .one(&db)
         .await
@@ -156,12 +146,9 @@ pub async fn set_tracker_vehicle(
         return Err((StatusCode::BAD_REQUEST, SimpleError::from(err_msg)));
     }
 
-    entity::vehicle_tracker::Entity::update_many()
-        .col_expr(
-            entity::vehicle_tracker::Column::VehicleId,
-            Expr::value(vehicle.id),
-        )
-        .filter(entity::vehicle_tracker::Column::Id.eq(tracker.id))
+    vehicle_tracker::Entity::update_many()
+        .col_expr(vehicle_tracker::Column::VehicleId, Expr::value(vehicle.id))
+        .filter(vehicle_tracker::Column::Id.eq(tracker.id))
         .exec(&db)
         .await
         .map_err(DbError::from)?;
@@ -186,11 +173,6 @@ pub async fn set_tracker_vehicle(
             body = entity::vehicle_tracker::Model,
         ),
         (
-            status = UNAUTHORIZED,
-            description = "expired or invalid token",
-            body = SimpleError,
-        ),
-        (
             status = BAD_REQUEST,
             description = "invalid dto error message / IMEI_IN_USE",
             body = SimpleError,
@@ -201,7 +183,7 @@ pub async fn create_tracker(
     OrganizationId(org_id): OrganizationId,
     DbConnection(db): DbConnection,
     ValidatedJson(dto): ValidatedJson<CreateTrackerDto>,
-) -> Result<Json<entity::vehicle_tracker::Model>, (StatusCode, SimpleError)> {
+) -> Result<Json<vehicle_tracker::Model>, (StatusCode, SimpleError)> {
     if let Some(vehicle_id) = dto.vehicle_id {
         let count: i64 = entity::vehicle::Entity::find()
             .select_only()
@@ -219,10 +201,10 @@ pub async fn create_tracker(
             return Err((StatusCode::BAD_REQUEST, SimpleError::from(err_msg)));
         }
 
-        let trackers_on_vehicle_cnt: i64 = entity::vehicle_tracker::Entity::find()
+        let trackers_on_vehicle_cnt: i64 = vehicle_tracker::Entity::find()
             .select_only()
-            .column_as(entity::vehicle_tracker::Column::Id.count(), "count")
-            .filter(entity::vehicle_tracker::Column::VehicleId.eq(vehicle_id))
+            .column_as(vehicle_tracker::Column::Id.count(), "count")
+            .filter(vehicle_tracker::Column::VehicleId.eq(vehicle_id))
             .into_tuple()
             .one(&db)
             .await
@@ -235,7 +217,7 @@ pub async fn create_tracker(
         }
     }
 
-    let created_tracker = entity::vehicle_tracker::ActiveModel {
+    let created_tracker = vehicle_tracker::ActiveModel {
         imei: Set(dto.imei),
         model: Set(dto.model),
         vehicle_id: Set(dto.vehicle_id),
@@ -268,19 +250,14 @@ pub async fn create_tracker(
             content_type = "application/json",
             body = PaginatedVehicleTracker,
         ),
-        (
-            status = UNAUTHORIZED,
-            description = "expired or invalid token",
-            body = SimpleError,
-        ),
     ),
 )]
 pub async fn list_trackers(
-    ValidatedQuery(query): ValidatedQuery<Pagination>,
+    ValidatedQuery(pagination): ValidatedQuery<Pagination>,
     ValidatedQuery(filter): ValidatedQuery<ListTrackersDto>,
     OrganizationId(org_id): OrganizationId,
     DbConnection(db): DbConnection,
-) -> Result<Json<PaginationResult<entity::vehicle_tracker::Model>>, (StatusCode, SimpleError)> {
+) -> Result<Json<PaginationResult<vehicle_tracker::Model>>, (StatusCode, SimpleError)> {
     let db_query = vehicle_tracker::Entity::find()
         .filter(vehicle_tracker::Column::OrganizationId.eq(org_id))
         .apply_if(filter.with_associated_vehicle, |query, with_vehicle| {
@@ -297,29 +274,13 @@ pub async fn list_trackers(
             } else {
                 query
             }
-        });
-
-    let paginated_query = db_query
+        })
         .order_by_asc(vehicle_tracker::Column::Id)
-        .paginate(&db, query.page_size);
+        .paginate(&db, pagination.page_size);
 
-    let n = paginated_query
-        .num_items_and_pages()
+    let result = database::helpers::paginated_query_to_pagination_result(db_query, pagination)
         .await
         .map_err(DbError::from)?;
-
-    let records = paginated_query
-        .fetch_page(query.page - 1)
-        .await
-        .map_err(DbError::from)?;
-
-    let result = PaginationResult {
-        page: query.page,
-        records,
-        page_size: query.page_size,
-        item_count: n.number_of_items,
-        page_count: n.number_of_pages,
-    };
 
     Ok(Json(result))
 }

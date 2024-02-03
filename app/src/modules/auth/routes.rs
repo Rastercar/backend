@@ -452,11 +452,6 @@ pub async fn request_recover_password_email(
             example = json!("password recovery email queued to be sent successfully"),
         ),
         (
-            status = UNAUTHORIZED,
-            description = "expired or invalid token",
-            body = SimpleError,
-        ),
-        (
             status = BAD_REQUEST,
             description = "new password too weak",
             body = SimpleError,
@@ -517,11 +512,6 @@ pub async fn change_password_by_recovery_token(
             body = String,
             content_type = "application/json",
             example = json!("password recovery email queued to be sent successfully"),
-        ),
-        (
-            status = UNAUTHORIZED,
-            description = "expired or invalid token",
-            body = SimpleError,
         ),
         (
             status = BAD_REQUEST,

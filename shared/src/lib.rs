@@ -6,10 +6,13 @@ use strum::{Display, EnumIter, IntoEnumIterator};
 pub enum Permission {
     CreateTracker,
     UpdateTracker,
+    DeleteTracker,
 
     CreateVehicle,
     UpdateVehicle,
     DeleteVehicle,
+
+    DeleteSimCard,
 
     UpdateOrganization,
 }

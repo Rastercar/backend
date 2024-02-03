@@ -1,8 +1,8 @@
 use super::dto::ListSimCardsDto;
 use crate::{
-    database::error::DbError,
+    database::{self, error::DbError},
     modules::{
-        auth::{self},
+        auth::{self, middleware::AclLayer},
         common::{
             dto::{Pagination, PaginationResult},
             extractors::{DbConnection, OrganizationId, ValidatedQuery},
@@ -11,23 +11,68 @@ use crate::{
     },
     server::controller::AppState,
 };
-use axum::{routing::get, Json, Router};
+use axum::{
+    extract::Path,
+    routing::{delete, get},
+    Json, Router,
+};
 use entity::sim_card;
 use http::StatusCode;
 use migration::Expr;
 use sea_orm::sea_query::extension::postgres::PgExpr;
 use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QueryTrait};
+use shared::Permission;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(list_sim_cards))
+        .route("/:sim_card_id", delete(delete_sim_card))
+        .layer(AclLayer::new(vec![Permission::DeleteSimCard]))
         .layer(axum::middleware::from_fn_with_state(
             state,
             auth::middleware::require_user,
         ))
 }
 
-// TODO: add me to open_api
+/// Deletes a SIM card
+#[utoipa::path(
+    delete,
+    tag = "sim-card",
+    path = "/sim-card/{sim_card_id}",
+    security(("session_id" = [])),
+    params(
+        ("sim_card_id" = u128, Path, description = "id of the SIM card to delete"),
+    ),
+    responses(
+        (
+            status = OK,
+            description = "success message",
+            body = String,
+            content_type = "application/json",
+            example = json!("SIM card deleted successfully"),
+        ),
+    ),
+)]
+pub async fn delete_sim_card(
+    Path(sim_card_id): Path<i32>,
+    OrganizationId(org_id): OrganizationId,
+    DbConnection(db): DbConnection,
+) -> Result<Json<String>, (StatusCode, SimpleError)> {
+    let delete_result = sim_card::Entity::delete_many()
+        .filter(sim_card::Column::Id.eq(sim_card_id))
+        .filter(sim_card::Column::OrganizationId.eq(org_id))
+        .exec(&db)
+        .await
+        .map_err(DbError::from)?;
+
+    if delete_result.rows_affected < 1 {
+        let err_msg = "SIM card does not exist or does not belong to the request user organization";
+        Err((StatusCode::BAD_REQUEST, SimpleError::from(err_msg)))
+    } else {
+        Ok(Json(String::from("sim card deleted successfully")))
+    }
+}
+
 /// Lists the SIM cards that belong to the same org as the request user
 #[utoipa::path(
     get,
@@ -45,15 +90,10 @@ pub fn create_router(state: AppState) -> Router<AppState> {
             content_type = "application/json",
             body = PaginatedSimCard,
         ),
-        (
-            status = UNAUTHORIZED,
-            description = "expired or invalid token",
-            body = SimpleError,
-        ),
     ),
 )]
 pub async fn list_sim_cards(
-    ValidatedQuery(query): ValidatedQuery<Pagination>,
+    ValidatedQuery(pagination): ValidatedQuery<Pagination>,
     ValidatedQuery(filter): ValidatedQuery<ListSimCardsDto>,
     OrganizationId(org_id): OrganizationId,
     DbConnection(db): DbConnection,
@@ -74,30 +114,13 @@ pub async fn list_sim_cards(
             } else {
                 query
             }
-        });
-
-    // TODO: this should be abstracted ?
-    let paginated_query = db_query
+        })
         .order_by_asc(sim_card::Column::Id)
-        .paginate(&db, query.page_size);
+        .paginate(&db, pagination.page_size);
 
-    let n = paginated_query
-        .num_items_and_pages()
+    let result = database::helpers::paginated_query_to_pagination_result(db_query, pagination)
         .await
         .map_err(DbError::from)?;
-
-    let records = paginated_query
-        .fetch_page(query.page - 1)
-        .await
-        .map_err(DbError::from)?;
-
-    let result = PaginationResult {
-        page: query.page,
-        records,
-        page_size: query.page_size,
-        item_count: n.number_of_items,
-        page_count: n.number_of_pages,
-    };
 
     Ok(Json(result))
 }
