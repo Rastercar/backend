@@ -13,7 +13,7 @@ use crate::{
 };
 use axum::{
     extract::Path,
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
     Json, Router,
 };
 use entity::vehicle_tracker;
@@ -31,6 +31,8 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         .route("/", post(create_tracker))
         .layer(AclLayer::new(vec![Permission::CreateTracker]))
         .route("/", get(list_trackers))
+        .route("/:tracker_id", delete(delete_tracker))
+        .layer(AclLayer::new(vec![Permission::UpdateTracker]))
         .route("/:tracker_id/vehicle", put(set_tracker_vehicle))
         .layer(AclLayer::new(vec![Permission::UpdateTracker]))
         .route("/:tracker_id/sim-cards", get(list_tracker_sim_cards))
@@ -38,6 +40,45 @@ pub fn create_router(state: AppState) -> Router<AppState> {
             state,
             auth::middleware::require_user,
         ))
+}
+
+/// Deletes a SIM card
+#[utoipa::path(
+    delete,
+    tag = "tracker",
+    path = "/tracker/{tracker_id}",
+    security(("session_id" = [])),
+    params(
+        ("tracker_id" = u128, Path, description = "id of the tracker to delete"),
+    ),
+    responses(
+        (
+            status = OK,
+            description = "success message",
+            body = String,
+            content_type = "application/json",
+            example = json!("tracker deleted successfully"),
+        ),
+    ),
+)]
+pub async fn delete_tracker(
+    Path(tracker_id): Path<i32>,
+    OrganizationId(org_id): OrganizationId,
+    DbConnection(db): DbConnection,
+) -> Result<Json<String>, (StatusCode, SimpleError)> {
+    let delete_result = vehicle_tracker::Entity::delete_many()
+        .filter(vehicle_tracker::Column::Id.eq(tracker_id))
+        .filter(vehicle_tracker::Column::OrganizationId.eq(org_id))
+        .exec(&db)
+        .await
+        .map_err(DbError::from)?;
+
+    if delete_result.rows_affected < 1 {
+        let err_msg = "tracker does not exist or does not belong to the request user organization";
+        Err((StatusCode::BAD_REQUEST, SimpleError::from(err_msg)))
+    } else {
+        Ok(Json(String::from("tracker deleted successfully")))
+    }
 }
 
 /// List SIM cards that belong to a tracker

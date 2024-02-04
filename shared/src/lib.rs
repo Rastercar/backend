@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use convert_case::{Case, Casing};
 use strum::{Display, EnumIter, IntoEnumIterator};
 
@@ -13,6 +15,7 @@ pub enum Permission {
     DeleteVehicle,
 
     DeleteSimCard,
+    UpdateSimCard,
 
     UpdateOrganization,
 }
@@ -26,8 +29,13 @@ impl Permission {
     }
 }
 
+pub struct TrackerModelInfo {
+    /// amount of sim cards that can be installed on a tracker
+    pub sim_card_slots: u8,
+}
+
 /// All the tracker models that are supported by rastercar
-#[derive(Debug, EnumIter, Display, Clone)]
+#[derive(EnumIter, Display, Clone)]
 pub enum TrackerModel {
     H02,
 }
@@ -37,5 +45,22 @@ impl TrackerModel {
         TrackerModel::iter()
             .map(|e| e.to_string())
             .collect::<Vec<_>>()
+    }
+
+    pub const fn get_info(self) -> TrackerModelInfo {
+        match self {
+            Self::H02 => TrackerModelInfo { sim_card_slots: 1 },
+        }
+    }
+}
+
+impl FromStr for TrackerModel {
+    type Err = ();
+
+    fn from_str(input: &str) -> Result<TrackerModel, Self::Err> {
+        match input {
+            "H02" => Ok(TrackerModel::H02),
+            _ => Err(()),
+        }
     }
 }
