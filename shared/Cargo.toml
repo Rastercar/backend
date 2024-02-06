@@ -11,5 +11,6 @@ path = "src/lib.rs"
 [dependencies]
 strum = { workspace = true }
 serde = { workspace = true }
+utoipa = { workspace = true }
 sea-orm = { workspace = true }
 convert_case = { workspace = true }

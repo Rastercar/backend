@@ -10,11 +10,14 @@ use axum::Router;
 #[derive(OpenApi)]
 #[openapi(
     components(schemas(
+        shared::TrackerModel,
+
         entity::vehicle::Model,
         entity::sim_card::Model,
         entity::vehicle_tracker::Model,
         
         common::dto::PaginatedSimCard,
+        common::dto::PaginatedVehicle,
         common::dto::PaginatedVehicleTracker,
 
         common::dto::Token,
@@ -35,6 +38,7 @@ use axum::Router;
         auth::dto::RegisterOrganization,
 
         vehicle::dto::CreateVehicleDto,
+        vehicle::dto::UpdateVehicleDto,
         
         tracker::dto::CreateTrackerDto,
         tracker::dto::SetTrackerVehicleDto,
@@ -63,7 +67,10 @@ use axum::Router;
         auth::routes::change_password_by_recovery_token,
         auth::routes::confirm_user_email_address_by_token,
         
+        vehicle::routes::list_vehicles,
+        vehicle::routes::vehicle_by_id,
         vehicle::routes::create_vehicle,
+        vehicle::routes::update_vehicle,
         
         sim_card::routes::list_sim_cards,
         sim_card::routes::delete_sim_card,

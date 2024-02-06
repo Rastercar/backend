@@ -1,9 +1,13 @@
-use super::dto::CreateVehicleDto;
+use super::dto::{CreateVehicleDto, ListVehiclesDto, UpdateVehicleDto};
 use crate::{
+    database::{self, error::DbError},
     modules::{
         auth::{self, middleware::AclLayer},
         common::{
-            extractors::{OrganizationId, ValidatedMultipart},
+            dto::{Pagination, PaginationResult},
+            extractors::{
+                DbConnection, OrganizationId, ValidatedJson, ValidatedMultipart, ValidatedQuery,
+            },
             multipart_form_data,
             responses::{internal_error_msg, SimpleError},
         },
@@ -12,21 +16,179 @@ use crate::{
     server::controller::AppState,
     services::s3::S3Key,
 };
-use axum::extract::State;
-use axum::{routing::post, Json, Router};
+use axum::extract::{Path, State};
+use axum::{
+    routing::{get, post, put},
+    Json, Router,
+};
+use entity::vehicle;
 use http::StatusCode;
-use migration::Expr;
-use sea_orm::{ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
+use migration::{extension::postgres::PgExpr, Expr};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, PaginatorTrait, QueryFilter,
+    QueryOrder, QueryTrait, Set,
+};
 use shared::Permission;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
+        .route("/", get(list_vehicles))
         .route("/", post(create_vehicle))
         .layer(AclLayer::new(vec![Permission::CreateVehicle]))
+        .route("/:vehicle_id", get(vehicle_by_id))
+        .route("/:vehicle_id", put(update_vehicle))
+        .layer(AclLayer::new(vec![Permission::UpdateVehicle]))
         .layer(axum::middleware::from_fn_with_state(
             state,
             auth::middleware::require_user,
         ))
+}
+
+/// Get a vehicle by id
+#[utoipa::path(
+    get,
+    tag = "vehicle",
+    path = "/vehicle/{vehicle_id}",
+    security(("session_id" = [])),
+    params(
+        ("vehicle_id" = u128, Path, description = "id of the vehicle to get"),
+    ),
+    responses(
+        (
+            status = OK,
+            content_type = "application/json",
+            body = entity::vehicle::Model,
+        ),
+    ),
+)]
+pub async fn vehicle_by_id(
+    Path(vehicle_id): Path<i64>,
+    OrganizationId(org_id): OrganizationId,
+    DbConnection(db): DbConnection,
+) -> Result<Json<entity::vehicle::Model>, (StatusCode, SimpleError)> {
+    let v = vehicle::Entity::find()
+        .filter(vehicle::Column::OrganizationId.eq(org_id))
+        .filter(vehicle::Column::Id.eq(vehicle_id))
+        .one(&db)
+        .await
+        .map_err(DbError::from)?
+        .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?;
+
+    Ok(Json(v))
+}
+
+/// Update a vehicle
+#[utoipa::path(
+    put,
+    tag = "vehicle",
+    path = "/vehicle/{vehicle_id}",
+    security(("session_id" = [])),
+    params(
+        ("vehicle_id" = u128, Path, description = "id of the vehicle to update"),
+    ),
+    responses(
+        (
+            status = OK,
+            content_type = "application/json",
+            body = entity::vehicle::Model,
+        ),
+    ),
+)]
+pub async fn update_vehicle(
+    Path(vehicle_id): Path<i64>,
+    OrganizationId(org_id): OrganizationId,
+    DbConnection(db): DbConnection,
+    ValidatedJson(dto): ValidatedJson<UpdateVehicleDto>,
+) -> Result<Json<entity::vehicle::Model>, (StatusCode, SimpleError)> {
+    let mut v: vehicle::ActiveModel = vehicle::Entity::find()
+        .filter(vehicle::Column::OrganizationId.eq(org_id))
+        .filter(vehicle::Column::Id.eq(vehicle_id))
+        .one(&db)
+        .await
+        .map_err(DbError::from)?
+        .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?
+        .into();
+
+    // TODO: abstract me
+    if let Some(plate) = dto.plate {
+        v.plate = Set(plate);
+    }
+
+    if let Some(brand) = dto.brand {
+        v.brand = Set(brand)
+    }
+
+    if let Some(model) = dto.model {
+        v.model = Set(model)
+    }
+
+    if let Some(color) = dto.color {
+        v.color = Set(color)
+    }
+
+    if let Some(model_year) = dto.model_year {
+        v.model_year = Set(model_year)
+    }
+
+    if let Some(chassis_number) = dto.chassis_number {
+        v.chassis_number = Set(chassis_number)
+    }
+
+    if let Some(additional_info) = dto.additional_info {
+        v.additional_info = Set(additional_info)
+    }
+
+    if let Some(fabrication_year) = dto.fabrication_year {
+        v.fabrication_year = Set(fabrication_year)
+    }
+
+    let updated_vehicle = v.update(&db).await.map_err(DbError::from)?;
+
+    Ok(Json(updated_vehicle))
+}
+
+/// Lists the vehicles that belong to the same org as the request user
+#[utoipa::path(
+    get,
+    tag = "vehicle",
+    path = "/vehicle",
+    security(("session_id" = [])),
+    params(
+        Pagination
+    ),
+    responses(
+        (
+            status = OK,
+            description = "paginated list of vehicles",
+            content_type = "application/json",
+            body = PaginatedVehicle,
+        ),
+    ),
+)]
+pub async fn list_vehicles(
+    ValidatedQuery(pagination): ValidatedQuery<Pagination>,
+    ValidatedQuery(filter): ValidatedQuery<ListVehiclesDto>,
+    OrganizationId(org_id): OrganizationId,
+    DbConnection(db): DbConnection,
+) -> Result<Json<PaginationResult<entity::vehicle::Model>>, (StatusCode, SimpleError)> {
+    let db_query = vehicle::Entity::find()
+        .filter(vehicle::Column::OrganizationId.eq(org_id))
+        .apply_if(filter.plate, |query, plate| {
+            if plate != "" {
+                let col = Expr::col((vehicle::Entity, vehicle::Column::Plate));
+                query.filter(col.ilike(format!("%{}%", plate)))
+            } else {
+                query
+            }
+        })
+        .order_by_asc(vehicle::Column::Id)
+        .paginate(&db, pagination.page_size);
+
+    let result = database::helpers::paginated_query_to_pagination_result(db_query, pagination)
+        .await
+        .map_err(DbError::from)?;
+
+    Ok(Json(result))
 }
 
 /// Creates a new vehicle

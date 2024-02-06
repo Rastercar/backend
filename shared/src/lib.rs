@@ -3,6 +3,7 @@ use sea_orm::DeriveActiveEnum;
 use serde::Serialize;
 use std::str::FromStr;
 use strum::{Display, EnumIter, IntoEnumIterator};
+use utoipa::ToSchema;
 
 /// All the permissions available for the rastercar API
 #[derive(Debug, EnumIter, Display, Clone)]
@@ -39,7 +40,7 @@ pub struct TrackerModelInfo {
 /// All the tracker models that are supported by rastercar
 ///
 /// also the native ENUM for the rastercar postgres database
-#[derive(EnumIter, Display, Clone, DeriveActiveEnum, Debug, Serialize, PartialEq, Eq)]
+#[derive(EnumIter, Display, Clone, DeriveActiveEnum, Debug, Serialize, PartialEq, Eq, ToSchema)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "tracker_model")]
 pub enum TrackerModel {
     #[sea_orm(string_value = "H02")]

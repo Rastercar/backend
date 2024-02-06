@@ -19,11 +19,17 @@ pub struct SimpleError {
 }
 
 impl SimpleError {
-    /// Creates a simple error with a generic 'internal server error message'
+    /// Creates a simple error with a generic 'internal server error' message
     /// ideally this should be used whenever something that should almost never
     /// fail on the request lifecycle does fail.
     pub fn internal() -> SimpleError {
         SimpleError::from("internal server error")
+    }
+
+    /// Creates a simple error with a generic 'entity not found'
+    /// usefull for endpoints that fetch a entity by id or filter
+    pub fn entity_not_found() -> SimpleError {
+        SimpleError::from("entity not found")
     }
 }
 

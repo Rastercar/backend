@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use sea_orm::entity::prelude::*;
 use serde::Serialize;
+use shared::TrackerModel;
 use utoipa::ToSchema;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, ToSchema)]
@@ -11,7 +12,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub created_at: DateTime<Utc>,
-    pub model: shared::TrackerModel,
+    pub model: TrackerModel,
     pub imei: String,
     pub organization_id: i32,
     pub vehicle_id: Option<i32>,
