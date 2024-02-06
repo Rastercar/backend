@@ -1573,6 +1573,7 @@ dependencies = [
  "chrono",
  "sea-orm",
  "serde",
+ "shared",
  "utoipa",
 ]
 
@@ -3567,6 +3568,8 @@ name = "shared"
 version = "0.1.0"
 dependencies = [
  "convert_case",
+ "sea-orm",
+ "serde",
  "strum",
 ]
 

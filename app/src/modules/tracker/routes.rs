@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use super::dto::{self, CreateTrackerDto, ListTrackersDto};
 use crate::{
     database::{self, error::DbError},
@@ -258,9 +260,14 @@ pub async fn create_tracker(
         }
     }
 
+    let tracker_model = shared::TrackerModel::from_str(&dto.model).or(Err((
+        StatusCode::BAD_REQUEST,
+        SimpleError::from("invalid tracker model"),
+    )))?;
+
     let created_tracker = vehicle_tracker::ActiveModel {
         imei: Set(dto.imei),
-        model: Set(dto.model),
+        model: Set(tracker_model),
         vehicle_id: Set(dto.vehicle_id),
         organization_id: Set(org_id),
         ..Default::default()

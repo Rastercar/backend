@@ -2,6 +2,29 @@ use serde::Deserialize;
 use utoipa::{IntoParams, ToSchema};
 use validator::Validate;
 
+#[derive(Deserialize, ToSchema, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateSimCardDto {
+    #[validate(length(min = 1))]
+    pub ssn: String,
+
+    pub phone_number: String,
+
+    pub apn_user: String,
+    pub apn_address: String,
+    pub apn_password: String,
+
+    pub pin: Option<String>,
+    pub pin2: Option<String>,
+
+    pub puk: Option<String>,
+    pub puk2: Option<String>,
+
+    /// ID of the vehicle to associate with the tracker
+    #[validate(range(min = 1))]
+    pub tracker_id: Option<i32>,
+}
+
 #[derive(Deserialize, IntoParams, Validate)]
 #[serde(rename_all = "camelCase")]
 #[into_params(parameter_in = Query)]
@@ -14,8 +37,7 @@ pub struct ListSimCardsDto {
     pub with_associated_tracker: Option<bool>,
 }
 
-// TODO: rm debug
-#[derive(Deserialize, ToSchema, Validate, Debug)]
+#[derive(Deserialize, ToSchema, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct SetSimCardTrackerDto {
     /// Tracker ID to associate the SIM card to

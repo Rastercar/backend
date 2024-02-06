@@ -39,6 +39,7 @@ use axum::Router;
         tracker::dto::CreateTrackerDto,
         tracker::dto::SetTrackerVehicleDto,
         
+        sim_card::dto::CreateSimCardDto,
         sim_card::dto::SetSimCardTrackerDto,
 
         organization::dto::UpdateOrganizationDto,
@@ -66,6 +67,7 @@ use axum::Router;
         
         sim_card::routes::list_sim_cards,
         sim_card::routes::delete_sim_card,
+        sim_card::routes::create_sim_card,
         sim_card::routes::set_sim_card_tracker,
         
         tracker::routes::list_trackers,

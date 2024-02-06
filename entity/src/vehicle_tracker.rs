@@ -11,7 +11,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub created_at: DateTime<Utc>,
-    pub model: String,
+    pub model: shared::TrackerModel,
     pub imei: String,
     pub organization_id: i32,
     pub vehicle_id: Option<i32>,

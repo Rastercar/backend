@@ -93,7 +93,7 @@ pub async fn tracker(
     vehicle_id: Option<i32>,
 ) -> Result<vehicle_tracker::Model, DbErr> {
     let t = vehicle_tracker::ActiveModel {
-        model: Set(shared::TrackerModel::H02.to_string()),
+        model: Set(shared::TrackerModel::H02),
         imei: Set(fake_imei()),
         vehicle_id: Set(vehicle_id),
         organization_id: Set(org_id),
@@ -105,6 +105,18 @@ pub async fn tracker(
     Ok(t)
 }
 
+fn random_phone_number() -> String {
+    let mut rng = rand::thread_rng();
+
+    // Country code (e.g., +1 for United States)
+    let country_code: u16 = rng.gen_range(1..1000);
+
+    // Random 9-digit number for the national significant number
+    let national_number: u64 = rng.gen_range(1_000_000_000..1_000_000_000_000);
+
+    format!("+{}{}", country_code, national_number)
+}
+
 pub async fn sim_card(
     db: &DatabaseTransaction,
     org_id: i32,
@@ -112,10 +124,8 @@ pub async fn sim_card(
 ) -> Result<sim_card::Model, DbErr> {
     let apn = seeder_consts::get_fake_apn();
 
-    let phone: String = faker::phone_number::en::CellNumber().fake();
-
     let t = sim_card::ActiveModel {
-        phone_number: Set(phone),
+        phone_number: Set(random_phone_number()),
         ssn: Set(fake_sim_ssn()),
         apn_user: Set(apn.user),
         apn_address: Set(apn.apn),

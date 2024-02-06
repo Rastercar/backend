@@ -9,6 +9,7 @@ name = "entity"
 path = "src/lib.rs"
 
 [dependencies]
+shared = { path = "../shared" }
 serde = { workspace = true }
 utoipa = { workspace = true }
 chrono = { workspace = true }

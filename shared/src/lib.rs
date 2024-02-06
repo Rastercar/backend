@@ -1,6 +1,7 @@
-use std::str::FromStr;
-
 use convert_case::{Case, Casing};
+use sea_orm::DeriveActiveEnum;
+use serde::Serialize;
+use std::str::FromStr;
 use strum::{Display, EnumIter, IntoEnumIterator};
 
 /// All the permissions available for the rastercar API
@@ -16,6 +17,7 @@ pub enum Permission {
 
     DeleteSimCard,
     UpdateSimCard,
+    CreateSimCard,
 
     UpdateOrganization,
 }
@@ -35,8 +37,12 @@ pub struct TrackerModelInfo {
 }
 
 /// All the tracker models that are supported by rastercar
-#[derive(EnumIter, Display, Clone)]
+///
+/// also the native ENUM for the rastercar postgres database
+#[derive(EnumIter, Display, Clone, DeriveActiveEnum, Debug, Serialize, PartialEq, Eq)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "tracker_model")]
 pub enum TrackerModel {
+    #[sea_orm(string_value = "H02")]
     H02,
 }
 

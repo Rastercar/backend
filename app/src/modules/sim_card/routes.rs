@@ -1,6 +1,4 @@
-use std::str::FromStr;
-
-use super::dto::{self, ListSimCardsDto};
+use super::dto::{self, CreateSimCardDto, ListSimCardsDto};
 use crate::{
     database::{self, error::DbError},
     modules::{
@@ -15,19 +13,23 @@ use crate::{
 };
 use axum::{
     extract::Path,
-    routing::{delete, get, put},
+    routing::{delete, get, post, put},
     Json, Router,
 };
 use entity::{sim_card, vehicle_tracker};
 use http::StatusCode;
 use migration::Expr;
-use sea_orm::{sea_query::extension::postgres::PgExpr, QuerySelect};
+use sea_orm::{
+    sea_query::extension::postgres::PgExpr, ActiveModelTrait, QuerySelect, Set, TryIntoModel,
+};
 use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QueryTrait};
-use shared::{Permission, TrackerModel};
+use shared::Permission;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(list_sim_cards))
+        .route("/", post(create_sim_card))
+        .layer(AclLayer::new(vec![Permission::CreateSimCard]))
         .route("/:sim_card_id", delete(delete_sim_card))
         .layer(AclLayer::new(vec![Permission::DeleteSimCard]))
         .route("/:sim_card_id/tracker", put(set_sim_card_tracker))
@@ -36,6 +38,95 @@ pub fn create_router(state: AppState) -> Router<AppState> {
             state,
             auth::middleware::require_user,
         ))
+}
+
+/// Creates a SIM card
+///
+/// Required permissions: CREATE_SIM_CARD
+#[utoipa::path(
+    post,
+    tag = "sim-card",
+    path = "/sim-card",
+    security(("session_id" = [])),
+    request_body = CreateSimCardDto,
+    responses(
+        (
+            status = OK,
+            description = "the created SIM card",
+            content_type = "application/json",
+            body = entity::sim_card::Model,
+        ),
+        (
+            status = BAD_REQUEST,
+            description = "invalid dto error message / SSN_IN_USE / PHONE_NUMBER_IN_USE",
+            body = SimpleError,
+        ),
+    ),
+)]
+pub async fn create_sim_card(
+    OrganizationId(org_id): OrganizationId,
+    DbConnection(db): DbConnection,
+    ValidatedJson(dto): ValidatedJson<CreateSimCardDto>,
+) -> Result<Json<sim_card::Model>, (StatusCode, SimpleError)> {
+    if let Some(tracker_id) = dto.tracker_id {
+        let tracker = vehicle_tracker::Entity::find()
+            .filter(vehicle_tracker::Column::Id.eq(tracker_id))
+            .filter(vehicle_tracker::Column::OrganizationId.eq(org_id))
+            .one(&db)
+            .await
+            .map_err(DbError::from)?
+            .ok_or((
+                StatusCode::BAD_REQUEST,
+                SimpleError::from(format!(
+                    "tracker: {} not found for org {}",
+                    tracker_id, org_id
+                )),
+            ))?;
+
+        let sim_cards_on_tracker_count: i64 = vehicle_tracker::Entity::find()
+            .select_only()
+            .column_as(vehicle_tracker::Column::Id.count(), "count")
+            .filter(vehicle_tracker::Column::VehicleId.eq(tracker_id))
+            .into_tuple()
+            .one(&db)
+            .await
+            .map_err(DbError::from)?
+            .unwrap_or(0);
+
+        if sim_cards_on_tracker_count + 1 > tracker.model.get_info().sim_card_slots.into() {
+            let err_msg = format!(
+                "tracker: {} does not have a empty SIM card slot",
+                tracker_id
+            );
+            return Err((StatusCode::BAD_REQUEST, SimpleError::from(err_msg)));
+        }
+    }
+
+    let created_sim_card = sim_card::ActiveModel {
+        ssn: Set(dto.ssn),
+        phone_number: Set(dto.phone_number),
+
+        apn_user: Set(dto.apn_user),
+        apn_password: Set(dto.apn_password),
+        apn_address: Set(dto.apn_address),
+
+        pin: Set(dto.pin),
+        pin2: Set(dto.pin2),
+
+        puk: Set(dto.puk),
+        puk2: Set(dto.puk2),
+
+        tracker_id: Set(dto.tracker_id),
+        organization_id: Set(org_id),
+        ..Default::default()
+    }
+    .save(&db)
+    .await
+    .map_err(DbError::from)?
+    .try_into_model()
+    .map_err(DbError::from)?;
+
+    Ok(Json(created_sim_card))
 }
 
 /// Sets a sim card tracker
@@ -104,17 +195,6 @@ pub async fn set_sim_card_tracker(
             return Ok(Json(String::from(success_msg)));
         }
 
-        // TODO: make tracker.model be a enum that maps to `TrackerModel` so we dont need this crap
-        // also make it a enum on the database level to avoid bad inserts.
-        // https://www.sea-ql.org/SeaORM/docs/generate-entity/enumeration/
-        let sim_card_slots_for_new_tracker = TrackerModel::from_str(&tracker.model)
-            .or(Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                SimpleError::from("invalid tracker model"),
-            )))?
-            .get_info()
-            .sim_card_slots;
-
         let sim_cards_associated_with_tracker: i64 = sim_card::Entity::find()
             .select_only()
             .column_as(sim_card::Column::Id.count(), "count")
@@ -125,7 +205,7 @@ pub async fn set_sim_card_tracker(
             .map_err(DbError::from)?
             .unwrap_or(0);
 
-        if sim_cards_associated_with_tracker + 1 > sim_card_slots_for_new_tracker.into() {
+        if sim_cards_associated_with_tracker + 1 > tracker.model.get_info().sim_card_slots.into() {
             let err_msg = "associating the sim card with the tracker would overflow the SIM slots for the tracker model";
             return Err((StatusCode::BAD_REQUEST, SimpleError::from(err_msg)));
         }

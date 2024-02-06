@@ -9,6 +9,8 @@ impl MigrationTrait for Migration {
         let db = manager.get_connection();
 
         let statement = r#"
+        create type "tracker_model" as ENUM ('H02');
+
         create table "organization" (
             "id" serial primary key,
             "created_at" timestamptz(0) not null default now(),
@@ -98,7 +100,7 @@ impl MigrationTrait for Migration {
         create table "vehicle_tracker" (
             "id" serial primary key,
             "created_at" timestamptz(0) not null default now(),
-            "model" varchar(255) not null,
+            "model" tracker_model not null,
             "imei" varchar(255) not null,
             "organization_id" int not null,
             "vehicle_id" int null

@@ -27,6 +27,6 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
-        todo!();
+        Err(DbErr::Custom(String::from("cannot be reverted")))
     }
 }
