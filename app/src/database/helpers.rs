@@ -1,4 +1,4 @@
-use sea_orm::{Paginator, SelectorTrait};
+use sea_orm::{ActiveValue, Paginator, SelectorTrait};
 use utoipa::ToSchema;
 
 use crate::modules::common::dto::{Pagination, PaginationResult};
@@ -30,4 +30,38 @@ where
     };
 
     Ok(result)
+}
+
+/// if opt is `None` returns `ActiveValue::NotSet` otherwise
+/// returns `ActiveValue::Set(v)`. This is usefull for to
+/// conditionally change a `ActiveModel` value.
+///
+/// eg: whenever parsing JSON with optional fields, its common to use `Option<Option<T>>`
+/// to differ between undefined and NULL, where:
+/// - `None` means undefined
+/// - `Some(None)` means NULL
+/// - `Some(Some(v))` means a value
+///
+/// so to set nullable and possibly undefined field to NULL if the value is defined we could
+/// use this function as follows
+///
+/// ```
+/// let null_description: Option<Option<String>> = Some(None)
+/// let undefined_description: Option<Option<String>> = None
+///
+/// // sets user description to NULL
+/// user.description = set_if_some(null_description)
+///
+/// // does not change user description, keeping it as ActiveValue::NotSet
+/// user.description = set_if_some(undefined_description)
+/// ```
+pub fn set_if_some<T>(opt: Option<T>) -> ActiveValue<T>
+where
+    sea_orm::Value: From<T>,
+{
+    if let Some(v) = opt {
+        ActiveValue::Set(v)
+    } else {
+        ActiveValue::NotSet
+    }
 }

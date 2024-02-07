@@ -1,6 +1,9 @@
 use super::dto::{CreateVehicleDto, ListVehiclesDto, UpdateVehicleDto};
 use crate::{
-    database::{self, error::DbError},
+    database::{
+        error::DbError,
+        helpers::{paginated_query_to_pagination_result, set_if_some},
+    },
     modules::{
         auth::{self, middleware::AclLayer},
         common::{
@@ -26,7 +29,7 @@ use http::StatusCode;
 use migration::{extension::postgres::PgExpr, Expr};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, PaginatorTrait, QueryFilter,
-    QueryOrder, QueryTrait, Set,
+    QueryOrder, QueryTrait,
 };
 use shared::Permission;
 
@@ -109,38 +112,14 @@ pub async fn update_vehicle(
         .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?
         .into();
 
-    // TODO: abstract me
-    if let Some(plate) = dto.plate {
-        v.plate = Set(plate);
-    }
-
-    if let Some(brand) = dto.brand {
-        v.brand = Set(brand)
-    }
-
-    if let Some(model) = dto.model {
-        v.model = Set(model)
-    }
-
-    if let Some(color) = dto.color {
-        v.color = Set(color)
-    }
-
-    if let Some(model_year) = dto.model_year {
-        v.model_year = Set(model_year)
-    }
-
-    if let Some(chassis_number) = dto.chassis_number {
-        v.chassis_number = Set(chassis_number)
-    }
-
-    if let Some(additional_info) = dto.additional_info {
-        v.additional_info = Set(additional_info)
-    }
-
-    if let Some(fabrication_year) = dto.fabrication_year {
-        v.fabrication_year = Set(fabrication_year)
-    }
+    v.plate = set_if_some(dto.plate);
+    v.brand = set_if_some(dto.brand);
+    v.model = set_if_some(dto.model);
+    v.color = set_if_some(dto.color);
+    v.model_year = set_if_some(dto.model_year);
+    v.chassis_number = set_if_some(dto.chassis_number);
+    v.additional_info = set_if_some(dto.additional_info);
+    v.fabrication_year = set_if_some(dto.fabrication_year);
 
     let updated_vehicle = v.update(&db).await.map_err(DbError::from)?;
 
@@ -184,7 +163,7 @@ pub async fn list_vehicles(
         .order_by_asc(vehicle::Column::Id)
         .paginate(&db, pagination.page_size);
 
-    let result = database::helpers::paginated_query_to_pagination_result(db_query, pagination)
+    let result = paginated_query_to_pagination_result(db_query, pagination)
         .await
         .map_err(DbError::from)?;
 
