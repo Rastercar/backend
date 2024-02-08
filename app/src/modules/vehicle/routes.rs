@@ -7,7 +7,7 @@ use crate::{
     modules::{
         auth::{self, middleware::AclLayer},
         common::{
-            dto::{Pagination, PaginationResult},
+            dto::{Pagination, PaginationResult, SingleImageDto},
             extractors::{
                 DbConnection, OrganizationId, ValidatedJson, ValidatedMultipart, ValidatedQuery,
             },
@@ -21,9 +21,10 @@ use crate::{
 };
 use axum::extract::{Path, State};
 use axum::{
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
     Json, Router,
 };
+use axum_typed_multipart::TypedMultipart;
 use entity::vehicle;
 use http::StatusCode;
 use migration::{extension::postgres::PgExpr, Expr};
@@ -40,6 +41,10 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         .layer(AclLayer::new(vec![Permission::CreateVehicle]))
         .route("/:vehicle_id", get(vehicle_by_id))
         .route("/:vehicle_id", put(update_vehicle))
+        .layer(AclLayer::new(vec![Permission::UpdateVehicle]))
+        .route("/:vehicle_id/photo", put(update_vehicle_photo))
+        .layer(AclLayer::new(vec![Permission::UpdateVehicle]))
+        .route("/:vehicle_id/photo", delete(delete_vehicle_photo))
         .layer(AclLayer::new(vec![Permission::UpdateVehicle]))
         .layer(axum::middleware::from_fn_with_state(
             state,
@@ -124,6 +129,131 @@ pub async fn update_vehicle(
     let updated_vehicle = v.update(&db).await.map_err(DbError::from)?;
 
     Ok(Json(updated_vehicle))
+}
+
+/// Update a vehicle photo
+#[utoipa::path(
+    put,
+    tag = "vehicle",
+    path = "/vehicle/{vehicle_id}/photo",
+    security(("session_id" = [])),
+    params(
+        ("vehicle_id" = u128, Path, description = "id of the vehicle to update"),
+    ),
+    request_body(content = SingleImageDto, content_type = "multipart/form-data"),
+    responses(
+        (
+            status = OK,
+            body = String,
+            content_type = "application/json",
+            description = "S3 object key of the new vehicle photo",
+            example = json!("rastercar/organization/1/vehicle/2/photo-10-2023_00:19:17.jpeg"),
+        ),
+        (
+            status = UNAUTHORIZED,
+            description = "invalid session",
+            body = SimpleError,
+        ),
+        (
+            status = BAD_REQUEST,
+            description = "invalid file",
+            body = SimpleError,
+        ),
+    ),
+)]
+pub async fn update_vehicle_photo(
+    Path(vehicle_id): Path<i64>,
+    State(state): State<AppState>,
+    DbConnection(db): DbConnection,
+    OrganizationId(org_id): OrganizationId,
+    TypedMultipart(SingleImageDto { image }): TypedMultipart<SingleImageDto>,
+) -> Result<Json<String>, (StatusCode, SimpleError)> {
+    let req_vehicle = vehicle::Entity::find()
+        .filter(vehicle::Column::OrganizationId.eq(org_id))
+        .filter(vehicle::Column::Id.eq(vehicle_id))
+        .one(&db)
+        .await
+        .map_err(DbError::from)?
+        .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?;
+
+    let key = S3Key {
+        folder: format!("organization/{}/vehicle/{}", org_id, vehicle_id),
+        filename: multipart_form_data::filename_from_img("photo", &image)?,
+    };
+
+    state
+        .s3
+        .upload(key.clone().into(), image.contents)
+        .await
+        .map_err(|_| internal_error_msg("failed to upload vehicle photo"))?;
+
+    vehicle::Entity::update_many()
+        .col_expr(
+            vehicle::Column::Photo,
+            Expr::value(String::from(key.clone())),
+        )
+        .filter(vehicle::Column::Id.eq(vehicle_id))
+        .exec(&db)
+        .await
+        .map_err(DbError::from)?;
+
+    if let Some(old_photo) = req_vehicle.photo {
+        let _ = state.s3.delete(old_photo).await;
+    }
+
+    Ok(Json(String::from(key)))
+}
+
+/// Deletes a vehicle photo
+#[utoipa::path(
+    delete,
+    tag = "vehicle",
+    path = "/vehicle/{vehicle_id}/photo",
+    security(("session_id" = [])),
+    params(
+        ("vehicle_id" = u128, Path, description = "id of the vehicle to update"),
+    ),
+    responses(
+        (
+            status = OK,
+            body = String,
+            content_type = "application/json",
+            description = "success message",
+            example = json!("photo deleted successfully"),
+        ),
+        (
+            status = UNAUTHORIZED,
+            description = "invalid session",
+            body = SimpleError,
+        ),
+    ),
+)]
+pub async fn delete_vehicle_photo(
+    Path(vehicle_id): Path<i64>,
+    State(state): State<AppState>,
+    DbConnection(db): DbConnection,
+    OrganizationId(org_id): OrganizationId,
+) -> Result<Json<String>, (StatusCode, SimpleError)> {
+    let req_vehicle = vehicle::Entity::find()
+        .filter(vehicle::Column::OrganizationId.eq(org_id))
+        .filter(vehicle::Column::Id.eq(vehicle_id))
+        .one(&db)
+        .await
+        .map_err(DbError::from)?
+        .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?;
+
+    vehicle::Entity::update_many()
+        .col_expr(vehicle::Column::Photo, Expr::value::<Option<String>>(None))
+        .filter(vehicle::Column::Id.eq(vehicle_id))
+        .exec(&db)
+        .await
+        .map_err(DbError::from)?;
+
+    if let Some(old_photo) = req_vehicle.photo {
+        let _ = state.s3.delete(old_photo).await;
+    }
+
+    Ok(Json(String::from("photo deleted successfuly")))
 }
 
 /// Lists the vehicles that belong to the same org as the request user

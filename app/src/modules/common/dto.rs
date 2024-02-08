@@ -1,3 +1,5 @@
+use axum::body::Bytes;
+use axum_typed_multipart::{FieldData, TryFromMultipart};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 use validator::Validate;
@@ -60,4 +62,12 @@ pub struct PaginationResult<T: for<'_s> ToSchema<'_s>> {
 
     /// Records from the query
     pub records: Vec<T>,
+}
+
+/// DTO to send a image, should be extracted from `multipart/form-data`
+/// requests containing a single field `image` field
+#[derive(TryFromMultipart, ToSchema)]
+pub struct SingleImageDto {
+    #[schema(value_type = String, format = Binary)]
+    pub image: FieldData<Bytes>,
 }

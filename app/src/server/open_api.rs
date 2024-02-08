@@ -22,10 +22,10 @@ use axum::Router;
 
         common::dto::Token,
         common::dto::EmailAddress,
+        common::dto::SingleImageDto,
         common::responses::SimpleError,
         
         user::dto::UpdateUserDto,
-        user::dto::ProfilePicDto,
         user::dto::ChangePasswordDto,
         
         auth::dto::SignIn,
@@ -71,6 +71,8 @@ use axum::Router;
         vehicle::routes::vehicle_by_id,
         vehicle::routes::create_vehicle,
         vehicle::routes::update_vehicle,
+        vehicle::routes::update_vehicle_photo,
+        vehicle::routes::delete_vehicle_photo,
         
         sim_card::routes::list_sim_cards,
         sim_card::routes::delete_sim_card,

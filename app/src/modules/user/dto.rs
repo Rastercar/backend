@@ -2,19 +2,9 @@ use crate::modules::common::validators::{
     REGEX_CONTAINS_LOWERCASE_CHARACTER, REGEX_CONTAINS_NUMBER, REGEX_CONTAINS_SYMBOLIC_CHARACTER,
     REGEX_CONTAINS_UPPERCASE_CHARACTER, REGEX_IS_LOWERCASE_ALPHANUMERIC_WITH_UNDERSCORES,
 };
-use axum::body::Bytes;
-use axum_typed_multipart::{FieldData, TryFromMultipart};
 use serde::Deserialize;
 use utoipa::ToSchema;
 use validator::Validate;
-
-/// DTO to update user profile pictures, should be extracted from `multipart/form-data`
-/// requests containing a single field `image` field
-#[derive(TryFromMultipart, ToSchema)]
-pub struct ProfilePicDto {
-    #[schema(value_type = String, format = Binary)]
-    pub image: FieldData<Bytes>,
-}
 
 #[derive(ToSchema, Validate, Deserialize)]
 pub struct UpdateUserDto {

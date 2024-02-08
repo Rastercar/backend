@@ -1,7 +1,8 @@
 use super::super::auth::dto as auth_dto;
-use super::dto::{self, ProfilePicDto};
+use super::dto::{self};
 use crate::database::error::DbError;
 use crate::modules::auth::middleware::RequestUserPassword;
+use crate::modules::common::dto::SingleImageDto;
 use crate::modules::common::error_codes::EMAIL_ALREADY_VERIFIED;
 use crate::modules::common::extractors::DbConnection;
 use crate::modules::common::responses::internal_error_msg;
@@ -28,7 +29,6 @@ use bcrypt::{hash, verify, DEFAULT_COST};
 use http::StatusCode;
 use migration::Expr;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryTrait};
-use tracing::error;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
@@ -195,7 +195,7 @@ async fn put_password(
     tag = "user",
     path = "/user/me/profile-picture",
     security(("session_id" = [])),
-    request_body(content = ProfilePicDto, content_type = "multipart/form-data"),
+    request_body(content = SingleImageDto, content_type = "multipart/form-data"),
     responses(
         (
             status = OK,
@@ -220,7 +220,7 @@ async fn put_profile_picture(
     State(state): State<AppState>,
     Extension(req_user): Extension<RequestUser>,
     DbConnection(db): DbConnection,
-    TypedMultipart(ProfilePicDto { image }): TypedMultipart<ProfilePicDto>,
+    TypedMultipart(SingleImageDto { image }): TypedMultipart<SingleImageDto>,
 ) -> Result<Json<String>, (StatusCode, SimpleError)> {
     let filename = multipart_form_data::filename_from_img("profile-picture", &image)?;
 
@@ -255,9 +255,7 @@ async fn put_profile_picture(
         .map_err(DbError::from)?;
 
     if let Some(old_profile_pic) = request_user.profile_picture {
-        if state.s3.delete(old_profile_pic.clone()).await.is_err() {
-            error!("[] failed to delete S3 object: {}", old_profile_pic);
-        }
+        let _ = state.s3.delete(old_profile_pic).await;
     }
 
     Ok(Json(String::from(key)))
