@@ -71,6 +71,7 @@ use axum::Router;
         vehicle::routes::vehicle_by_id,
         vehicle::routes::create_vehicle,
         vehicle::routes::update_vehicle,
+        vehicle::routes::get_vehicle_tracker,
         vehicle::routes::update_vehicle_photo,
         vehicle::routes::delete_vehicle_photo,
         
@@ -79,6 +80,7 @@ use axum::Router;
         sim_card::routes::create_sim_card,
         sim_card::routes::set_sim_card_tracker,
         
+        tracker::routes::get_tracker,
         tracker::routes::list_trackers,
         tracker::routes::create_tracker,
         tracker::routes::delete_tracker,

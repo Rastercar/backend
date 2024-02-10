@@ -25,7 +25,7 @@ use axum::{
     Json, Router,
 };
 use axum_typed_multipart::TypedMultipart;
-use entity::vehicle;
+use entity::{vehicle, vehicle_tracker};
 use http::StatusCode;
 use migration::{extension::postgres::PgExpr, Expr};
 use sea_orm::{
@@ -37,15 +37,23 @@ use shared::Permission;
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(list_vehicles))
+        //
         .route("/", post(create_vehicle))
         .layer(AclLayer::new(vec![Permission::CreateVehicle]))
+        //
         .route("/:vehicle_id", get(vehicle_by_id))
+        //
         .route("/:vehicle_id", put(update_vehicle))
         .layer(AclLayer::new(vec![Permission::UpdateVehicle]))
+        //
+        .route("/:vehicle_id/tracker", get(get_vehicle_tracker))
+        //
         .route("/:vehicle_id/photo", put(update_vehicle_photo))
         .layer(AclLayer::new(vec![Permission::UpdateVehicle]))
+        //
         .route("/:vehicle_id/photo", delete(delete_vehicle_photo))
         .layer(AclLayer::new(vec![Permission::UpdateVehicle]))
+        //
         .layer(axum::middleware::from_fn_with_state(
             state,
             auth::middleware::require_user,
@@ -70,19 +78,48 @@ pub fn create_router(state: AppState) -> Router<AppState> {
     ),
 )]
 pub async fn vehicle_by_id(
-    Path(vehicle_id): Path<i64>,
+    Path(vehicle_id): Path<i32>,
     OrganizationId(org_id): OrganizationId,
     DbConnection(db): DbConnection,
 ) -> Result<Json<entity::vehicle::Model>, (StatusCode, SimpleError)> {
-    let v = vehicle::Entity::find()
-        .filter(vehicle::Column::OrganizationId.eq(org_id))
-        .filter(vehicle::Column::Id.eq(vehicle_id))
-        .one(&db)
+    let v = vehicle::Entity::find_by_id_and_org_id(vehicle_id, org_id, &db)
         .await
         .map_err(DbError::from)?
         .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?;
 
     Ok(Json(v))
+}
+
+/// Get a vehicle tracker
+#[utoipa::path(
+    get,
+    tag = "vehicle",
+    path = "/vehicle/{vehicle_id}/tracker",
+    security(("session_id" = [])),
+    params(
+        ("vehicle_id" = u128, Path, description = "id of the vehicle to get the tracker"),
+    ),
+    responses(
+        (
+            status = OK,
+            content_type = "application/json",
+            body = Option<entity::vehicle::Model>,
+        ),
+        (
+            status = NOT_FOUND,
+        ),
+    ),
+)]
+pub async fn get_vehicle_tracker(
+    Path(vehicle_id): Path<i32>,
+    OrganizationId(org_id): OrganizationId,
+    DbConnection(db): DbConnection,
+) -> Result<Json<Option<vehicle_tracker::Model>>, (StatusCode, SimpleError)> {
+    let tracker = vehicle_tracker::Entity::find_by_vehicle_and_org_id(vehicle_id, org_id, &db)
+        .await
+        .map_err(DbError::from)?;
+
+    Ok(Json(tracker))
 }
 
 /// Update a vehicle
@@ -162,16 +199,13 @@ pub async fn update_vehicle(
     ),
 )]
 pub async fn update_vehicle_photo(
-    Path(vehicle_id): Path<i64>,
+    Path(vehicle_id): Path<i32>,
     State(state): State<AppState>,
     DbConnection(db): DbConnection,
     OrganizationId(org_id): OrganizationId,
     TypedMultipart(SingleImageDto { image }): TypedMultipart<SingleImageDto>,
 ) -> Result<Json<String>, (StatusCode, SimpleError)> {
-    let req_vehicle = vehicle::Entity::find()
-        .filter(vehicle::Column::OrganizationId.eq(org_id))
-        .filter(vehicle::Column::Id.eq(vehicle_id))
-        .one(&db)
+    let req_vehicle = vehicle::Entity::find_by_id_and_org_id(vehicle_id, org_id, &db)
         .await
         .map_err(DbError::from)?
         .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?;
@@ -229,15 +263,12 @@ pub async fn update_vehicle_photo(
     ),
 )]
 pub async fn delete_vehicle_photo(
-    Path(vehicle_id): Path<i64>,
+    Path(vehicle_id): Path<i32>,
     State(state): State<AppState>,
     DbConnection(db): DbConnection,
     OrganizationId(org_id): OrganizationId,
 ) -> Result<Json<String>, (StatusCode, SimpleError)> {
-    let req_vehicle = vehicle::Entity::find()
-        .filter(vehicle::Column::OrganizationId.eq(org_id))
-        .filter(vehicle::Column::Id.eq(vehicle_id))
-        .one(&db)
+    let req_vehicle = vehicle::Entity::find_by_id_and_org_id(vehicle_id, org_id, &db)
         .await
         .map_err(DbError::from)?
         .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?;

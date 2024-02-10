@@ -8,7 +8,7 @@ use crate::{
         common::{
             dto::{Pagination, PaginationResult},
             extractors::{DbConnection, OrganizationId, ValidatedJson, ValidatedQuery},
-            responses::SimpleError,
+            responses::{internal_error_res, SimpleError},
         },
     },
     server::controller::AppState,
@@ -32,19 +32,59 @@ pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", post(create_tracker))
         .layer(AclLayer::new(vec![Permission::CreateTracker]))
+        //
         .route("/", get(list_trackers))
+        //
+        .route("/:tracker_id", get(get_tracker))
+        //
         .route("/:tracker_id", delete(delete_tracker))
         .layer(AclLayer::new(vec![Permission::UpdateTracker]))
+        //
         .route("/:tracker_id/vehicle", put(set_tracker_vehicle))
         .layer(AclLayer::new(vec![Permission::UpdateTracker]))
+        //
         .route("/:tracker_id/sim-cards", get(list_tracker_sim_cards))
+        //
         .layer(axum::middleware::from_fn_with_state(
             state,
             auth::middleware::require_user,
         ))
 }
 
-/// Deletes a SIM card
+/// Get a tracker by ID
+#[utoipa::path(
+    get,
+    tag = "tracker",
+    path = "/tracker/{tracker_id}",
+    security(("session_id" = [])),
+    params(
+        ("tracker_id" = u128, Path, description = "id of the tracker"),
+    ),
+    responses(
+        (
+            status = OK,
+            content_type = "application/json",
+            body = entity::vehicle::Model,
+        ),
+    ),
+)]
+pub async fn get_tracker(
+    Path(tracker_id): Path<i32>,
+    OrganizationId(org_id): OrganizationId,
+    DbConnection(db): DbConnection,
+) -> Result<Json<vehicle_tracker::Model>, (StatusCode, SimpleError)> {
+    let tracker = vehicle_tracker::Entity::find_by_id_and_org_id(tracker_id, org_id, &db)
+        .await
+        .map_err(DbError::from)?
+        .ok_or((
+            StatusCode::NOT_FOUND,
+            SimpleError::from("tracker not found"),
+        ))?;
+
+    Ok(Json(tracker))
+}
+
+/// Deletes a tracker
 #[utoipa::path(
     delete,
     tag = "tracker",
@@ -106,14 +146,14 @@ pub async fn list_tracker_sim_cards(
     OrganizationId(org_id): OrganizationId,
     DbConnection(db): DbConnection,
 ) -> Result<Json<Vec<entity::sim_card::Model>>, (StatusCode, SimpleError)> {
-    let trackers = entity::sim_card::Entity::find()
+    let cards = entity::sim_card::Entity::find()
         .filter(entity::sim_card::Column::TrackerId.eq(tracker_id))
         .filter(entity::sim_card::Column::OrganizationId.eq(org_id))
         .all(&db)
         .await
         .map_err(DbError::from)?;
 
-    Ok(Json(trackers))
+    Ok(Json(cards))
 }
 
 /// Sets a tracker vehicle
@@ -149,9 +189,10 @@ pub async fn set_tracker_vehicle(
     DbConnection(db): DbConnection,
     ValidatedJson(payload): ValidatedJson<dto::SetTrackerVehicleDto>,
 ) -> Result<Json<String>, (StatusCode, SimpleError)> {
-    let tracker = vehicle_tracker::Entity::find_by_id(tracker_id)
-        .filter(vehicle_tracker::Column::OrganizationId.eq(org_id))
-        .one(&db)
+    // here we can unwrap vehicle_id because its guaranteed by the DTO validation to be `Some`
+    let vehicle_id_or_none = payload.vehicle_id.ok_or(internal_error_res())?;
+
+    let tracker = vehicle_tracker::Entity::find_by_id_and_org_id(tracker_id, org_id, &db)
         .await
         .map_err(DbError::from)?
         .ok_or((
@@ -159,38 +200,36 @@ pub async fn set_tracker_vehicle(
             SimpleError::from("tracker not found"),
         ))?;
 
-    let vehicle = entity::vehicle::Entity::find_by_id(payload.vehicle_id)
-        .filter(entity::vehicle::Column::OrganizationId.eq(org_id))
-        .one(&db)
-        .await
-        .map_err(DbError::from)?
-        .ok_or((
-            StatusCode::NOT_FOUND,
-            SimpleError::from("vehicle not found"),
-        ))?;
+    if let Some(vehicle_id) = vehicle_id_or_none {
+        entity::vehicle::Entity::find_by_id_and_org_id(vehicle_id, org_id, &db)
+            .await
+            .map_err(DbError::from)?
+            .ok_or((
+                StatusCode::NOT_FOUND,
+                SimpleError::from("vehicle not found"),
+            ))?;
 
-    if tracker.vehicle_id.is_some() {
-        let err_msg = format!("tracker {} is already has a vehicle", tracker.id);
-        return Err((StatusCode::BAD_REQUEST, SimpleError::from(err_msg)));
-    }
+        if tracker.vehicle_id.is_some() {
+            let err_msg = format!("tracker {} is already has a vehicle", tracker.id);
+            return Err((StatusCode::BAD_REQUEST, SimpleError::from(err_msg)));
+        }
 
-    let trackers_associated_with_vehicle: i64 = vehicle_tracker::Entity::find()
-        .select_only()
-        .column_as(vehicle_tracker::Column::Id.count(), "count")
-        .filter(vehicle_tracker::Column::VehicleId.eq(payload.vehicle_id))
-        .into_tuple()
-        .one(&db)
-        .await
-        .map_err(DbError::from)?
-        .unwrap_or(0);
+        let trackers_associated_with_vehicle: i64 =
+            entity::vehicle::Entity::get_associated_tracker_count(vehicle_id, &db)
+                .await
+                .map_err(DbError::from)?;
 
-    if trackers_associated_with_vehicle > 0 {
-        let err_msg = format!("vehicle: {} already has a tracker", payload.vehicle_id);
-        return Err((StatusCode::BAD_REQUEST, SimpleError::from(err_msg)));
+        if trackers_associated_with_vehicle > 0 {
+            let err_msg = format!("vehicle: {} already has a tracker", vehicle_id);
+            return Err((StatusCode::BAD_REQUEST, SimpleError::from(err_msg)));
+        }
     }
 
     vehicle_tracker::Entity::update_many()
-        .col_expr(vehicle_tracker::Column::VehicleId, Expr::value(vehicle.id))
+        .col_expr(
+            vehicle_tracker::Column::VehicleId,
+            Expr::value(vehicle_id_or_none),
+        )
         .filter(vehicle_tracker::Column::Id.eq(tracker.id))
         .exec(&db)
         .await

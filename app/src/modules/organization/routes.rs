@@ -29,15 +29,18 @@ use shared::Permission;
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", patch(update_org))
+        //
         .route(
             "/request-email-address-confirmation",
             post(request_email_address_confirmation),
         )
+        //
         .route(
             "/confirm-email-address-by-token",
             post(confirm_email_address_by_token),
         )
         .layer(AclLayer::new(vec![Permission::UpdateOrganization]))
+        //
         .layer(axum::middleware::from_fn_with_state(
             state,
             auth::middleware::require_user,

@@ -1,7 +1,9 @@
 use chrono::{DateTime, Utc};
-use sea_orm::entity::prelude::*;
+use sea_orm::{entity::prelude::*, QuerySelect};
 use serde::Serialize;
 use utoipa::ToSchema;
+
+use crate::vehicle_tracker;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, ToSchema)]
 #[schema(as = entity::vehicle::Model)]
@@ -21,6 +23,36 @@ pub struct Model {
     pub color: Option<String>,
     pub additional_info: Option<String>,
     pub organization_id: i32,
+}
+
+impl Entity {
+    pub async fn find_by_id_and_org_id(
+        id: i32,
+        organization_id: i32,
+        db: &DatabaseConnection,
+    ) -> Result<Option<Model>, DbErr> {
+        Self::find()
+            .filter(Column::Id.eq(id))
+            .filter(Column::OrganizationId.eq(organization_id))
+            .one(db)
+            .await
+    }
+
+    pub async fn get_associated_tracker_count(
+        id: i32,
+        db: &DatabaseConnection,
+    ) -> Result<i64, DbErr> {
+        let cnt = vehicle_tracker::Entity::find()
+            .select_only()
+            .column_as(vehicle_tracker::Column::Id.count(), "count")
+            .filter(vehicle_tracker::Column::VehicleId.eq(id))
+            .into_tuple()
+            .one(db)
+            .await?
+            .unwrap_or(0);
+
+        Ok(cnt)
+    }
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
