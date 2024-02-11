@@ -1,6 +1,6 @@
 use convert_case::{Case, Casing};
 use sea_orm::DeriveActiveEnum;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use strum::{Display, EnumIter, IntoEnumIterator};
 use utoipa::ToSchema;
@@ -40,7 +40,18 @@ pub struct TrackerModelInfo {
 /// All the tracker models that are supported by rastercar
 ///
 /// also the native ENUM for the rastercar postgres database
-#[derive(EnumIter, Display, Clone, DeriveActiveEnum, Debug, Serialize, PartialEq, Eq, ToSchema)]
+#[derive(
+    Eq,
+    Clone,
+    Debug,
+    Display,
+    EnumIter,
+    ToSchema,
+    Serialize,
+    PartialEq,
+    Deserialize,
+    DeriveActiveEnum,
+)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "tracker_model")]
 pub enum TrackerModel {
     #[sea_orm(string_value = "H02")]

@@ -27,6 +27,14 @@ pub struct CreateTrackerDto {
     pub vehicle_id: Option<i32>,
 }
 
+#[derive(Deserialize, ToSchema, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateTrackerDto {
+    pub imei: Option<String>,
+
+    pub model: Option<TrackerModel>,
+}
+
 #[derive(Deserialize, IntoParams, Validate)]
 #[serde(rename_all = "camelCase")]
 #[into_params(parameter_in = Query)]
@@ -51,4 +59,12 @@ pub struct SetTrackerVehicleDto {
     #[serde(default, with = "::serde_with::rust::double_option")]
     #[validate(required)]
     pub vehicle_id: Option<Option<i32>>,
+}
+
+#[derive(Deserialize, IntoParams, Validate)]
+#[serde(rename_all = "camelCase")]
+#[into_params(parameter_in = Query)]
+pub struct DeleteTrackerDto {
+    /// If the sim cards associated with the tracker to be deleted, should be deleted aswell
+    pub delete_associated_sim_cards: Option<bool>,
 }

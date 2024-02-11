@@ -131,6 +131,7 @@ pub async fn get_vehicle_tracker(
     params(
         ("vehicle_id" = u128, Path, description = "id of the vehicle to update"),
     ),
+    request_body(content = UpdateVehicleDto, content_type = "application/json"),
     responses(
         (
             status = OK,

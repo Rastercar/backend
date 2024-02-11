@@ -40,6 +40,7 @@ use axum::Router;
         vehicle::dto::CreateVehicleDto,
         vehicle::dto::UpdateVehicleDto,
         
+        tracker::dto::UpdateTrackerDto,
         tracker::dto::CreateTrackerDto,
         tracker::dto::SetTrackerVehicleDto,
         
@@ -84,6 +85,7 @@ use axum::Router;
         tracker::routes::list_trackers,
         tracker::routes::create_tracker,
         tracker::routes::delete_tracker,
+        tracker::routes::update_tracker,
         tracker::routes::set_tracker_vehicle,
         tracker::routes::list_tracker_sim_cards,
 

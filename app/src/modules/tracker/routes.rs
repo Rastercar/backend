@@ -1,8 +1,8 @@
 use std::str::FromStr;
 
-use super::dto::{self, CreateTrackerDto, ListTrackersDto};
+use super::dto::{self, CreateTrackerDto, DeleteTrackerDto, ListTrackersDto, UpdateTrackerDto};
 use crate::{
-    database::{self, error::DbError},
+    database::{self, error::DbError, helpers::set_if_some},
     modules::{
         auth::{self, middleware::AclLayer},
         common::{
@@ -14,7 +14,7 @@ use crate::{
     server::controller::AppState,
 };
 use axum::{
-    extract::Path,
+    extract::{Path, Query},
     routing::{delete, get, post, put},
     Json, Router,
 };
@@ -37,8 +37,11 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         //
         .route("/:tracker_id", get(get_tracker))
         //
-        .route("/:tracker_id", delete(delete_tracker))
+        .route("/:tracker_id", put(update_tracker))
         .layer(AclLayer::new(vec![Permission::UpdateTracker]))
+        //
+        .route("/:tracker_id", delete(delete_tracker))
+        .layer(AclLayer::new(vec![Permission::DeleteTracker]))
         //
         .route("/:tracker_id/vehicle", put(set_tracker_vehicle))
         .layer(AclLayer::new(vec![Permission::UpdateTracker]))
@@ -84,6 +87,50 @@ pub async fn get_tracker(
     Ok(Json(tracker))
 }
 
+/// Update a tracker
+#[utoipa::path(
+    put,
+    tag = "tracker",
+    path = "/tracker/{tracker_id}",
+    security(("session_id" = [])),
+    params(
+        ("tracker_id" = u128, Path, description = "id of the tracker to update"),
+    ),
+    request_body(content = UpdateTrackerDto, content_type = "application/json"),
+    responses(
+        (
+            status = OK,
+            content_type = "application/json",
+            body = entity::vehicle_tracker::Model,
+        ),
+    ),
+)]
+pub async fn update_tracker(
+    Path(tracker_id): Path<i64>,
+    OrganizationId(org_id): OrganizationId,
+    DbConnection(db): DbConnection,
+    ValidatedJson(dto): ValidatedJson<UpdateTrackerDto>,
+) -> Result<Json<entity::vehicle_tracker::Model>, (StatusCode, SimpleError)> {
+    let mut t: vehicle_tracker::ActiveModel = vehicle_tracker::Entity::find()
+        .filter(vehicle_tracker::Column::OrganizationId.eq(org_id))
+        .filter(vehicle_tracker::Column::Id.eq(tracker_id))
+        .one(&db)
+        .await
+        .map_err(DbError::from)?
+        .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?
+        .into();
+
+    t.imei = set_if_some(dto.imei);
+
+    if let Some(model) = dto.model {
+        t.model = Set(model)
+    }
+
+    let updated_tracker = t.update(&db).await.map_err(DbError::from)?;
+
+    Ok(Json(updated_tracker))
+}
+
 /// Deletes a tracker
 #[utoipa::path(
     delete,
@@ -105,17 +152,27 @@ pub async fn get_tracker(
 )]
 pub async fn delete_tracker(
     Path(tracker_id): Path<i32>,
+    Query(dto): Query<DeleteTrackerDto>,
     OrganizationId(org_id): OrganizationId,
     DbConnection(db): DbConnection,
 ) -> Result<Json<String>, (StatusCode, SimpleError)> {
-    let delete_result = vehicle_tracker::Entity::delete_many()
+    if dto.delete_associated_sim_cards.unwrap_or(false) {
+        entity::sim_card::Entity::delete_many()
+            .filter(entity::sim_card::Column::TrackerId.eq(tracker_id))
+            .filter(entity::sim_card::Column::OrganizationId.eq(org_id))
+            .exec(&db)
+            .await
+            .map_err(DbError::from)?;
+    }
+
+    let tracker_delete_result = vehicle_tracker::Entity::delete_many()
         .filter(vehicle_tracker::Column::Id.eq(tracker_id))
         .filter(vehicle_tracker::Column::OrganizationId.eq(org_id))
         .exec(&db)
         .await
         .map_err(DbError::from)?;
 
-    if delete_result.rows_affected < 1 {
+    if tracker_delete_result.rows_affected < 1 {
         let err_msg = "tracker does not exist or does not belong to the request user organization";
         Err((StatusCode::BAD_REQUEST, SimpleError::from(err_msg)))
     } else {
