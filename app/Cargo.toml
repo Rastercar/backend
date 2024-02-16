@@ -24,6 +24,15 @@ sea-orm = { workspace = true }
 lazy_static = { workspace = true }
 convert_case = { workspace = true }
 
+# SQL
+sqlx = "0.7.3"
+sea-query = { version = "0.30.7", features = ["backend-postgres"] }
+sea-query-binder = { version = "0.5.0", features = ["sqlx"] }
+
+# geometric types
+geo-types = { version = "0.7.12", features = ["serde"] }
+geozero = { version = "0.11.0", features = ["with-geo", "with-postgis-sqlx"] }
+
 # Serde
 serde_with = "3.4.0"
 serde_json = "1.0.107"

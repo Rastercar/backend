@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use super::dto::{self, CreateTrackerDto, DeleteTrackerDto, ListTrackersDto, UpdateTrackerDto};
 use crate::{
     database::{self, error::DbError, helpers::set_if_some},
@@ -18,6 +16,7 @@ use axum::{
     routing::{delete, get, post, put},
     Json, Router,
 };
+use chrono::{DateTime, Utc};
 use entity::vehicle_tracker;
 use http::StatusCode;
 use migration::Expr;
@@ -26,7 +25,10 @@ use sea_orm::{
     ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder,
     QuerySelect, QueryTrait, Set, TryIntoModel,
 };
+use sea_query::{Cond, PostgresQueryBuilder, Query as SeaQuery};
+use sea_query_binder::SqlxBinder;
 use shared::Permission;
+use std::str::FromStr;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
@@ -46,6 +48,7 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         .route("/:tracker_id/vehicle", put(set_tracker_vehicle))
         .layer(AclLayer::new(vec![Permission::UpdateTracker]))
         //
+        .route("/:tracker_id/location", get(get_tracker_location))
         .route("/:tracker_id/sim-cards", get(list_tracker_sim_cards))
         //
         .layer(axum::middleware::from_fn_with_state(
@@ -211,6 +214,60 @@ pub async fn list_tracker_sim_cards(
         .map_err(DbError::from)?;
 
     Ok(Json(cards))
+}
+
+/// Get the most recent tracker location
+#[utoipa::path(
+    get,
+    tag = "tracker",
+    path = "/tracker/{tracker_id}/location",
+    security(("session_id" = [])),
+    params(
+        ("tracker_id" = u128, Path, description = "id of the tracker"),
+    ),
+    responses(
+        (
+            status = OK,
+            description = "tracker location",
+            body = Option<TrackerLocationDto>,
+            content_type = "application/json",
+        ),
+    ),
+)]
+pub async fn get_tracker_location(
+    Path(tracker_id): Path<i32>,
+    DbConnection(db): DbConnection,
+) -> Result<Json<Option<dto::TrackerLocationDto>>, (StatusCode, SimpleError)> {
+    let (q, args) = SeaQuery::select()
+        .column(entity::vehicle_tracker_last_location::Column::Time)
+        .column(entity::vehicle_tracker_last_location::Column::Point)
+        .from(entity::vehicle_tracker_last_location::Entity)
+        .cond_where(Cond::all().add(
+            Expr::col(entity::vehicle_tracker_last_location::Column::TrackerId).eq(tracker_id),
+        ))
+        .to_owned()
+        .build_sqlx(PostgresQueryBuilder);
+
+    let row: Option<(
+        DateTime<Utc>,
+        geozero::wkb::Decode<geo_types::Geometry<f64>>,
+    )> = sqlx::query_as_with(&q, args)
+        .fetch_optional(db.get_postgres_connection_pool())
+        .await
+        .map_err(|_| internal_error_res())?;
+
+    if let Some(time_and_loc) = row {
+        if let Some(geo_types::Geometry::Point(point)) = time_and_loc.1.geometry {
+            let loc = dto::TrackerLocationDto {
+                point: point.into(),
+                time: time_and_loc.0,
+            };
+
+            return Ok(Json(Some(loc)));
+        }
+    }
+
+    Ok(Json(None))
 }
 
 /// Sets a tracker vehicle

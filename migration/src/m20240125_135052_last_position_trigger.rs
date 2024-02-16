@@ -8,6 +8,7 @@ impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
 
+        // This is the trigger function which will be executed for each row of an INSERT or UPDATE.
         let statement = r#"
         ALTER TABLE vehicle_tracker_last_location SET (fillfactor=95);
 
@@ -21,6 +22,16 @@ impl MigrationTrait for Migration {
                       RETURN NEW;
                   END
               $BODY$;
+        "#;
+
+        db.execute_unprepared(statement).await?;
+
+        // With the trigger function created, actually assign it to the
+        // vehicle_tracker_location table so that it will execute for each row
+        let statement = r#"
+        CREATE TRIGGER create_last_position_trigger
+        BEFORE INSERT OR UPDATE ON vehicle_tracker_location
+        FOR EACH ROW EXECUTE PROCEDURE create_last_pos_trigger_fn();
         "#;
 
         db.execute_unprepared(statement).await?;

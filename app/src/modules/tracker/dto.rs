@@ -1,4 +1,5 @@
-use serde::Deserialize;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use shared::TrackerModel;
 use utoipa::{IntoParams, ToSchema};
 use validator::{Validate, ValidationError};
@@ -67,4 +68,27 @@ pub struct SetTrackerVehicleDto {
 pub struct DeleteTrackerDto {
     /// If the sim cards associated with the tracker to be deleted, should be deleted aswell
     pub delete_associated_sim_cards: Option<bool>,
+}
+
+#[derive(Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TrackerLocationDto {
+    pub time: DateTime<Utc>,
+
+    pub point: Point,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct Point {
+    pub x: f64,
+    pub y: f64,
+}
+
+impl From<geo_types::Point<f64>> for Point {
+    fn from(value: geo_types::Point<f64>) -> Self {
+        Self {
+            x: value.x(),
+            y: value.y(),
+        }
+    }
 }
