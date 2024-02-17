@@ -25,6 +25,32 @@ pub struct CreateSimCardDto {
     pub tracker_id: Option<i32>,
 }
 
+#[derive(Deserialize, ToSchema, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateSimCardDto {
+    pub ssn: Option<String>,
+
+    pub phone_number: Option<String>,
+
+    pub apn_user: Option<String>,
+
+    pub apn_address: Option<String>,
+
+    pub apn_password: Option<String>,
+
+    #[serde(default, with = "::serde_with::rust::double_option")]
+    pub pin: Option<Option<String>>,
+
+    #[serde(default, with = "::serde_with::rust::double_option")]
+    pub pin2: Option<Option<String>>,
+
+    #[serde(default, with = "::serde_with::rust::double_option")]
+    pub puk: Option<Option<String>>,
+
+    #[serde(default, with = "::serde_with::rust::double_option")]
+    pub puk2: Option<Option<String>>,
+}
+
 #[derive(Deserialize, IntoParams, Validate)]
 #[serde(rename_all = "camelCase")]
 #[into_params(parameter_in = Query)]

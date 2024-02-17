@@ -1,6 +1,6 @@
 use super::dto::{self, CreateSimCardDto, ListSimCardsDto};
 use crate::{
-    database::{self, error::DbError},
+    database::{self, error::DbError, helpers::set_if_some},
     modules::{
         auth::{self, middleware::AclLayer},
         common::{
@@ -31,6 +31,9 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         //
         .route("/", post(create_sim_card))
         .layer(AclLayer::new(vec![Permission::CreateSimCard]))
+        //
+        .route("/:sim_card_id", put(update_sim_card))
+        .layer(AclLayer::new(vec![Permission::UpdateSimCard]))
         //
         .route("/:sim_card_id", delete(delete_sim_card))
         .layer(AclLayer::new(vec![Permission::DeleteSimCard]))
@@ -87,10 +90,10 @@ pub async fn create_sim_card(
                 )),
             ))?;
 
-        let sim_cards_on_tracker_count: i64 = vehicle_tracker::Entity::find()
+        let sim_cards_on_tracker_count: i64 = sim_card::Entity::find()
             .select_only()
-            .column_as(vehicle_tracker::Column::Id.count(), "count")
-            .filter(vehicle_tracker::Column::VehicleId.eq(tracker_id))
+            .column_as(sim_card::Column::Id.count(), "count")
+            .filter(sim_card::Column::TrackerId.eq(tracker_id))
             .into_tuple()
             .one(&db)
             .await
@@ -131,6 +134,57 @@ pub async fn create_sim_card(
     .map_err(DbError::from)?;
 
     Ok(Json(created_sim_card))
+}
+
+/// Updates a SIM card
+///
+/// Required permissions: UPDATE_SIM_CARD
+#[utoipa::path(
+    put,
+    tag = "sim-card",
+    path = "/sim-card/{sim_card_id}",
+    security(("session_id" = [])),
+    params(
+        ("sim_card_id" = u128, Path, description = "id of the sim card to update"),
+    ),
+    request_body(content = UpdateSimCardDto ),
+    responses(
+        (
+            status = OK,
+            description = "the updated SIM card",
+            content_type = "application/json",
+            body = entity::sim_card::Model,
+        )
+    ),
+)]
+pub async fn update_sim_card(
+    Path(sim_card_id): Path<i32>,
+    OrganizationId(org_id): OrganizationId,
+    DbConnection(db): DbConnection,
+    ValidatedJson(dto): ValidatedJson<dto::UpdateSimCardDto>,
+) -> Result<Json<sim_card::Model>, (StatusCode, SimpleError)> {
+    let mut v: sim_card::ActiveModel = sim_card::Entity::find()
+        .filter(sim_card::Column::OrganizationId.eq(org_id))
+        .filter(sim_card::Column::Id.eq(sim_card_id))
+        .one(&db)
+        .await
+        .map_err(DbError::from)?
+        .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?
+        .into();
+
+    v.ssn = set_if_some(dto.ssn);
+    v.phone_number = set_if_some(dto.phone_number);
+    v.apn_user = set_if_some(dto.apn_user);
+    v.apn_address = set_if_some(dto.apn_address);
+    v.apn_password = set_if_some(dto.apn_password);
+    v.pin = set_if_some(dto.pin);
+    v.pin2 = set_if_some(dto.pin2);
+    v.puk = set_if_some(dto.puk);
+    v.puk2 = set_if_some(dto.puk2);
+
+    let updated_sim_card = v.update(&db).await.map_err(DbError::from)?;
+
+    Ok(Json(updated_sim_card))
 }
 
 /// Sets a sim card tracker
