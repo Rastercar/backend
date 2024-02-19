@@ -22,7 +22,7 @@ pub struct CreateSimCardDto {
 
     /// ID of the vehicle to associate with the tracker
     #[validate(range(min = 1))]
-    pub tracker_id: Option<i32>,
+    pub vehicle_tracker_id: Option<i32>,
 }
 
 #[derive(Deserialize, ToSchema, Validate)]
@@ -70,9 +70,9 @@ pub struct SetSimCardTrackerDto {
     ///
     /// we use the `Option<Option<i32>>` format here to distinguish
     /// between `undefined` and `null` values when parsing JSON
-    /// to avoid wrongfully interpreting `tracker_id` as `null`
+    /// to avoid wrongfully interpreting `vehicle_tracker_id` as `null`
     /// when the key is not present in the request body main object.
     #[serde(default, with = "::serde_with::rust::double_option")]
     #[validate(required)]
-    pub tracker_id: Option<Option<i32>>,
+    pub vehicle_tracker_id: Option<Option<i32>>,
 }

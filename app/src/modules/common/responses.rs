@@ -12,7 +12,7 @@ use validator::ValidationErrors;
 ///
 /// its meant to be sent as JSON so its `IntoResponse` implementation will set the
 /// response body to JSON
-#[derive(Serialize, Clone, ToSchema)]
+#[derive(Serialize, Clone, ToSchema, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct SimpleError {
     error: String,

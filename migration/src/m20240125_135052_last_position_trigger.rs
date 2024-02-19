@@ -15,8 +15,8 @@ impl MigrationTrait for Migration {
         CREATE OR REPLACE FUNCTION create_last_pos_trigger_fn() RETURNS TRIGGER LANGUAGE PLPGSQL AS
               $BODY$
                   BEGIN
-                      INSERT INTO vehicle_tracker_last_location (tracker_id, point, time) VALUES (NEW.tracker_id, NEW.point, NEW.time) 
-                      ON CONFLICT (tracker_id) DO UPDATE SET 
+                      INSERT INTO vehicle_tracker_last_location (vehicle_tracker_id, point, time) VALUES (NEW.vehicle_tracker_id, NEW.point, NEW.time) 
+                      ON CONFLICT (vehicle_tracker_id) DO UPDATE SET 
                       point=NEW.point,
                       time=new.time;
                       RETURN NEW;

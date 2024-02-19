@@ -111,7 +111,7 @@ CREATE TABLE "sim_card" (
     "puk" varchar(8) NULL,
     "puk2" varchar(8) NULL,
     "organization_id" int NOT NULL,
-    "tracker_id" int NULL
+    "vehicle_tracker_id" int NULL
 );
 
 COMMENT ON
@@ -124,20 +124,20 @@ ALTER TABLE "sim_card"
 ADD CONSTRAINT "sim_card_ssn_unique" UNIQUE ("ssn", "organization_id");
 
 CREATE TABLE "vehicle_tracker_last_location" (
-    "tracker_id" int NOT NULL,
+    "vehicle_tracker_id" int NOT NULL,
     "time" timestamptz(0) NOT NULL,
     "point" geometry NOT NULL,
-    CONSTRAINT "vehicle_tracker_last_location_pkey" PRIMARY KEY ("tracker_id")
+    CONSTRAINT "vehicle_tracker_last_location_pkey" PRIMARY KEY ("vehicle_tracker_id")
 );
 
 ALTER TABLE "vehicle_tracker_last_location"
-ADD CONSTRAINT "vehicle_tracker_last_location_tracker_id_unique" UNIQUE ("tracker_id");
+ADD CONSTRAINT "vehicle_tracker_last_location_vehicle_tracker_id_unique" UNIQUE ("vehicle_tracker_id");
 
 CREATE TABLE "vehicle_tracker_location" (
     "time" timestamptz(0) NOT NULL,
-    "tracker_id" int NOT NULL,
+    "vehicle_tracker_id" int NOT NULL,
     "point" geometry NOT NULL,
-    CONSTRAINT "vehicle_tracker_location_pkey" PRIMARY KEY ("time", "tracker_id")
+    CONSTRAINT "vehicle_tracker_location_pkey" PRIMARY KEY ("time", "vehicle_tracker_id")
 );
 
 CREATE TABLE "session" (
@@ -186,13 +186,14 @@ ADD CONSTRAINT "sim_card_organization_id_foreign" FOREIGN KEY ("organization_id"
 ON UPDATE CASCADE;
 
 ALTER TABLE "sim_card"
-ADD CONSTRAINT "sim_card_tracker_id_foreign" FOREIGN KEY ("tracker_id") REFERENCES "vehicle_tracker" ("id")
+ADD CONSTRAINT "sim_card_vehicle_tracker_id_foreign" FOREIGN KEY ("vehicle_tracker_id") REFERENCES "vehicle_tracker" ("id")
 ON UPDATE CASCADE
 ON DELETE SET NULL;
 
 ALTER TABLE "vehicle_tracker_last_location"
-ADD CONSTRAINT "vehicle_tracker_last_location_tracker_id_foreign" FOREIGN KEY ("tracker_id") REFERENCES "vehicle_tracker" ("id")
-ON UPDATE CASCADE;
+ADD CONSTRAINT "vehicle_tracker_last_location_vehicle_tracker_id_foreign" FOREIGN KEY ("vehicle_tracker_id") REFERENCES "vehicle_tracker" ("id")
+ON UPDATE CASCADE
+ON DELETE CASCADE;
         "#;
 
         db.execute_unprepared(statement).await?;

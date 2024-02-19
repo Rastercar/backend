@@ -75,10 +75,12 @@ use axum::Router;
         vehicle::routes::vehicle_by_id,
         vehicle::routes::create_vehicle,
         vehicle::routes::update_vehicle,
+        vehicle::routes::delete_vehicle,
         vehicle::routes::get_vehicle_tracker,
         vehicle::routes::update_vehicle_photo,
         vehicle::routes::delete_vehicle_photo,
         
+        sim_card::routes::get_sim_card,
         sim_card::routes::list_sim_cards,
         sim_card::routes::delete_sim_card,
         sim_card::routes::create_sim_card,

@@ -21,7 +21,7 @@ pub struct Model {
     pub puk: Option<String>,
     pub puk2: Option<String>,
     pub organization_id: i32,
-    pub tracker_id: Option<i32>,
+    pub vehicle_tracker_id: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -36,7 +36,7 @@ pub enum Relation {
     Organization,
     #[sea_orm(
         belongs_to = "super::vehicle_tracker::Entity",
-        from = "Column::TrackerId",
+        from = "Column::VehicleTrackerId",
         to = "super::vehicle_tracker::Column::Id",
         on_update = "Cascade",
         on_delete = "SetNull"

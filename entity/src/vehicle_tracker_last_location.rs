@@ -5,7 +5,7 @@ use sea_orm::entity::prelude::*;
 #[sea_orm(table_name = "vehicle_tracker_last_location")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false, unique)]
-    pub tracker_id: i32,
+    pub vehicle_tracker_id: i32,
     pub time: DateTime<Utc>,
     #[sea_orm(column_type = "custom(\"geometry\")")]
     pub point: String,
@@ -15,7 +15,7 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(
         belongs_to = "super::vehicle_tracker::Entity",
-        from = "Column::TrackerId",
+        from = "Column::VehicleTrackerId",
         to = "super::vehicle_tracker::Column::Id",
         on_update = "Cascade",
         on_delete = "NoAction"

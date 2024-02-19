@@ -32,6 +32,8 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         .route("/", post(create_sim_card))
         .layer(AclLayer::new(vec![Permission::CreateSimCard]))
         //
+        .route("/:sim_card_id", get(get_sim_card))
+        //
         .route("/:sim_card_id", put(update_sim_card))
         .layer(AclLayer::new(vec![Permission::UpdateSimCard]))
         //
@@ -75,9 +77,9 @@ pub async fn create_sim_card(
     DbConnection(db): DbConnection,
     ValidatedJson(dto): ValidatedJson<CreateSimCardDto>,
 ) -> Result<Json<sim_card::Model>, (StatusCode, SimpleError)> {
-    if let Some(tracker_id) = dto.tracker_id {
+    if let Some(vehicle_tracker_id) = dto.vehicle_tracker_id {
         let tracker = vehicle_tracker::Entity::find()
-            .filter(vehicle_tracker::Column::Id.eq(tracker_id))
+            .filter(vehicle_tracker::Column::Id.eq(vehicle_tracker_id))
             .filter(vehicle_tracker::Column::OrganizationId.eq(org_id))
             .one(&db)
             .await
@@ -85,15 +87,15 @@ pub async fn create_sim_card(
             .ok_or((
                 StatusCode::BAD_REQUEST,
                 SimpleError::from(format!(
-                    "tracker: {} not found for org {}",
-                    tracker_id, org_id
+                    "vehicle_tracker: {} not found for org {}",
+                    vehicle_tracker_id, org_id
                 )),
             ))?;
 
         let sim_cards_on_tracker_count: i64 = sim_card::Entity::find()
             .select_only()
             .column_as(sim_card::Column::Id.count(), "count")
-            .filter(sim_card::Column::TrackerId.eq(tracker_id))
+            .filter(sim_card::Column::VehicleTrackerId.eq(vehicle_tracker_id))
             .into_tuple()
             .one(&db)
             .await
@@ -102,8 +104,8 @@ pub async fn create_sim_card(
 
         if sim_cards_on_tracker_count + 1 > tracker.model.get_info().sim_card_slots.into() {
             let err_msg = format!(
-                "tracker: {} does not have a empty SIM card slot",
-                tracker_id
+                "vehicle_tracker: {} does not have a empty SIM card slot",
+                vehicle_tracker_id
             );
             return Err((StatusCode::BAD_REQUEST, SimpleError::from(err_msg)));
         }
@@ -123,7 +125,7 @@ pub async fn create_sim_card(
         puk: Set(dto.puk),
         puk2: Set(dto.puk2),
 
-        tracker_id: Set(dto.tracker_id),
+        vehicle_tracker_id: Set(dto.vehicle_tracker_id),
         organization_id: Set(org_id),
         ..Default::default()
     }
@@ -147,7 +149,7 @@ pub async fn create_sim_card(
     params(
         ("sim_card_id" = u128, Path, description = "id of the sim card to update"),
     ),
-    request_body(content = UpdateSimCardDto ),
+    request_body(content = UpdateSimCardDto),
     responses(
         (
             status = OK,
@@ -220,9 +222,9 @@ pub async fn set_sim_card_tracker(
     DbConnection(db): DbConnection,
     ValidatedJson(payload): ValidatedJson<dto::SetSimCardTrackerDto>,
 ) -> Result<Json<String>, (StatusCode, SimpleError)> {
-    // here we can unwrap tracker_id because its guaranteed
+    // here we can unwrap vehicle_tracker_id because its guaranteed
     // by the DTO validation to be `Some`
-    let tracker_id_or_none = payload.tracker_id.ok_or(internal_error_res())?;
+    let tracker_id_or_none = payload.vehicle_tracker_id.ok_or(internal_error_res())?;
 
     let sim_card = sim_card::Entity::find_by_id(sim_card_id)
         .filter(sim_card::Column::OrganizationId.eq(org_id))
@@ -245,7 +247,7 @@ pub async fn set_sim_card_tracker(
                 SimpleError::from("tracker not found"),
             ))?;
 
-        if sim_card.tracker_id == Some(new_tracker_id) {
+        if sim_card.vehicle_tracker_id == Some(new_tracker_id) {
             let success_msg = format!(
                 "sim card is already associated with tracker: {}",
                 new_tracker_id
@@ -256,7 +258,7 @@ pub async fn set_sim_card_tracker(
         let sim_cards_associated_with_tracker: i64 = sim_card::Entity::find()
             .select_only()
             .column_as(sim_card::Column::Id.count(), "count")
-            .filter(sim_card::Column::TrackerId.eq(new_tracker_id))
+            .filter(sim_card::Column::VehicleTrackerId.eq(new_tracker_id))
             .into_tuple()
             .one(&db)
             .await
@@ -270,7 +272,10 @@ pub async fn set_sim_card_tracker(
     }
 
     sim_card::Entity::update_many()
-        .col_expr(sim_card::Column::TrackerId, Expr::value(tracker_id_or_none))
+        .col_expr(
+            sim_card::Column::VehicleTrackerId,
+            Expr::value(tracker_id_or_none),
+        )
         .filter(sim_card::Column::Id.eq(sim_card_id))
         .filter(sim_card::Column::OrganizationId.eq(org_id))
         .exec(&db)
@@ -323,6 +328,40 @@ pub async fn delete_sim_card(
 #[utoipa::path(
     get,
     tag = "sim-card",
+    path = "/sim-card/{sim_card_id}",
+    security(("session_id" = [])),
+    params(
+        ("sim_card_id" = u128, Path, description = "id of the SIM card"),
+    ),
+    responses(
+        (
+            status = OK,
+            description = "the updated SIM card",
+            content_type = "application/json",
+            body = entity::sim_card::Model,
+        )
+    ),
+)]
+pub async fn get_sim_card(
+    Path(sim_card_id): Path<i32>,
+    OrganizationId(org_id): OrganizationId,
+    DbConnection(db): DbConnection,
+) -> Result<Json<entity::sim_card::Model>, (StatusCode, SimpleError)> {
+    let sim_card = sim_card::Entity::find()
+        .filter(sim_card::Column::OrganizationId.eq(org_id))
+        .filter(sim_card::Column::Id.eq(sim_card_id))
+        .one(&db)
+        .await
+        .map_err(DbError::from)?
+        .ok_or((StatusCode::NOT_FOUND, SimpleError::from("SIM not found")))?;
+
+    Ok(Json(sim_card))
+}
+
+/// Lists the SIM cards that belong to the same org as the request user
+#[utoipa::path(
+    get,
+    tag = "sim-card",
     path = "/sim-card",
     security(("session_id" = [])),
     params(
@@ -348,9 +387,9 @@ pub async fn list_sim_cards(
         .filter(sim_card::Column::OrganizationId.eq(org_id))
         .apply_if(filter.with_associated_tracker, |query, with_vehicle| {
             if with_vehicle {
-                query.filter(sim_card::Column::TrackerId.is_not_null())
+                query.filter(sim_card::Column::VehicleTrackerId.is_not_null())
             } else {
-                query.filter(sim_card::Column::TrackerId.is_null())
+                query.filter(sim_card::Column::VehicleTrackerId.is_null())
             }
         })
         .apply_if(filter.phone_number, |query, phone| {

@@ -46,6 +46,9 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         .route("/:vehicle_id", put(update_vehicle))
         .layer(AclLayer::new(vec![Permission::UpdateVehicle]))
         //
+        .route("/:vehicle_id", delete(delete_vehicle))
+        .layer(AclLayer::new(vec![Permission::DeleteVehicle]))
+        //
         .route("/:vehicle_id/tracker", get(get_vehicle_tracker))
         //
         .route("/:vehicle_id/photo", put(update_vehicle_photo))
@@ -286,6 +289,60 @@ pub async fn delete_vehicle_photo(
     }
 
     Ok(Json(String::from("photo deleted successfuly")))
+}
+
+/// Deletes a vehicle
+#[utoipa::path(
+    delete,
+    tag = "vehicle",
+    path = "/vehicle/{vehicle_id}",
+    security(("session_id" = [])),
+    params(
+        ("vehicle_id" = u128, Path, description = "id of the vehicle to delete"),
+    ),
+    responses(
+        (
+            status = OK,
+            body = String,
+            content_type = "application/json",
+            description = "success message",
+            example = json!("vehicle deleted successfully"),
+        ),
+        (
+            status = UNAUTHORIZED,
+            description = "invalid session",
+            body = SimpleError,
+        ),
+    ),
+)]
+pub async fn delete_vehicle(
+    Path(vehicle_id): Path<i32>,
+    State(state): State<AppState>,
+    DbConnection(db): DbConnection,
+    OrganizationId(org_id): OrganizationId,
+) -> Result<Json<String>, (StatusCode, SimpleError)> {
+    let req_vehicle = vehicle::Entity::find_by_id_and_org_id(vehicle_id, org_id, &db)
+        .await
+        .map_err(DbError::from)?
+        .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?;
+
+    let delete_result = vehicle::Entity::delete_many()
+        .filter(vehicle::Column::Id.eq(vehicle_id))
+        .filter(vehicle::Column::OrganizationId.eq(org_id))
+        .exec(&db)
+        .await
+        .map_err(DbError::from)?;
+
+    if let Some(photo) = req_vehicle.photo {
+        let _ = state.s3.delete(photo).await;
+    }
+
+    if delete_result.rows_affected < 1 {
+        let err_msg = "vehicle does not exist or does not belong to the request user organization";
+        Err((StatusCode::BAD_REQUEST, SimpleError::from(err_msg)))
+    } else {
+        Ok(Json(String::from("vehicle deleted successfully")))
+    }
 }
 
 /// Lists the vehicles that belong to the same org as the request user

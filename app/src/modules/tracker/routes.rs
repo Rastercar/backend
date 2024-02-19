@@ -161,7 +161,7 @@ pub async fn delete_tracker(
 ) -> Result<Json<String>, (StatusCode, SimpleError)> {
     if dto.delete_associated_sim_cards.unwrap_or(false) {
         entity::sim_card::Entity::delete_many()
-            .filter(entity::sim_card::Column::TrackerId.eq(tracker_id))
+            .filter(entity::sim_card::Column::VehicleTrackerId.eq(tracker_id))
             .filter(entity::sim_card::Column::OrganizationId.eq(org_id))
             .exec(&db)
             .await
@@ -171,6 +171,15 @@ pub async fn delete_tracker(
     let tracker_delete_result = vehicle_tracker::Entity::delete_many()
         .filter(vehicle_tracker::Column::Id.eq(tracker_id))
         .filter(vehicle_tracker::Column::OrganizationId.eq(org_id))
+        .exec(&db)
+        .await
+        .map_err(DbError::from)?;
+
+    // we need to delete from the vehicle tracker location manually since this
+    // table does not have a FK with ON DELETE CASCADE; to the vehicle_tracker
+    // table for performance reasons
+    entity::vehicle_tracker_location::Entity::delete_many()
+        .filter(entity::vehicle_tracker_location::Column::VehicleTrackerId.eq(tracker_id))
         .exec(&db)
         .await
         .map_err(DbError::from)?;
@@ -207,7 +216,7 @@ pub async fn list_tracker_sim_cards(
     DbConnection(db): DbConnection,
 ) -> Result<Json<Vec<entity::sim_card::Model>>, (StatusCode, SimpleError)> {
     let cards = entity::sim_card::Entity::find()
-        .filter(entity::sim_card::Column::TrackerId.eq(tracker_id))
+        .filter(entity::sim_card::Column::VehicleTrackerId.eq(tracker_id))
         .filter(entity::sim_card::Column::OrganizationId.eq(org_id))
         .all(&db)
         .await
@@ -242,9 +251,12 @@ pub async fn get_tracker_location(
         .column(entity::vehicle_tracker_last_location::Column::Time)
         .column(entity::vehicle_tracker_last_location::Column::Point)
         .from(entity::vehicle_tracker_last_location::Entity)
-        .cond_where(Cond::all().add(
-            Expr::col(entity::vehicle_tracker_last_location::Column::TrackerId).eq(tracker_id),
-        ))
+        .cond_where(
+            Cond::all().add(
+                Expr::col(entity::vehicle_tracker_last_location::Column::VehicleTrackerId)
+                    .eq(tracker_id),
+            ),
+        )
         .to_owned()
         .build_sqlx(PostgresQueryBuilder);
 

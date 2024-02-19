@@ -55,7 +55,7 @@ pub struct SetTrackerVehicleDto {
     ///
     /// we use the `Option<Option<i32>>` format here to distinguish
     /// between `undefined` and `null` values when parsing JSON
-    /// to avoid wrongfully interpreting `tracker_id` as `null`
+    /// to avoid wrongfully interpreting `vehicle_id` as `null`
     /// when the key is not present in the request body main object.
     #[serde(default, with = "::serde_with::rust::double_option")]
     #[validate(required)]

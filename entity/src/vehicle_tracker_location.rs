@@ -7,7 +7,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub time: DateTime<Utc>,
     #[sea_orm(primary_key, auto_increment = false)]
-    pub tracker_id: i32,
+    pub vehicle_tracker_id: i32,
     #[sea_orm(column_type = "custom(\"geometry\")")]
     pub point: String,
 }

@@ -109,7 +109,7 @@ fn random_phone_number() -> String {
     let mut rng = rand::thread_rng();
 
     // Country code (e.g., +1 for United States)
-    let country_code: u16 = rng.gen_range(1..1000);
+    let country_code: u16 = rng.gen_range(1..100);
 
     // Random 9-digit number for the national significant number
     let national_number: u64 = rng.gen_range(1_000_000_000..1_000_000_000_000);
@@ -120,7 +120,7 @@ fn random_phone_number() -> String {
 pub async fn sim_card(
     db: &DatabaseTransaction,
     org_id: i32,
-    tracker_id: Option<i32>,
+    vehicle_tracker_id: Option<i32>,
 ) -> Result<sim_card::Model, DbErr> {
     let apn = seeder_consts::get_fake_apn();
 
@@ -134,7 +134,7 @@ pub async fn sim_card(
         puk2: Set(Some(fake_puk_code())),
         pin: Set(Some(fake_pin_number())),
         pin2: Set(Some(fake_pin_number())),
-        tracker_id: Set(tracker_id),
+        vehicle_tracker_id: Set(vehicle_tracker_id),
         organization_id: Set(org_id),
         ..Default::default()
     }
@@ -256,12 +256,6 @@ pub async fn create_entities_for_org(db: &DatabaseTransaction, org_id: i32) -> R
             // the tracker has a 80% chance of having a SIM CARD
             if fake_bool_with_chance(80) {
                 sim_card(db, org_id, Some(tracker.id)).await?;
-
-                // the tracker has a 8% chance (0.8 * 0.1) of having a second sim card
-                // (some tracker models can have 2 sim cards in case one looses connection)
-                if fake_bool_with_chance(10) {
-                    sim_card(db, org_id, Some(tracker.id)).await?;
-                }
             }
         }
     }
