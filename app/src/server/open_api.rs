@@ -16,6 +16,7 @@ use axum::Router;
         entity::sim_card::Model,
         entity::vehicle_tracker::Model,
         
+        common::dto::PaginatedUser,
         common::dto::PaginatedSimCard,
         common::dto::PaginatedVehicle,
         common::dto::PaginatedVehicleTracker,
@@ -25,6 +26,7 @@ use axum::Router;
         common::dto::SingleImageDto,
         common::responses::SimpleError,
         
+        user::dto::SimpleUserDto,
         user::dto::UpdateUserDto,
         user::dto::ChangePasswordDto,
         
@@ -57,6 +59,7 @@ use axum::Router;
         
         user::routes::me,
         user::routes::update_me,
+        user::routes::list_users,
         user::routes::put_password,
         user::routes::put_profile_picture,
         user::routes::delete_profile_picture,

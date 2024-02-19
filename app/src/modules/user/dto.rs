@@ -2,7 +2,8 @@ use crate::modules::common::validators::{
     REGEX_CONTAINS_LOWERCASE_CHARACTER, REGEX_CONTAINS_NUMBER, REGEX_CONTAINS_SYMBOLIC_CHARACTER,
     REGEX_CONTAINS_UPPERCASE_CHARACTER, REGEX_IS_LOWERCASE_ALPHANUMERIC_WITH_UNDERSCORES,
 };
-use serde::Deserialize;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use validator::Validate;
 
@@ -46,4 +47,31 @@ pub struct ChangePasswordDto {
         message = "password must contain a lowercase character"
     ))]
     pub new_password: String,
+}
+
+#[derive(Serialize, Clone, ToSchema)]
+#[serde(rename_all = "camelCase")]
+#[schema(as = user::dto::SimpleUserDto)]
+pub struct SimpleUserDto {
+    pub id: i32,
+    pub created_at: DateTime<Utc>,
+    pub username: String,
+    pub email: String,
+    pub email_verified: bool,
+    pub profile_picture: Option<String>,
+    pub description: Option<String>,
+}
+
+impl From<entity::user::Model> for SimpleUserDto {
+    fn from(m: entity::user::Model) -> Self {
+        Self {
+            id: m.id,
+            email: m.email,
+            username: m.username,
+            created_at: m.created_at,
+            description: m.description,
+            email_verified: m.email_verified,
+            profile_picture: m.profile_picture,
+        }
+    }
 }

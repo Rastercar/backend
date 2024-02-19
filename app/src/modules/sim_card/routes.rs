@@ -324,7 +324,7 @@ pub async fn delete_sim_card(
     }
 }
 
-/// Lists the SIM cards that belong to the same org as the request user
+/// Get a SIM card by ID
 #[utoipa::path(
     get,
     tag = "sim-card",
@@ -336,7 +336,7 @@ pub async fn delete_sim_card(
     responses(
         (
             status = OK,
-            description = "the updated SIM card",
+            description = "the SIM card",
             content_type = "application/json",
             body = entity::sim_card::Model,
         )

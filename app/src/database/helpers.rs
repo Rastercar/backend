@@ -6,7 +6,11 @@ use crate::modules::common::dto::{Pagination, PaginationResult};
 use super::error::DbError;
 
 /// Executes a paginated query, fetching its items, number of items and number
-/// of pages into a `PaginationResult`
+/// of pages into a `PaginationResult`.
+///
+/// this is intended to be used for queries where its rows implement
+/// `utoipa::ToSchema`, since `PaginationResult` expects its records
+/// to be able to generate openApi docs.
 pub async fn paginated_query_to_pagination_result<
     'db,
     C: sea_orm::ConnectionTrait,

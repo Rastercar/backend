@@ -1,3 +1,4 @@
+use crate::modules::user;
 use axum::body::Bytes;
 use axum_typed_multipart::{FieldData, TryFromMultipart};
 use serde::{Deserialize, Serialize};
@@ -37,10 +38,15 @@ pub struct Pagination {
     pub page_size: u64,
 }
 
-/// Pagination metadata of a executed query
+/// Pagination metadata of a executed query.
+///
+/// this struct also requires `T` on the records field to implement
+/// `utoipa::ToSchema` since this struct is intended to be used as
+/// a API response with openApi docs generation
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[aliases(
+    PaginatedUser = PaginationResult<user::dto::SimpleUserDto>,
     PaginatedVehicle = PaginationResult<entity::vehicle::Model>,
     PaginatedSimCard = PaginationResult<entity::sim_card::Model>,
     PaginatedVehicleTracker = PaginationResult<entity::vehicle_tracker::Model>

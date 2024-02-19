@@ -8,6 +8,11 @@ use utoipa::ToSchema;
 /// All the permissions available for the rastercar API
 #[derive(Debug, EnumIter, Display, Clone)]
 pub enum Permission {
+    CreateUser,
+    UpdateUser,
+    DeleteUser,
+    LogoffUser,
+
     CreateTracker,
     UpdateTracker,
     DeleteTracker,

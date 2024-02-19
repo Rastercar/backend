@@ -1,3 +1,8 @@
+# [PROD-TODO] remove me
+.PHONY: lazy
+lazy:
+	git add . && git commit -m "." && git push origin master
+	
 .PHONY: run_prod
 run_prod:
 	RUST_LOG=error AWS_PROFILE=rastercar-vitor cargo run

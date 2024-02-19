@@ -1,10 +1,10 @@
 use super::super::auth::dto as auth_dto;
-use super::dto::{self};
+use super::dto::{self, SimpleUserDto};
 use crate::database::error::DbError;
 use crate::modules::auth::middleware::RequestUserPassword;
-use crate::modules::common::dto::SingleImageDto;
+use crate::modules::common::dto::{Pagination, PaginationResult, SingleImageDto};
 use crate::modules::common::error_codes::EMAIL_ALREADY_VERIFIED;
-use crate::modules::common::extractors::DbConnection;
+use crate::modules::common::extractors::{DbConnection, OrganizationId, ValidatedQuery};
 use crate::modules::common::responses::internal_error_msg;
 use crate::services::mailer::service::ConfirmEmailRecipientType;
 use crate::{
@@ -19,6 +19,7 @@ use crate::{
     server::controller::AppState,
     services::s3::S3Key,
 };
+use axum::extract::Path;
 use axum::{
     extract::State,
     routing::{get, post, put},
@@ -28,10 +29,12 @@ use axum_typed_multipart::TypedMultipart;
 use bcrypt::{hash, verify, DEFAULT_COST};
 use http::StatusCode;
 use migration::Expr;
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryTrait};
+use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QueryTrait};
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
+        .route("/", get(list_users))
+        .route("/:user_id", get(get_user))
         .route("/me", get(me).patch(update_me))
         .route("/me/password", put(put_password))
         .route(
@@ -46,6 +49,90 @@ pub fn create_router(state: AppState) -> Router<AppState> {
             state,
             auth::middleware::require_user,
         ))
+}
+
+/// List users belonging to a organization
+#[utoipa::path(
+    get,
+    tag = "user",
+    path = "/user",
+    security(("session_id" = [])),
+    params(
+        Pagination
+    ),
+    responses(
+        (
+            status = OK,
+            description = "paginated list of users",
+            content_type = "application/json",
+            body = PaginatedUser,
+        ),
+    ),
+)]
+pub async fn list_users(
+    ValidatedQuery(pagination): ValidatedQuery<Pagination>,
+    OrganizationId(org_id): OrganizationId,
+    DbConnection(db): DbConnection,
+) -> Result<Json<PaginationResult<dto::SimpleUserDto>>, (StatusCode, SimpleError)> {
+    let paginator = entity::user::Entity::find()
+        .filter(entity::user::Column::OrganizationId.eq(org_id))
+        .order_by_asc(entity::user::Column::Id)
+        .paginate(&db, pagination.page_size);
+
+    let n = paginator
+        .num_items_and_pages()
+        .await
+        .map_err(DbError::from)?;
+
+    let rows = paginator
+        .fetch_page(pagination.page - 1)
+        .await
+        .map_err(DbError::from)?;
+
+    let records: Vec<dto::SimpleUserDto> = rows.into_iter().map(SimpleUserDto::from).collect();
+
+    let result = PaginationResult {
+        page: pagination.page,
+        records,
+        page_size: pagination.page_size,
+        item_count: n.number_of_items,
+        page_count: n.number_of_pages,
+    };
+
+    Ok(Json(result))
+}
+
+/// Get a user by ID
+#[utoipa::path(
+    get,
+    tag = "user",
+    path = "/user/{user_id}",
+    security(("session_id" = [])),
+    params(
+        ("user_id" = u128, Path, description = "id of the user"),
+    ),
+    responses(
+        (
+            status = OK,
+            content_type = "application/json",
+            body = user::dto::SimpleUserDto,
+        )
+    ),
+)]
+pub async fn get_user(
+    Path(user_id): Path<i32>,
+    OrganizationId(org_id): OrganizationId,
+    DbConnection(db): DbConnection,
+) -> Result<Json<dto::SimpleUserDto>, (StatusCode, SimpleError)> {
+    let user = entity::user::Entity::find()
+        .filter(entity::user::Column::OrganizationId.eq(org_id))
+        .filter(entity::user::Column::Id.eq(user_id))
+        .one(&db)
+        .await
+        .map_err(DbError::from)?
+        .ok_or((StatusCode::NOT_FOUND, SimpleError::from("user not found")))?;
+
+    Ok(Json(dto::SimpleUserDto::from(user)))
 }
 
 /// Returns the request user
