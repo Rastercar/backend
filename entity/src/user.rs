@@ -43,6 +43,20 @@ pub struct Model {
     pub access_level_id: i32,
 }
 
+impl Entity {
+    pub async fn find_by_id_and_org_id(
+        id: i32,
+        organization_id: i32,
+        db: &DatabaseConnection,
+    ) -> Result<Option<Model>, DbErr> {
+        Self::find()
+            .filter(Column::Id.eq(id))
+            .filter(Column::OrganizationId.eq(organization_id))
+            .one(db)
+            .await
+    }
+}
+
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(

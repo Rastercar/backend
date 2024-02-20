@@ -85,9 +85,9 @@ fn sign_in_or_up_response(
     ),
 )]
 pub async fn list_sessions(
+    State(state): State<AppState>,
     Extension(session): Extension<SessionId>,
     Extension(req_user): Extension<RequestUser>,
-    State(state): State<AppState>,
 ) -> Result<Json<Vec<SessionDto>>, (StatusCode, SimpleError)> {
     let current_session_id = session.get_id();
 
@@ -144,10 +144,11 @@ pub async fn sign_out(
     Extension(session): Extension<SessionId>,
     State(state): State<AppState>,
 ) -> Result<(StatusCode, HeaderMap), (StatusCode, SimpleError)> {
-    state.auth_service.delete_session(&session).await.or(Err((
-        StatusCode::INTERNAL_SERVER_ERROR,
-        SimpleError::from("failed to delete session"),
-    )))?;
+    state
+        .auth_service
+        .delete_session(&session)
+        .await
+        .or(Err(internal_error_msg("failed to delete session")))?;
 
     let mut headers = HeaderMap::new();
     headers.insert("Set-Cookie", session.into_delete_cookie_header());

@@ -61,6 +61,7 @@ use axum::Router;
         user::routes::update_me,
         user::routes::list_users,
         user::routes::put_password,
+        user::routes::get_user_sessions,
         user::routes::put_profile_picture,
         user::routes::delete_profile_picture,
         user::routes::request_user_email_address_confirmation,

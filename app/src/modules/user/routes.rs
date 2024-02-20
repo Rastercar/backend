@@ -1,7 +1,9 @@
 use super::super::auth::dto as auth_dto;
 use super::dto::{self, SimpleUserDto};
 use crate::database::error::DbError;
-use crate::modules::auth::middleware::RequestUserPassword;
+use crate::modules::auth::dto::SessionDto;
+use crate::modules::auth::middleware::{AclLayer, RequestUserPassword};
+use crate::modules::auth::session::SessionId;
 use crate::modules::common::dto::{Pagination, PaginationResult, SingleImageDto};
 use crate::modules::common::error_codes::EMAIL_ALREADY_VERIFIED;
 use crate::modules::common::extractors::{DbConnection, OrganizationId, ValidatedQuery};
@@ -30,11 +32,16 @@ use bcrypt::{hash, verify, DEFAULT_COST};
 use http::StatusCode;
 use migration::Expr;
 use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QueryTrait};
+use shared::Permission;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(list_users))
         .route("/:user_id", get(get_user))
+        //
+        .route("/:user_id/sessions", get(get_user_sessions))
+        .layer(AclLayer::new(vec![Permission::ListUserSessions]))
+        //
         .route("/me", get(me).patch(update_me))
         .route("/me/password", put(put_password))
         .route(
@@ -133,6 +140,63 @@ pub async fn get_user(
         .ok_or((StatusCode::NOT_FOUND, SimpleError::from("user not found")))?;
 
     Ok(Json(dto::SimpleUserDto::from(user)))
+}
+
+/// Get a list of a user sessions
+#[utoipa::path(
+    get,
+    tag = "user",
+    path = "/user/{user_id}/sessions",
+    security(("session_id" = [])),
+    params(
+        ("user_id" = u128, Path, description = "id of the user to get the sessions"),
+    ),
+    responses(
+        (
+            status = OK,
+            body = Vec<SessionDto>,
+        ),
+    ),
+)]
+pub async fn get_user_sessions(
+    Path(user_id): Path<i32>,
+    Extension(session): Extension<SessionId>,
+    State(state): State<AppState>,
+    DbConnection(db): DbConnection,
+    OrganizationId(org_id): OrganizationId,
+) -> Result<Json<Vec<SessionDto>>, (StatusCode, SimpleError)> {
+    let _ = entity::user::Entity::find_by_id_and_org_id(user_id, org_id, &db)
+        .await
+        .map_err(DbError::from)?
+        .ok_or((StatusCode::NOT_FOUND, SimpleError::from("user not found")))?;
+
+    let current_session_id = session.get_id();
+
+    let sessions = state
+        .auth_service
+        .get_active_user_sessions(user_id)
+        .await
+        .or(Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            SimpleError::from("failed to list sessions"),
+        )))?
+        .iter()
+        .map(|s| {
+            let mut session_dto = SessionDto::from(s.clone());
+
+            let session_id = SessionId::from_database_value(s.session_token.clone())
+                .expect("failed convert session id from database value")
+                .get_id();
+
+            if current_session_id == session_id {
+                session_dto.same_as_from_request = true
+            }
+
+            session_dto
+        })
+        .collect();
+
+    Ok(Json(sessions))
 }
 
 /// Returns the request user

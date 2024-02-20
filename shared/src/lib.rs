@@ -12,6 +12,7 @@ pub enum Permission {
     UpdateUser,
     DeleteUser,
     LogoffUser,
+    ListUserSessions,
 
     CreateTracker,
     UpdateTracker,
