@@ -43,6 +43,7 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         .layer(AclLayer::new(vec![Permission::ListUserSessions]))
         //
         .route("/me", get(me).patch(update_me))
+        .route("/me/sessions", get(get_request_user_sessions))
         .route("/me/password", put(put_password))
         .route(
             "/me/profile-picture",
@@ -56,6 +57,58 @@ pub fn create_router(state: AppState) -> Router<AppState> {
             state,
             auth::middleware::require_user,
         ))
+}
+
+/// List all sessions for the request user
+#[utoipa::path(
+    get,
+    tag = "user",
+    path = "/user/me/sessions",
+    security(("session_id" = [])),
+    responses(
+        (
+            status = OK,
+            body = Vec<SessionDto>,
+        ),
+        (
+            status = UNAUTHORIZED,
+            description = "invalid session",
+            body = SimpleError,
+        ),
+    ),
+)]
+pub async fn get_request_user_sessions(
+    State(state): State<AppState>,
+    Extension(session): Extension<SessionId>,
+    Extension(req_user): Extension<RequestUser>,
+) -> Result<Json<Vec<SessionDto>>, (StatusCode, SimpleError)> {
+    let current_session_id = session.get_id();
+
+    let sessions = state
+        .auth_service
+        .get_active_user_sessions(req_user.0.id)
+        .await
+        .or(Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            SimpleError::from("failed to list sessions"),
+        )))?
+        .iter()
+        .map(|s| {
+            let mut session_dto = SessionDto::from(s.clone());
+
+            let session_id = SessionId::from_database_value(s.session_token.clone())
+                .expect("failed convert session id from database value")
+                .get_id();
+
+            if current_session_id == session_id {
+                session_dto.same_as_from_request = true
+            }
+
+            session_dto
+        })
+        .collect();
+
+    Ok(Json(sessions))
 }
 
 /// List users belonging to a organization

@@ -1,11 +1,11 @@
-use super::dto::{self, SessionDto};
+use super::dto::{self};
 use super::jwt;
 use super::middleware::RequestUser;
 use super::session::{OptionalSessionId, SessionId};
 use crate::database::error::DbError;
 use crate::modules::common;
 use crate::modules::common::error_codes::EMAIL_ALREADY_VERIFIED;
-use crate::modules::common::extractors::{DbConnection, ValidatedJson};
+use crate::modules::common::extractors::{DbConnection, OrganizationId, ValidatedJson};
 use crate::modules::common::responses::{internal_error_msg, internal_error_res};
 use crate::modules::common::{error_codes, responses::SimpleError};
 use crate::server::controller::AppState;
@@ -15,7 +15,7 @@ use axum::headers::UserAgent;
 use axum::{
     extract::State,
     http::StatusCode,
-    routing::{delete, get, post},
+    routing::{delete, post},
     Extension, Json, Router, TypedHeader,
 };
 use axum_client_ip::SecureClientIp;
@@ -27,7 +27,7 @@ use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
-        .route("/sessions", get(list_sessions))
+        .route("/sessions/:session-id", delete(delete_session))
         .route("/sign-out", post(sign_out))
         .route(
             "/sign-out/:public-session-id",
@@ -66,56 +66,45 @@ fn sign_in_or_up_response(
     (headers, Json(res_body))
 }
 
-/// List all sessions for the request user
+/// Get a list of a user sessions
 #[utoipa::path(
-    get,
+    delete,
     tag = "auth",
-    path = "/auth/sessions",
+    path = "/auth/sessions/{session_id}",
     security(("session_id" = [])),
+    params(
+        ("user_id" = u128, Path, description = "id of the session to delete"),
+    ),
     responses(
         (
             status = OK,
-            body = Vec<SessionDto>,
-        ),
-        (
-            status = UNAUTHORIZED,
-            description = "invalid session",
-            body = SimpleError,
+            body = String,
+            content_type = "application/json",
+            example = json!("session deleted successfully"),
         ),
     ),
 )]
-pub async fn list_sessions(
-    State(state): State<AppState>,
+pub async fn delete_session(
+    Path(session_id): Path<u128>,
+    OrganizationId(org_id): OrganizationId,
     Extension(session): Extension<SessionId>,
-    Extension(req_user): Extension<RequestUser>,
-) -> Result<Json<Vec<SessionDto>>, (StatusCode, SimpleError)> {
+    State(state): State<AppState>,
+    DbConnection(db): DbConnection,
+) -> Result<Json<String>, (StatusCode, SimpleError)> {
     let current_session_id = session.get_id();
 
-    let sessions = state
-        .auth_service
-        .get_active_user_sessions(req_user.0.id)
-        .await
-        .or(Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            SimpleError::from("failed to list sessions"),
-        )))?
-        .iter()
-        .map(|s| {
-            let mut session_dto = SessionDto::from(s.clone());
+    // TODO:
+    // 1- averiguar sessao existe e não esta expirada (auth_service.get_user_from_session_id) tem
+    // problemas como buscar + do q precisa, não averiguar org_id
+    // 2- verificar usuario pertence a org
+    // 3- deletar a sessao
+    // 4- se a sessao for a atual, retornar o cookie de destruir a sessao
+    // state
+    //     .auth_service
+    //     .get_user_from_session_id(SessionId::from(session_id))
+    //     .await;
 
-            let session_id = SessionId::from_database_value(s.session_token.clone())
-                .expect("failed convert session id from database value")
-                .get_id();
-
-            if current_session_id == session_id {
-                session_dto.same_as_from_request = true
-            }
-
-            session_dto
-        })
-        .collect();
-
-    Ok(Json(sessions))
+    Ok(Json(String::from("session deleted successfully")))
 }
 
 /// Signs out of the current user session
