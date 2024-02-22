@@ -5,3 +5,4 @@ pub mod sim_card;
 pub mod tracker;
 pub mod user;
 pub mod vehicle;
+pub mod access_level;

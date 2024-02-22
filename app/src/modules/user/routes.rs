@@ -1,6 +1,7 @@
 use super::super::auth::dto as auth_dto;
-use super::dto::{self, SimpleUserDto};
+use super::dto::{self, ListUsersDto, SimpleUserDto};
 use crate::database::error::DbError;
+use crate::modules::access_level::dto::AccessLevelDto;
 use crate::modules::auth::dto::SessionDto;
 use crate::modules::auth::middleware::{AclLayer, RequestUserPassword};
 use crate::modules::auth::session::SessionId;
@@ -29,9 +30,11 @@ use axum::{
 };
 use axum_typed_multipart::TypedMultipart;
 use bcrypt::{hash, verify, DEFAULT_COST};
+use entity::user;
 use http::StatusCode;
 use migration::Expr;
 use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QueryTrait};
+use sea_query::extension::postgres::PgExpr;
 use shared::Permission;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
@@ -39,11 +42,12 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         .route("/", get(list_users))
         .route("/:user_id", get(get_user))
         //
-        .route("/:user_id/sessions", get(get_user_sessions))
+        .route("/:user_id/session", get(get_user_sessions))
+        .route("/:user_id/access-level", get(get_user_access_level))
         .layer(AclLayer::new(vec![Permission::ListUserSessions]))
         //
         .route("/me", get(me).patch(update_me))
-        .route("/me/sessions", get(get_request_user_sessions))
+        .route("/me/session", get(get_request_user_sessions))
         .route("/me/password", put(put_password))
         .route(
             "/me/profile-picture",
@@ -118,7 +122,8 @@ pub async fn get_request_user_sessions(
     path = "/user",
     security(("session_id" = [])),
     params(
-        Pagination
+        Pagination,
+        ListUsersDto
     ),
     responses(
         (
@@ -131,11 +136,20 @@ pub async fn get_request_user_sessions(
 )]
 pub async fn list_users(
     ValidatedQuery(pagination): ValidatedQuery<Pagination>,
+    ValidatedQuery(filter): ValidatedQuery<ListUsersDto>,
     OrganizationId(org_id): OrganizationId,
     DbConnection(db): DbConnection,
 ) -> Result<Json<PaginationResult<dto::SimpleUserDto>>, (StatusCode, SimpleError)> {
     let paginator = entity::user::Entity::find()
         .filter(entity::user::Column::OrganizationId.eq(org_id))
+        .apply_if(filter.email, |query, email| {
+            if email != "" {
+                let col = Expr::col((entity::user::Entity, entity::user::Column::Email));
+                query.filter(col.ilike(format!("%{}%", email)))
+            } else {
+                query
+            }
+        })
         .order_by_asc(entity::user::Column::Id)
         .paginate(&db, pagination.page_size);
 
@@ -250,6 +264,42 @@ pub async fn get_user_sessions(
         .collect();
 
     Ok(Json(sessions))
+}
+
+/// Get a user access level
+#[utoipa::path(
+    get,
+    tag = "user",
+    path = "/user/{user_id}/access-level",
+    security(("session_id" = [])),
+    params(
+        ("user_id" = u128, Path, description = "id of the user to get the acess level"),
+    ),
+    responses(
+        (
+            status = OK,
+            body = access_level::dto::AccessLevelDto,
+        ),
+    ),
+)]
+pub async fn get_user_access_level(
+    Path(user_id): Path<i32>,
+    DbConnection(db): DbConnection,
+    OrganizationId(org_id): OrganizationId,
+) -> Result<Json<AccessLevelDto>, (StatusCode, SimpleError)> {
+    let access_level = entity::access_level::Entity::find()
+        .inner_join(entity::user::Entity)
+        .filter(user::Column::Id.eq(user_id))
+        .filter(user::Column::OrganizationId.eq(org_id))
+        .one(&db)
+        .await
+        .map_err(DbError::from)?
+        .ok_or((
+            StatusCode::NOT_FOUND,
+            SimpleError::from("user / access level not found"),
+        ))?;
+
+    Ok(Json(AccessLevelDto::from(access_level)))
 }
 
 /// Returns the request user

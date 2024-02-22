@@ -1,6 +1,6 @@
 use super::dto::{self};
 use super::jwt;
-use super::middleware::RequestUser;
+use super::middleware::{AclLayer, RequestUser};
 use super::session::{OptionalSessionId, SessionId};
 use crate::database::error::DbError;
 use crate::modules::common;
@@ -24,10 +24,12 @@ use entity::{session, user};
 use http::HeaderMap;
 use migration::Expr;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use shared::Permission;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
-        .route("/sessions/:session-id", delete(delete_session))
+        .route("/session/:public-session-id", delete(delete_session))
+        .layer(AclLayer::new(vec![Permission::LogoffUser]))
         .route("/sign-out", post(sign_out))
         .route(
             "/sign-out/:public-session-id",
@@ -66,14 +68,16 @@ fn sign_in_or_up_response(
     (headers, Json(res_body))
 }
 
-/// Get a list of a user sessions
+/// Deletes another user session
+///
+/// Required permissions: LOGOFF_USER
 #[utoipa::path(
     delete,
     tag = "auth",
-    path = "/auth/sessions/{session_id}",
+    path = "/auth/sessions/{public_session_id}",
     security(("session_id" = [])),
     params(
-        ("user_id" = u128, Path, description = "id of the session to delete"),
+        ("public_session_id" = u128, Path, description = "id of the session to delete"),
     ),
     responses(
         (
@@ -87,24 +91,44 @@ fn sign_in_or_up_response(
 pub async fn delete_session(
     Path(session_id): Path<u128>,
     OrganizationId(org_id): OrganizationId,
-    Extension(session): Extension<SessionId>,
+    Extension(req_user_session): Extension<SessionId>,
     State(state): State<AppState>,
     DbConnection(db): DbConnection,
-) -> Result<Json<String>, (StatusCode, SimpleError)> {
-    let current_session_id = session.get_id();
+) -> Result<(HeaderMap, Json<String>), (StatusCode, SimpleError)> {
+    let (session_to_delete, session_to_delete_user) =
+        entity::session::Entity::find_with_user_by_public_id(session_id as i32, &db)
+            .await
+            .map_err(DbError::from)?
+            .ok_or((
+                StatusCode::NOT_FOUND,
+                SimpleError::from("session not found"),
+            ))?;
 
-    // TODO:
-    // 1- averiguar sessao existe e não esta expirada (auth_service.get_user_from_session_id) tem
-    // problemas como buscar + do q precisa, não averiguar org_id
-    // 2- verificar usuario pertence a org
-    // 3- deletar a sessao
-    // 4- se a sessao for a atual, retornar o cookie de destruir a sessao
-    // state
-    //     .auth_service
-    //     .get_user_from_session_id(SessionId::from(session_id))
-    //     .await;
+    if org_id != session_to_delete_user.organization_id.unwrap_or(0) {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            SimpleError::from("session does not belong to user org"),
+        ));
+    }
 
-    Ok(Json(String::from("session deleted successfully")))
+    state
+        .auth_service
+        .delete_session_by_public_id(session_id as i32)
+        .await
+        .map_err(|_| internal_error_res())?;
+
+    let session_to_delete_id = SessionId::from(session_to_delete);
+
+    let mut headers = HeaderMap::new();
+
+    if req_user_session.get_id() == session_to_delete_id.get_id() {
+        headers.insert(
+            "Set-Cookie",
+            session_to_delete_id.into_delete_cookie_header(),
+        );
+    }
+
+    return Ok((headers, Json(String::from("session deleted successfully"))));
 }
 
 /// Signs out of the current user session
@@ -145,9 +169,9 @@ pub async fn sign_out(
     Ok((StatusCode::OK, headers))
 }
 
-/// Signs out of a session by its public id
+/// Signs out of a session owned by the request user by its public id
 ///
-/// deletes the user session with the provided public ID, a public id can be found on any endpoint that list sessions
+/// deletes the user session with the provided public ID, a public id can be found on any endpoint that list sessions.
 #[utoipa::path(
     delete,
     tag = "auth",
@@ -192,8 +216,7 @@ async fn sign_out_session_by_id(
             ));
         }
 
-        let session_to_delete_id = SessionId::from_database_value(session_to_delete.session_token)
-            .expect("failed to convert session id from database");
+        let session_to_delete_id = SessionId::from(session_to_delete);
 
         state
             .auth_service

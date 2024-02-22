@@ -33,8 +33,8 @@ impl SessionId {
     ///
     /// returns `None` on error
     pub fn from_database_value(bytes: Vec<u8>) -> Option<Self> {
-        if let Some(ipv6) = <[u8; 16]>::try_from(bytes.as_slice()).ok() {
-            return Some(SessionId(u128::from_le_bytes(ipv6)));
+        if let Some(bytes) = <[u8; 16]>::try_from(bytes.as_slice()).ok() {
+            return Some(SessionId(u128::from_le_bytes(bytes)));
         }
 
         None
@@ -141,6 +141,13 @@ where
 impl From<u128> for SessionId {
     fn from(v: u128) -> Self {
         SessionId(v)
+    }
+}
+
+impl From<entity::session::Model> for SessionId {
+    fn from(v: entity::session::Model) -> Self {
+        Self::from_database_value(v.session_token)
+            .expect("failed to convert session model to SessionId")
     }
 }
 

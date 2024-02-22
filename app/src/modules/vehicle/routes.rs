@@ -352,7 +352,8 @@ pub async fn delete_vehicle(
     path = "/vehicle",
     security(("session_id" = [])),
     params(
-        Pagination
+        Pagination,
+        ListVehiclesDto
     ),
     responses(
         (

@@ -82,6 +82,16 @@ impl AuthService {
         Ok(())
     }
 
+    /// deletes a session by its public ID
+    pub async fn delete_session_by_public_id(&self, public_id: i32) -> Result<()> {
+        entity::session::Entity::delete_many()
+            .filter(entity::session::Column::PublicId.eq(public_id))
+            .exec(&self.db)
+            .await?;
+
+        Ok(())
+    }
+
     /// gets the user from the session token if the session is not expired
     pub async fn get_user_from_session_id(
         &self,

@@ -14,6 +14,10 @@ pub enum Permission {
     LogoffUser,
     ListUserSessions,
 
+    CreateAccessLevel,
+    UpdateAccessLevel,
+    DeleteAccessLevel,
+
     CreateTracker,
     UpdateTracker,
     DeleteTracker,

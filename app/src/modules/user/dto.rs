@@ -4,8 +4,16 @@ use crate::modules::common::validators::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 use validator::Validate;
+
+#[derive(Deserialize, IntoParams, Validate)]
+#[serde(rename_all = "camelCase")]
+#[into_params(parameter_in = Query)]
+pub struct ListUsersDto {
+    /// Search by email
+    pub email: Option<String>,
+}
 
 #[derive(ToSchema, Validate, Deserialize)]
 pub struct UpdateUserDto {

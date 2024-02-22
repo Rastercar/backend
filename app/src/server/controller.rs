@@ -2,10 +2,9 @@ use super::open_api;
 use crate::{
     config::app_config,
     modules::{
+        access_level,
         auth::{self, service::AuthService},
-        organization, sim_card, tracker,
-        user::{self},
-        vehicle,
+        organization, sim_card, tracker, user, vehicle,
     },
     services::{mailer::service::MailerService, s3::S3},
     utils::string::StringExt,
@@ -90,6 +89,10 @@ pub fn new(db: DatabaseConnection, s3: S3, rmq_conn_pool: RmqPool) -> Router {
         .nest("/vehicle", vehicle::routes::create_router(state.clone()))
         .nest("/sim-card", sim_card::routes::create_router(state.clone()))
         .nest("/tracker", tracker::routes::create_router(state.clone()))
+        .nest(
+            "/access-level",
+            access_level::routes::create_router(state.clone()),
+        )
         .nest(
             "/organization",
             organization::routes::create_router(state.clone()),

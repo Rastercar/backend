@@ -1,6 +1,10 @@
-use crate::modules::common::validators::{
-    REGEX_CONTAINS_LOWERCASE_CHARACTER, REGEX_CONTAINS_NUMBER, REGEX_CONTAINS_SYMBOLIC_CHARACTER,
-    REGEX_CONTAINS_UPPERCASE_CHARACTER, REGEX_IS_LOWERCASE_ALPHANUMERIC_WITH_UNDERSCORES,
+use crate::modules::{
+    access_level::{self},
+    common::validators::{
+        REGEX_CONTAINS_LOWERCASE_CHARACTER, REGEX_CONTAINS_NUMBER,
+        REGEX_CONTAINS_SYMBOLIC_CHARACTER, REGEX_CONTAINS_UPPERCASE_CHARACTER,
+        REGEX_IS_LOWERCASE_ALPHANUMERIC_WITH_UNDERSCORES,
+    },
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -100,17 +104,6 @@ pub struct SessionDto {
 
 #[derive(Serialize, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct AccessLevelDto {
-    pub id: i32,
-    pub created_at: DateTime<Utc>,
-    pub name: String,
-    pub description: String,
-    pub is_fixed: bool,
-    pub permissions: Vec<String>,
-}
-
-#[derive(Serialize, Clone, ToSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct OrganizationDto {
     pub id: i32,
     pub created_at: DateTime<Utc>,
@@ -132,7 +125,7 @@ pub struct UserDto {
     pub profile_picture: Option<String>,
     pub description: Option<String>,
     pub organization: Option<OrganizationDto>,
-    pub access_level: AccessLevelDto,
+    pub access_level: access_level::dto::AccessLevelDto,
 }
 
 impl From<entity::organization::Model> for OrganizationDto {
@@ -157,19 +150,6 @@ impl From<entity::session::Model> for SessionDto {
             created_at: m.created_at,
             expires_at: m.expires_at,
             same_as_from_request: false,
-        }
-    }
-}
-
-impl From<entity::access_level::Model> for AccessLevelDto {
-    fn from(m: entity::access_level::Model) -> Self {
-        Self {
-            id: m.id,
-            created_at: m.created_at,
-            name: m.name,
-            description: m.description,
-            is_fixed: m.is_fixed,
-            permissions: m.permissions,
         }
     }
 }

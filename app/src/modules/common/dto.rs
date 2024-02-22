@@ -1,4 +1,4 @@
-use crate::modules::user;
+use crate::modules::{access_level, user};
 use axum::body::Bytes;
 use axum_typed_multipart::{FieldData, TryFromMultipart};
 use serde::{Deserialize, Serialize};
@@ -49,6 +49,7 @@ pub struct Pagination {
     PaginatedUser = PaginationResult<user::dto::SimpleUserDto>,
     PaginatedVehicle = PaginationResult<entity::vehicle::Model>,
     PaginatedSimCard = PaginationResult<entity::sim_card::Model>,
+    PaginatedAccessLevel = PaginationResult<access_level::dto::AccessLevelDto>,
     PaginatedVehicleTracker = PaginationResult<entity::vehicle_tracker::Model>
 )]
 pub struct PaginationResult<T: for<'_s> ToSchema<'_s>> {

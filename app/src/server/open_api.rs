@@ -1,4 +1,4 @@
-use crate::modules::{auth, common, user, organization, vehicle, tracker, sim_card};
+use crate::modules::{auth, common, user, organization, vehicle, tracker, sim_card, access_level};
 use crate::server::controller;
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use utoipa::openapi::{ContactBuilder, InfoBuilder};
@@ -35,7 +35,6 @@ use axum::Router;
         auth::dto::SessionDto,
         auth::dto::ResetPassword,
         auth::dto::SignInResponse,
-        auth::dto::AccessLevelDto,
         auth::dto::OrganizationDto,
         auth::dto::RegisterOrganization,
 
@@ -52,6 +51,8 @@ use axum::Router;
         sim_card::dto::UpdateSimCardDto,
         sim_card::dto::SetSimCardTrackerDto,
 
+        access_level::dto::AccessLevelDto,
+
         organization::dto::UpdateOrganizationDto,
     )),
     paths(
@@ -65,6 +66,7 @@ use axum::Router;
         user::routes::get_request_user_sessions,
         user::routes::put_profile_picture,
         user::routes::delete_profile_picture,
+        user::routes::get_user_access_level,
         user::routes::request_user_email_address_confirmation,
         
         auth::routes::sign_up,
@@ -101,6 +103,9 @@ use axum::Router;
         tracker::routes::get_tracker_location,
         tracker::routes::list_tracker_sim_cards,
 
+        access_level::routes::list_access_level,
+        access_level::routes::access_level_by_id,
+        
         organization::routes::update_org,
         organization::routes::confirm_email_address_by_token,
         organization::routes::request_email_address_confirmation,
