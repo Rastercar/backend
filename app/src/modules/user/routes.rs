@@ -150,6 +150,14 @@ pub async fn list_users(
                 query
             }
         })
+        .apply_if(filter.access_level_id, |query, access_level_id| {
+            if access_level_id > 0 {
+                let col = Expr::col((entity::user::Entity, entity::user::Column::AccessLevelId));
+                query.filter(col.eq(access_level_id))
+            } else {
+                query
+            }
+        })
         .order_by_asc(entity::user::Column::Id)
         .paginate(&db, pagination.page_size);
 

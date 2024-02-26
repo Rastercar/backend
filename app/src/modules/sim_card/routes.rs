@@ -286,6 +286,8 @@ pub async fn set_sim_card_tracker(
 }
 
 /// Deletes a SIM card
+///
+/// Required permissions: DELETE_SIM_CARD
 #[utoipa::path(
     delete,
     tag = "sim-card",

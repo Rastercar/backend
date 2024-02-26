@@ -52,6 +52,8 @@ use axum::Router;
         sim_card::dto::SetSimCardTrackerDto,
 
         access_level::dto::AccessLevelDto,
+        access_level::dto::UpdateAccessLevelDto,
+        access_level::dto::CreateAccessLevelDto,
 
         organization::dto::UpdateOrganizationDto,
     )),
@@ -105,6 +107,9 @@ use axum::Router;
 
         access_level::routes::list_access_level,
         access_level::routes::access_level_by_id,
+        access_level::routes::create_access_level,
+        access_level::routes::update_access_level,
+        access_level::routes::delete_access_level,
         
         organization::routes::update_org,
         organization::routes::confirm_email_address_by_token,

@@ -1,7 +1,22 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use shared::Permission;
 use utoipa::{IntoParams, ToSchema};
-use validator::Validate;
+use validator::{Validate, ValidationError};
+
+fn is_known_permissions(permissions: &Vec<String>) -> Result<(), ValidationError> {
+    let allowed_permissions = Permission::to_string_vec();
+
+    let permissions_are_allowed = permissions
+        .iter()
+        .all(|permission| allowed_permissions.contains(permission));
+
+    if !permissions_are_allowed {
+        return Err(ValidationError::new("permission not allowed"));
+    }
+
+    Ok(())
+}
 
 #[derive(Deserialize, IntoParams, Validate)]
 #[serde(rename_all = "camelCase")]
@@ -9,6 +24,24 @@ use validator::Validate;
 pub struct ListAccessLevelsDto {
     /// Search by name
     pub name: Option<String>,
+}
+
+#[derive(Deserialize, Clone, ToSchema, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateAccessLevelDto {
+    pub name: String,
+    pub description: String,
+    #[validate(custom = "is_known_permissions")]
+    pub permissions: Vec<String>,
+}
+
+#[derive(Deserialize, Clone, ToSchema, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateAccessLevelDto {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    #[validate(custom = "is_known_permissions")]
+    pub permissions: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Clone, ToSchema)]

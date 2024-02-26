@@ -73,7 +73,19 @@ fn fake_sim_ssn() -> String {
     )
 }
 
-pub async fn organization(db: &DatabaseTransaction) -> Result<organization::Model, DbErr> {
+fn fake_phone_number() -> String {
+    let mut rng = rand::thread_rng();
+
+    // Country code (e.g., +1 for United States)
+    let country_code: u16 = rng.gen_range(1..100);
+
+    // Random 9-digit number for the national significant number
+    let national_number: u64 = rng.gen_range(1_000_000_000..1_000_000_000_000);
+
+    format!("+{}{}", country_code, national_number)
+}
+
+pub async fn gen_organization(db: &DatabaseTransaction) -> Result<organization::Model, DbErr> {
     let org = organization::ActiveModel {
         name: Set(faker::company::en::CompanyName().fake::<String>()),
         blocked: Set(false),
@@ -87,7 +99,7 @@ pub async fn organization(db: &DatabaseTransaction) -> Result<organization::Mode
     Ok(org)
 }
 
-pub async fn tracker(
+pub async fn gen_tracker(
     db: &DatabaseTransaction,
     org_id: i32,
     vehicle_id: Option<i32>,
@@ -105,19 +117,7 @@ pub async fn tracker(
     Ok(t)
 }
 
-fn random_phone_number() -> String {
-    let mut rng = rand::thread_rng();
-
-    // Country code (e.g., +1 for United States)
-    let country_code: u16 = rng.gen_range(1..100);
-
-    // Random 9-digit number for the national significant number
-    let national_number: u64 = rng.gen_range(1_000_000_000..1_000_000_000_000);
-
-    format!("+{}{}", country_code, national_number)
-}
-
-pub async fn sim_card(
+pub async fn gen_sim_card(
     db: &DatabaseTransaction,
     org_id: i32,
     vehicle_tracker_id: Option<i32>,
@@ -125,7 +125,7 @@ pub async fn sim_card(
     let apn = seeder_consts::get_fake_apn();
 
     let t = sim_card::ActiveModel {
-        phone_number: Set(random_phone_number()),
+        phone_number: Set(fake_phone_number()),
         ssn: Set(fake_sim_ssn()),
         apn_user: Set(apn.user),
         apn_address: Set(apn.apn),
@@ -144,7 +144,7 @@ pub async fn sim_card(
     Ok(t)
 }
 
-pub async fn vehicle(db: &DatabaseTransaction, org_id: i32) -> Result<vehicle::Model, DbErr> {
+pub async fn gen_vehicle(db: &DatabaseTransaction, org_id: i32) -> Result<vehicle::Model, DbErr> {
     let color = seeder_consts::COLORS
         .choose(&mut rand::thread_rng())
         .unwrap()
@@ -179,16 +179,17 @@ pub async fn vehicle(db: &DatabaseTransaction, org_id: i32) -> Result<vehicle::M
     Ok(v)
 }
 
-pub async fn access_level(
+pub async fn gen_access_level(
     db: &DatabaseTransaction,
     is_fixed: bool,
     org_id: Option<i32>,
+    permissions: Vec<String>,
 ) -> Result<access_level::Model, DbErr> {
     let lev = access_level::ActiveModel {
         name: Set(faker::lorem::en::Word().fake::<String>()),
         is_fixed: Set(is_fixed),
-        description: Set(fake_words(2..7)),
-        permissions: Set(Permission::to_string_vec()),
+        description: Set(fake_words(5..10)),
+        permissions: Set(permissions),
         organization_id: Set(org_id),
         ..Default::default()
     }
@@ -198,8 +199,48 @@ pub async fn access_level(
     Ok(lev)
 }
 
-pub async fn test_master_user(db: &DatabaseTransaction) -> Result<user::Model, DbErr> {
-    let test_master_user_access_level = access_level(db, true, None).await?;
+pub async fn gen_user(
+    db: &DatabaseTransaction,
+    org_id: i32,
+    access_level_id: i32,
+) -> Result<user::Model, DbErr> {
+    // TODO: find a actually decent way to generate values and guarantee they are unique
+
+    // those random numbers are to void unique conflicts
+    let email = format!(
+        "{}_{}_{}",
+        rand::thread_rng().gen_range(100000..999999).to_string(),
+        rand::thread_rng().gen_range(100000..999999).to_string(),
+        faker::internet::en::SafeEmail().fake::<String>()
+    );
+
+    let username = format!(
+        "{}_{}_{}",
+        rand::thread_rng().gen_range(100000..999999).to_string(),
+        rand::thread_rng().gen_range(100000..999999).to_string(),
+        faker::internet::en::Username().fake::<String>()
+    );
+
+    let lev = user::ActiveModel {
+        email_verified: Set(faker::boolean::en::Boolean(50).fake::<bool>()),
+        username: Set(username),
+        password: Set(fake_password()),
+        email: Set(email),
+        description: Set(Some(fake_words(5..10))),
+
+        organization_id: Set(Some(org_id)),
+        access_level_id: Set(access_level_id),
+        ..Default::default()
+    }
+    .insert(db)
+    .await?;
+
+    Ok(lev)
+}
+
+pub async fn create_test_master_user(db: &DatabaseTransaction) -> Result<user::Model, DbErr> {
+    let test_master_user_access_level =
+        gen_access_level(db, true, None, Permission::to_string_vec()).await?;
 
     let u = user::ActiveModel {
         username: Set(String::from("test_master_user")),
@@ -216,7 +257,7 @@ pub async fn test_master_user(db: &DatabaseTransaction) -> Result<user::Model, D
     Ok(u)
 }
 
-pub async fn test_user(db: &DatabaseTransaction) -> Result<user::Model, DbErr> {
+pub async fn create_test_user(db: &DatabaseTransaction) -> Result<user::Model, DbErr> {
     let test_user_organization = organization::ActiveModel {
         name: Set(String::from("test user org")),
         blocked: Set(false),
@@ -227,14 +268,20 @@ pub async fn test_user(db: &DatabaseTransaction) -> Result<user::Model, DbErr> {
     .insert(db)
     .await?;
 
-    let test_user_access_level = access_level(db, true, Some(test_user_organization.id)).await?;
+    let test_user_access_level = gen_access_level(
+        db,
+        true,
+        Some(test_user_organization.id),
+        Permission::to_string_vec(),
+    )
+    .await?;
 
     let u = user::ActiveModel {
         email: Set(String::from("rastercar.tests.002@gmail.com")),
         email_verified: Set(true),
         username: Set(String::from("test_user")),
         password: Set(hash_password(String::from("testuser"))),
-        description: Set(Some(fake_words(1..3))),
+        description: Set(Some(fake_words(5..10))),
         organization_id: Set(Some(test_user_organization.id)),
         access_level_id: Set(test_user_access_level.id),
         ..Default::default()
@@ -246,66 +293,55 @@ pub async fn test_user(db: &DatabaseTransaction) -> Result<user::Model, DbErr> {
 }
 
 pub async fn create_entities_for_org(db: &DatabaseTransaction, org_id: i32) -> Result<(), DbErr> {
-    for _ in 0..20 {
-        let vehicle = vehicle(db, org_id).await?;
+    // create some vehicles
+    for _ in 0..50 {
+        let vehicle = gen_vehicle(db, org_id).await?;
 
         // for 75% of the vehicles, create a tracker and possibly its SIM card(s)
         if fake_bool_with_chance(75) {
-            let tracker = tracker(db, org_id, Some(vehicle.id)).await?;
+            let tracker = gen_tracker(db, org_id, Some(vehicle.id)).await?;
 
             // the tracker has a 80% chance of having a SIM CARD
             if fake_bool_with_chance(80) {
-                sim_card(db, org_id, Some(tracker.id)).await?;
+                gen_sim_card(db, org_id, Some(tracker.id)).await?;
             }
         }
     }
 
     // create some trackers that are not associated with a vehicle
-    for _ in 0..5 {
-        tracker(db, org_id, None).await?;
+    for _ in 0..50 {
+        gen_tracker(db, org_id, None).await?;
     }
 
     // create some SIM cards that are not associated with trackers
+    for _ in 0..50 {
+        gen_sim_card(db, org_id, None).await?;
+    }
+
+    // create a secondary access level for the org
+    let org_non_root_access_level = gen_access_level(db, false, Some(org_id), vec![]).await?;
+
     for _ in 0..5 {
-        sim_card(db, org_id, None).await?;
+        gen_access_level(db, false, Some(org_id), vec![]).await?;
+    }
+
+    // create some users for the org
+    for _ in 0..50 {
+        gen_user(db, org_id, org_non_root_access_level.id).await?;
     }
 
     Ok(())
 }
 
 pub async fn root_user_with_user_org(db: &DatabaseTransaction) -> Result<(), DbErr> {
-    let user_org = organization(db).await?;
-    let access_level = access_level(db, true, Some(user_org.id)).await?;
+    let user_org = gen_organization(db).await?;
+    let access_level =
+        gen_access_level(db, true, Some(user_org.id), Permission::to_string_vec()).await?;
 
-    let created_user = user::ActiveModel {
-        email_verified: Set(faker::boolean::en::Boolean(50).fake::<bool>()),
-        username: Set(faker::internet::en::Username().fake::<String>()),
-        password: Set(fake_password()),
-        email: Set(faker::internet::en::SafeEmail().fake::<String>()),
-        organization_id: Set(Some(user_org.id)),
-        access_level_id: Set(access_level.id),
-        description: Set(Some(fake_words(1..3))),
-        ..Default::default()
-    }
-    .insert(db)
-    .await?;
-
-    user::ActiveModel {
-        email_verified: Set(faker::boolean::en::Boolean(50).fake::<bool>()),
-        username: Set(faker::internet::en::Username().fake::<String>()),
-        password: Set(fake_password()),
-        email: Set(faker::internet::en::SafeEmail().fake::<String>()),
-        description: Set(Some(fake_words(1..3))),
-
-        organization_id: Set(Some(user_org.id)),
-        access_level_id: Set(access_level.id),
-        ..Default::default()
-    }
-    .insert(db)
-    .await?;
+    let org_root_user = gen_user(db, user_org.id, access_level.id).await?;
 
     organization::Entity::update_many()
-        .col_expr(organization::Column::OwnerId, Expr::value(created_user.id))
+        .col_expr(organization::Column::OwnerId, Expr::value(org_root_user.id))
         .filter(organization::Column::Id.eq(user_org.id))
         .exec(db)
         .await?;

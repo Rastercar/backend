@@ -9,14 +9,10 @@ use utoipa::ToSchema;
 #[derive(Debug, EnumIter, Display, Clone)]
 pub enum Permission {
     CreateUser,
-    UpdateUser,
     DeleteUser,
     LogoffUser,
     ListUserSessions,
-
-    CreateAccessLevel,
-    UpdateAccessLevel,
-    DeleteAccessLevel,
+    ManageUserAccessLevels,
 
     CreateTracker,
     UpdateTracker,

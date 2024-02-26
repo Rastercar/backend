@@ -13,6 +13,9 @@ use validator::Validate;
 pub struct ListUsersDto {
     /// Search by email
     pub email: Option<String>,
+
+    /// Search by access level
+    pub access_level_id: Option<i32>,
 }
 
 #[derive(ToSchema, Validate, Deserialize)]
