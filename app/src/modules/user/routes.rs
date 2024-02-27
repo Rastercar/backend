@@ -43,8 +43,10 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         .route("/:user_id", get(get_user))
         //
         .route("/:user_id/session", get(get_user_sessions))
-        .route("/:user_id/access-level", get(get_user_access_level))
         .layer(AclLayer::new(vec![Permission::ListUserSessions]))
+        .route("/:user_id/access-level", get(get_user_access_level))
+        .route("/:user_id/access-level", put(change_user_access_level))
+        .layer(AclLayer::new(vec![Permission::ManageUserAccessLevels]))
         //
         .route("/me", get(me).patch(update_me))
         .route("/me/session", get(get_request_user_sessions))
@@ -206,10 +208,7 @@ pub async fn get_user(
     OrganizationId(org_id): OrganizationId,
     DbConnection(db): DbConnection,
 ) -> Result<Json<dto::SimpleUserDto>, (StatusCode, SimpleError)> {
-    let user = entity::user::Entity::find()
-        .filter(entity::user::Column::OrganizationId.eq(org_id))
-        .filter(entity::user::Column::Id.eq(user_id))
-        .one(&db)
+    let user = entity::user::Entity::find_by_id_and_org_id(org_id, user_id, &db)
         .await
         .map_err(DbError::from)?
         .ok_or((StatusCode::NOT_FOUND, SimpleError::from("user not found")))?;
@@ -218,6 +217,8 @@ pub async fn get_user(
 }
 
 /// Get a list of a user sessions
+///
+/// Required permissions: LIST_USER_SESSIONS
 #[utoipa::path(
     get,
     tag = "user",
@@ -308,6 +309,70 @@ pub async fn get_user_access_level(
         ))?;
 
     Ok(Json(AccessLevelDto::from(access_level)))
+}
+
+/// Change a user access level
+///
+/// Required permissions: MANAGE_USER_ACCESS_LEVELS
+#[utoipa::path(
+    put,
+    tag = "user",
+    path = "/user/{user_id}/access-level",
+    security(("session_id" = [])),
+    request_body = ChangeUserAccessLevelDto,
+    params(
+        ("user_id" = u128, Path, description = "id of the user to change the acess level"),
+    ),
+    responses(
+        (
+            status = OK,
+            body = String,
+            content_type = "application/json",
+            example = json!("access level changed successfully"),
+        ),
+    ),
+)]
+pub async fn change_user_access_level(
+    Path(user_id): Path<i32>,
+    DbConnection(db): DbConnection,
+    OrganizationId(org_id): OrganizationId,
+    Extension(req_user): Extension<RequestUser>,
+    ValidatedJson(payload): ValidatedJson<dto::ChangeUserAccessLevelDto>,
+) -> Result<Json<String>, (StatusCode, SimpleError)> {
+    if req_user.0.id == user_id {
+        return Err((
+            StatusCode::FORBIDDEN,
+            SimpleError::from("cannot change your own access level"),
+        ));
+    }
+
+    let user_to_update = entity::user::Entity::find_by_id_and_org_id(user_id, org_id, &db)
+        .await
+        .map_err(DbError::from)?
+        .ok_or((StatusCode::NOT_FOUND, SimpleError::from("user not found")))?;
+
+    let new_access_level =
+        entity::access_level::Entity::find_by_id_and_org_id(payload.access_level_id, org_id, &db)
+            .await
+            .map_err(DbError::from)?
+            .ok_or((
+                StatusCode::NOT_FOUND,
+                SimpleError::from("new access level not found"),
+            ))?;
+
+    if user_to_update.access_level_id != new_access_level.id {
+        entity::user::Entity::update_many()
+            .col_expr(
+                user::Column::AccessLevelId,
+                Expr::value(new_access_level.id),
+            )
+            .filter(entity::user::Column::Id.eq(user_to_update.id))
+            .exec(&db)
+            .await
+            .map_err(DbError::from)?;
+    }
+
+    Ok(Json(String::from("access level changed successfully")))
 }
 
 /// Returns the request user

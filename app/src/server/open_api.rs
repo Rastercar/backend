@@ -29,6 +29,7 @@ use axum::Router;
         user::dto::SimpleUserDto,
         user::dto::UpdateUserDto,
         user::dto::ChangePasswordDto,
+        user::dto::ChangeUserAccessLevelDto,
         
         auth::dto::SignIn,
         auth::dto::UserDto,
@@ -65,10 +66,11 @@ use axum::Router;
         user::routes::list_users,
         user::routes::put_password,
         user::routes::get_user_sessions,
-        user::routes::get_request_user_sessions,
         user::routes::put_profile_picture,
-        user::routes::delete_profile_picture,
         user::routes::get_user_access_level,
+        user::routes::delete_profile_picture,
+        user::routes::change_user_access_level,
+        user::routes::get_request_user_sessions,
         user::routes::request_user_email_address_confirmation,
         
         auth::routes::sign_up,

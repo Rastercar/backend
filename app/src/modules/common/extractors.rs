@@ -137,3 +137,12 @@ impl FromRequestParts<AppState> for DbConnection {
         Ok(DbConnection(state.db.clone()))
     }
 }
+
+// TODO: FINISH ME i must get the db conn from the state and make sure the
+// entity implements a trait (find by id and org id ?) that allows it to be queried
+// then just call the trait, return the object and voala
+/// Path extractor that fetches a entity by its ID on a endpoint path parameter
+/// and the OrganizationId of the request user, returns a 404 response if the
+/// entity is not found
+#[derive(Clone, Copy)]
+pub struct OrgBoundEntityFromPathId<T>(pub T);

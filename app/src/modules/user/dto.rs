@@ -18,7 +18,14 @@ pub struct ListUsersDto {
     pub access_level_id: Option<i32>,
 }
 
+#[derive(ToSchema, Deserialize, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangeUserAccessLevelDto {
+    pub access_level_id: i32,
+}
+
 #[derive(ToSchema, Validate, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateUserDto {
     #[validate(email)]
     pub email: Option<String>,

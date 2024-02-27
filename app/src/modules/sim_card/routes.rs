@@ -78,19 +78,14 @@ pub async fn create_sim_card(
     ValidatedJson(dto): ValidatedJson<CreateSimCardDto>,
 ) -> Result<Json<sim_card::Model>, (StatusCode, SimpleError)> {
     if let Some(vehicle_tracker_id) = dto.vehicle_tracker_id {
-        let tracker = vehicle_tracker::Entity::find()
-            .filter(vehicle_tracker::Column::Id.eq(vehicle_tracker_id))
-            .filter(vehicle_tracker::Column::OrganizationId.eq(org_id))
-            .one(&db)
-            .await
-            .map_err(DbError::from)?
-            .ok_or((
-                StatusCode::BAD_REQUEST,
-                SimpleError::from(format!(
-                    "vehicle_tracker: {} not found for org {}",
-                    vehicle_tracker_id, org_id
-                )),
-            ))?;
+        let tracker =
+            vehicle_tracker::Entity::find_by_id_and_org_id(vehicle_tracker_id, org_id, &db)
+                .await
+                .map_err(DbError::from)?
+                .ok_or((
+                    StatusCode::BAD_REQUEST,
+                    SimpleError::from("vehicle_tracker not found"),
+                ))?;
 
         let sim_cards_on_tracker_count: i64 = sim_card::Entity::find()
             .select_only()
@@ -165,14 +160,12 @@ pub async fn update_sim_card(
     DbConnection(db): DbConnection,
     ValidatedJson(dto): ValidatedJson<dto::UpdateSimCardDto>,
 ) -> Result<Json<sim_card::Model>, (StatusCode, SimpleError)> {
-    let mut v: sim_card::ActiveModel = sim_card::Entity::find()
-        .filter(sim_card::Column::OrganizationId.eq(org_id))
-        .filter(sim_card::Column::Id.eq(sim_card_id))
-        .one(&db)
-        .await
-        .map_err(DbError::from)?
-        .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?
-        .into();
+    let mut v: sim_card::ActiveModel =
+        sim_card::Entity::find_by_id_and_org_id(sim_card_id, org_id, &db)
+            .await
+            .map_err(DbError::from)?
+            .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?
+            .into();
 
     v.ssn = set_if_some(dto.ssn);
     v.phone_number = set_if_some(dto.phone_number);
@@ -226,9 +219,7 @@ pub async fn set_sim_card_tracker(
     // by the DTO validation to be `Some`
     let tracker_id_or_none = payload.vehicle_tracker_id.ok_or(internal_error_res())?;
 
-    let sim_card = sim_card::Entity::find_by_id(sim_card_id)
-        .filter(sim_card::Column::OrganizationId.eq(org_id))
-        .one(&db)
+    let sim_card = sim_card::Entity::find_by_id_and_org_id(sim_card_id, org_id, &db)
         .await
         .map_err(DbError::from)?
         .ok_or((
@@ -349,10 +340,7 @@ pub async fn get_sim_card(
     OrganizationId(org_id): OrganizationId,
     DbConnection(db): DbConnection,
 ) -> Result<Json<entity::sim_card::Model>, (StatusCode, SimpleError)> {
-    let sim_card = sim_card::Entity::find()
-        .filter(sim_card::Column::OrganizationId.eq(org_id))
-        .filter(sim_card::Column::Id.eq(sim_card_id))
-        .one(&db)
+    let sim_card = sim_card::Entity::find_by_id_and_org_id(sim_card_id, org_id, &db)
         .await
         .map_err(DbError::from)?
         .ok_or((StatusCode::NOT_FOUND, SimpleError::from("SIM not found")))?;
