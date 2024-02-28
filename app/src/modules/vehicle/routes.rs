@@ -9,7 +9,8 @@ use crate::{
         common::{
             dto::{Pagination, PaginationResult, SingleImageDto},
             extractors::{
-                DbConnection, OrganizationId, ValidatedJson, ValidatedMultipart, ValidatedQuery,
+                DbConnection, OrgBoundEntityFromPathId, OrganizationId, ValidatedJson,
+                ValidatedMultipart, ValidatedQuery,
             },
             multipart_form_data,
             responses::{internal_error_msg, SimpleError},
@@ -81,15 +82,8 @@ pub fn create_router(state: AppState) -> Router<AppState> {
     ),
 )]
 pub async fn vehicle_by_id(
-    Path(vehicle_id): Path<i32>,
-    OrganizationId(org_id): OrganizationId,
-    DbConnection(db): DbConnection,
+    OrgBoundEntityFromPathId(v): OrgBoundEntityFromPathId<entity::vehicle::Entity>,
 ) -> Result<Json<entity::vehicle::Model>, (StatusCode, SimpleError)> {
-    let v = vehicle::Entity::find_by_id_and_org_id(vehicle_id, org_id, &db)
-        .await
-        .map_err(DbError::from)?
-        .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?;
-
     Ok(Json(v))
 }
 
@@ -144,19 +138,11 @@ pub async fn get_vehicle_tracker(
     ),
 )]
 pub async fn update_vehicle(
-    Path(vehicle_id): Path<i64>,
-    OrganizationId(org_id): OrganizationId,
     DbConnection(db): DbConnection,
+    OrgBoundEntityFromPathId(vehicle): OrgBoundEntityFromPathId<vehicle::Entity>,
     ValidatedJson(dto): ValidatedJson<UpdateVehicleDto>,
 ) -> Result<Json<entity::vehicle::Model>, (StatusCode, SimpleError)> {
-    let mut v: vehicle::ActiveModel = vehicle::Entity::find()
-        .filter(vehicle::Column::OrganizationId.eq(org_id))
-        .filter(vehicle::Column::Id.eq(vehicle_id))
-        .one(&db)
-        .await
-        .map_err(DbError::from)?
-        .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?
-        .into();
+    let mut v: vehicle::ActiveModel = vehicle.into();
 
     v.plate = set_if_some(dto.plate);
     v.brand = set_if_some(dto.brand);
@@ -207,13 +193,9 @@ pub async fn update_vehicle_photo(
     State(state): State<AppState>,
     DbConnection(db): DbConnection,
     OrganizationId(org_id): OrganizationId,
+    OrgBoundEntityFromPathId(req_vehicle): OrgBoundEntityFromPathId<vehicle::Entity>,
     TypedMultipart(SingleImageDto { image }): TypedMultipart<SingleImageDto>,
 ) -> Result<Json<String>, (StatusCode, SimpleError)> {
-    let req_vehicle = vehicle::Entity::find_by_id_and_org_id(vehicle_id, org_id, &db)
-        .await
-        .map_err(DbError::from)?
-        .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?;
-
     let key = S3Key {
         folder: format!("organization/{}/vehicle/{}", org_id, vehicle_id),
         filename: multipart_form_data::filename_from_img("photo", &image)?,
@@ -270,13 +252,8 @@ pub async fn delete_vehicle_photo(
     Path(vehicle_id): Path<i32>,
     State(state): State<AppState>,
     DbConnection(db): DbConnection,
-    OrganizationId(org_id): OrganizationId,
+    OrgBoundEntityFromPathId(req_vehicle): OrgBoundEntityFromPathId<vehicle::Entity>,
 ) -> Result<Json<String>, (StatusCode, SimpleError)> {
-    let req_vehicle = vehicle::Entity::find_by_id_and_org_id(vehicle_id, org_id, &db)
-        .await
-        .map_err(DbError::from)?
-        .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?;
-
     vehicle::Entity::update_many()
         .col_expr(vehicle::Column::Photo, Expr::value::<Option<String>>(None))
         .filter(vehicle::Column::Id.eq(vehicle_id))
@@ -320,12 +297,8 @@ pub async fn delete_vehicle(
     State(state): State<AppState>,
     DbConnection(db): DbConnection,
     OrganizationId(org_id): OrganizationId,
+    OrgBoundEntityFromPathId(req_vehicle): OrgBoundEntityFromPathId<vehicle::Entity>,
 ) -> Result<Json<String>, (StatusCode, SimpleError)> {
-    let req_vehicle = vehicle::Entity::find_by_id_and_org_id(vehicle_id, org_id, &db)
-        .await
-        .map_err(DbError::from)?
-        .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?;
-
     let delete_result = vehicle::Entity::delete_many()
         .filter(vehicle::Column::Id.eq(vehicle_id))
         .filter(vehicle::Column::OrganizationId.eq(org_id))

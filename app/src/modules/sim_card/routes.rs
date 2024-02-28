@@ -5,8 +5,11 @@ use crate::{
         auth::{self, middleware::AclLayer},
         common::{
             dto::{Pagination, PaginationResult},
-            extractors::{DbConnection, OrganizationId, ValidatedJson, ValidatedQuery},
-            responses::{internal_error_res, SimpleError},
+            extractors::{
+                DbConnection, OrgBoundEntityFromPathId, OrganizationId, ValidatedJson,
+                ValidatedQuery,
+            },
+            responses::{internal_error_msg, SimpleError},
         },
     },
     server::controller::AppState,
@@ -16,7 +19,7 @@ use axum::{
     routing::{delete, get, post, put},
     Json, Router,
 };
-use entity::{sim_card, vehicle_tracker};
+use entity::{sim_card, traits::QueryableByIdAndOrgId, vehicle_tracker};
 use http::StatusCode;
 use migration::Expr;
 use sea_orm::{
@@ -155,17 +158,11 @@ pub async fn create_sim_card(
     ),
 )]
 pub async fn update_sim_card(
-    Path(sim_card_id): Path<i32>,
-    OrganizationId(org_id): OrganizationId,
     DbConnection(db): DbConnection,
+    OrgBoundEntityFromPathId(sim_to_update): OrgBoundEntityFromPathId<entity::sim_card::Entity>,
     ValidatedJson(dto): ValidatedJson<dto::UpdateSimCardDto>,
 ) -> Result<Json<sim_card::Model>, (StatusCode, SimpleError)> {
-    let mut v: sim_card::ActiveModel =
-        sim_card::Entity::find_by_id_and_org_id(sim_card_id, org_id, &db)
-            .await
-            .map_err(DbError::from)?
-            .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?
-            .into();
+    let mut v: sim_card::ActiveModel = sim_to_update.into();
 
     v.ssn = set_if_some(dto.ssn);
     v.phone_number = set_if_some(dto.phone_number);
@@ -213,19 +210,13 @@ pub async fn set_sim_card_tracker(
     Path(sim_card_id): Path<i32>,
     OrganizationId(org_id): OrganizationId,
     DbConnection(db): DbConnection,
+    OrgBoundEntityFromPathId(sim_card): OrgBoundEntityFromPathId<entity::sim_card::Entity>,
     ValidatedJson(payload): ValidatedJson<dto::SetSimCardTrackerDto>,
 ) -> Result<Json<String>, (StatusCode, SimpleError)> {
-    // here we can unwrap vehicle_tracker_id because its guaranteed
-    // by the DTO validation to be `Some`
-    let tracker_id_or_none = payload.vehicle_tracker_id.ok_or(internal_error_res())?;
-
-    let sim_card = sim_card::Entity::find_by_id_and_org_id(sim_card_id, org_id, &db)
-        .await
-        .map_err(DbError::from)?
-        .ok_or((
-            StatusCode::NOT_FOUND,
-            SimpleError::from("sim card not found"),
-        ))?;
+    // here we can unwrap vehicle_tracker_id because its guaranteed by the DTO validation to be `Some`
+    let tracker_id_or_none = payload
+        .vehicle_tracker_id
+        .ok_or(internal_error_msg("error parsing sim_card_id"))?;
 
     if let Some(new_tracker_id) = tracker_id_or_none {
         let tracker = vehicle_tracker::Entity::find_by_id(new_tracker_id)
@@ -336,15 +327,8 @@ pub async fn delete_sim_card(
     ),
 )]
 pub async fn get_sim_card(
-    Path(sim_card_id): Path<i32>,
-    OrganizationId(org_id): OrganizationId,
-    DbConnection(db): DbConnection,
+    OrgBoundEntityFromPathId(sim_card): OrgBoundEntityFromPathId<entity::sim_card::Entity>,
 ) -> Result<Json<entity::sim_card::Model>, (StatusCode, SimpleError)> {
-    let sim_card = sim_card::Entity::find_by_id_and_org_id(sim_card_id, org_id, &db)
-        .await
-        .map_err(DbError::from)?
-        .ok_or((StatusCode::NOT_FOUND, SimpleError::from("SIM not found")))?;
-
     Ok(Json(sim_card))
 }
 

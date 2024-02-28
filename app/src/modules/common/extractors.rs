@@ -1,13 +1,15 @@
 use crate::{
+    database::error::DbError,
     modules::{auth::middleware::RequestUser, common::responses::SimpleError},
     server::controller::AppState,
 };
 use axum::{
     async_trait,
-    extract::{rejection::JsonRejection, FromRequest, FromRequestParts, Query},
+    extract::{rejection::JsonRejection, FromRequest, FromRequestParts, Path, Query},
     Json,
 };
 use axum_typed_multipart::{BaseMultipart, TypedMultipartError};
+use entity::traits::QueryableByIdAndOrgId;
 use http::{request::Parts, Request, StatusCode};
 use sea_orm::DatabaseConnection;
 use serde::de::DeserializeOwned;
@@ -138,11 +140,37 @@ impl FromRequestParts<AppState> for DbConnection {
     }
 }
 
-// TODO: FINISH ME i must get the db conn from the state and make sure the
-// entity implements a trait (find by id and org id ?) that allows it to be queried
-// then just call the trait, return the object and voala
 /// Path extractor that fetches a entity by its ID on a endpoint path parameter
 /// and the OrganizationId of the request user, returns a 404 response if the
 /// entity is not found
 #[derive(Clone, Copy)]
-pub struct OrgBoundEntityFromPathId<T>(pub T);
+pub struct OrgBoundEntityFromPathId<T: QueryableByIdAndOrgId>(pub T::Model);
+
+#[async_trait]
+impl<T> FromRequestParts<AppState> for OrgBoundEntityFromPathId<T>
+where
+    T: QueryableByIdAndOrgId,
+{
+    type Rejection = (http::StatusCode, SimpleError);
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let org_id = OrganizationId::from_request_parts(parts, state).await?;
+
+        let id: Path<i32> = Path::from_request_parts(parts, state).await.map_err(|_| {
+            (
+                StatusCode::BAD_REQUEST,
+                SimpleError::from("failed to get entity id from path"),
+            )
+        })?;
+
+        let entity = T::find_by_id_and_org_id(id.0, org_id.0, &state.db)
+            .await
+            .map_err(DbError::from)?
+            .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?;
+
+        Ok(OrgBoundEntityFromPathId(entity))
+    }
+}

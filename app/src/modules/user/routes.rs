@@ -7,7 +7,9 @@ use crate::modules::auth::middleware::{AclLayer, RequestUserPassword};
 use crate::modules::auth::session::SessionId;
 use crate::modules::common::dto::{Pagination, PaginationResult, SingleImageDto};
 use crate::modules::common::error_codes::EMAIL_ALREADY_VERIFIED;
-use crate::modules::common::extractors::{DbConnection, OrganizationId, ValidatedQuery};
+use crate::modules::common::extractors::{
+    DbConnection, OrgBoundEntityFromPathId, OrganizationId, ValidatedQuery,
+};
 use crate::modules::common::responses::internal_error_msg;
 use crate::services::mailer::service::ConfirmEmailRecipientType;
 use crate::{
@@ -30,6 +32,7 @@ use axum::{
 };
 use axum_typed_multipart::TypedMultipart;
 use bcrypt::{hash, verify, DEFAULT_COST};
+use entity::traits::QueryableByIdAndOrgId;
 use entity::user;
 use http::StatusCode;
 use migration::Expr;
@@ -44,7 +47,9 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         //
         .route("/:user_id/session", get(get_user_sessions))
         .layer(AclLayer::new(vec![Permission::ListUserSessions]))
+        //
         .route("/:user_id/access-level", get(get_user_access_level))
+        //
         .route("/:user_id/access-level", put(change_user_access_level))
         .layer(AclLayer::new(vec![Permission::ManageUserAccessLevels]))
         //
@@ -204,15 +209,8 @@ pub async fn list_users(
     ),
 )]
 pub async fn get_user(
-    Path(user_id): Path<i32>,
-    OrganizationId(org_id): OrganizationId,
-    DbConnection(db): DbConnection,
+    OrgBoundEntityFromPathId(user): OrgBoundEntityFromPathId<entity::user::Entity>,
 ) -> Result<Json<dto::SimpleUserDto>, (StatusCode, SimpleError)> {
-    let user = entity::user::Entity::find_by_id_and_org_id(org_id, user_id, &db)
-        .await
-        .map_err(DbError::from)?
-        .ok_or((StatusCode::NOT_FOUND, SimpleError::from("user not found")))?;
-
     Ok(Json(dto::SimpleUserDto::from(user)))
 }
 
@@ -238,14 +236,9 @@ pub async fn get_user_sessions(
     Path(user_id): Path<i32>,
     Extension(session): Extension<SessionId>,
     State(state): State<AppState>,
-    DbConnection(db): DbConnection,
-    OrganizationId(org_id): OrganizationId,
+    // just to assert the user belongs to the request org
+    OrgBoundEntityFromPathId(_user): OrgBoundEntityFromPathId<entity::user::Entity>,
 ) -> Result<Json<Vec<SessionDto>>, (StatusCode, SimpleError)> {
-    let _ = entity::user::Entity::find_by_id_and_org_id(user_id, org_id, &db)
-        .await
-        .map_err(DbError::from)?
-        .ok_or((StatusCode::NOT_FOUND, SimpleError::from("user not found")))?;
-
     let current_session_id = session.get_id();
 
     let sessions = state
@@ -337,6 +330,7 @@ pub async fn change_user_access_level(
     DbConnection(db): DbConnection,
     OrganizationId(org_id): OrganizationId,
     Extension(req_user): Extension<RequestUser>,
+    OrgBoundEntityFromPathId(user_to_update): OrgBoundEntityFromPathId<entity::user::Entity>,
     ValidatedJson(payload): ValidatedJson<dto::ChangeUserAccessLevelDto>,
 ) -> Result<Json<String>, (StatusCode, SimpleError)> {
     if req_user.0.id == user_id {
@@ -345,11 +339,6 @@ pub async fn change_user_access_level(
             SimpleError::from("cannot change your own access level"),
         ));
     }
-
-    let user_to_update = entity::user::Entity::find_by_id_and_org_id(user_id, org_id, &db)
-        .await
-        .map_err(DbError::from)?
-        .ok_or((StatusCode::NOT_FOUND, SimpleError::from("user not found")))?;
 
     let new_access_level =
         entity::access_level::Entity::find_by_id_and_org_id(payload.access_level_id, org_id, &db)

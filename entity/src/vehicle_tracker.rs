@@ -4,6 +4,8 @@ use serde::Serialize;
 use shared::TrackerModel;
 use utoipa::ToSchema;
 
+use crate::traits::QueryableByIdAndOrgId;
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, ToSchema)]
 #[schema(as = entity::vehicle_tracker::Model)]
 #[sea_orm(table_name = "vehicle_tracker")]
@@ -18,19 +20,23 @@ pub struct Model {
     pub vehicle_id: Option<i32>,
 }
 
-impl Entity {
-    pub async fn find_by_id_and_org_id(
+impl QueryableByIdAndOrgId for Entity {
+    type Model = Model;
+
+    async fn find_by_id_and_org_id(
         id: i32,
-        organization_id: i32,
+        org_id: i32,
         db: &DatabaseConnection,
     ) -> Result<Option<Model>, DbErr> {
         Self::find()
             .filter(Column::Id.eq(id))
-            .filter(Column::OrganizationId.eq(organization_id))
+            .filter(Column::OrganizationId.eq(org_id))
             .one(db)
             .await
     }
+}
 
+impl Entity {
     pub async fn find_by_vehicle_and_org_id(
         vehicle_id: i32,
         organization_id: i32,

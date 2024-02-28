@@ -5,7 +5,10 @@ use crate::{
         auth::{self, middleware::AclLayer},
         common::{
             dto::{Pagination, PaginationResult},
-            extractors::{DbConnection, OrganizationId, ValidatedJson, ValidatedQuery},
+            extractors::{
+                DbConnection, OrgBoundEntityFromPathId, OrganizationId, ValidatedJson,
+                ValidatedQuery,
+            },
             responses::{internal_error_res, SimpleError},
         },
     },
@@ -17,7 +20,7 @@ use axum::{
     Json, Router,
 };
 use chrono::{DateTime, Utc};
-use entity::vehicle_tracker;
+use entity::{traits::QueryableByIdAndOrgId, vehicle_tracker};
 use http::StatusCode;
 use migration::Expr;
 use sea_orm::sea_query::extension::postgres::PgExpr;
@@ -75,18 +78,8 @@ pub fn create_router(state: AppState) -> Router<AppState> {
     ),
 )]
 pub async fn get_tracker(
-    Path(tracker_id): Path<i32>,
-    OrganizationId(org_id): OrganizationId,
-    DbConnection(db): DbConnection,
+    OrgBoundEntityFromPathId(tracker): OrgBoundEntityFromPathId<entity::vehicle_tracker::Entity>,
 ) -> Result<Json<vehicle_tracker::Model>, (StatusCode, SimpleError)> {
-    let tracker = vehicle_tracker::Entity::find_by_id_and_org_id(tracker_id, org_id, &db)
-        .await
-        .map_err(DbError::from)?
-        .ok_or((
-            StatusCode::NOT_FOUND,
-            SimpleError::from("tracker not found"),
-        ))?;
-
     Ok(Json(tracker))
 }
 
@@ -310,21 +303,13 @@ pub async fn get_tracker_location(
     ),
 )]
 pub async fn set_tracker_vehicle(
-    Path(tracker_id): Path<i32>,
     OrganizationId(org_id): OrganizationId,
     DbConnection(db): DbConnection,
+    OrgBoundEntityFromPathId(tracker): OrgBoundEntityFromPathId<entity::vehicle_tracker::Entity>,
     ValidatedJson(payload): ValidatedJson<dto::SetTrackerVehicleDto>,
 ) -> Result<Json<String>, (StatusCode, SimpleError)> {
     // here we can unwrap vehicle_id because its guaranteed by the DTO validation to be `Some`
     let vehicle_id_or_none = payload.vehicle_id.ok_or(internal_error_res())?;
-
-    let tracker = vehicle_tracker::Entity::find_by_id_and_org_id(tracker_id, org_id, &db)
-        .await
-        .map_err(DbError::from)?
-        .ok_or((
-            StatusCode::NOT_FOUND,
-            SimpleError::from("tracker not found"),
-        ))?;
 
     if let Some(vehicle_id) = vehicle_id_or_none {
         entity::vehicle::Entity::find_by_id_and_org_id(vehicle_id, org_id, &db)

@@ -4,7 +4,7 @@ use crate::modules::auth;
 use crate::modules::auth::middleware::{AclLayer, RequestUser};
 use crate::modules::common::dto::{Pagination, PaginationResult};
 use crate::modules::common::extractors::{
-    DbConnection, OrganizationId, ValidatedJson, ValidatedQuery,
+    DbConnection, OrgBoundEntityFromPathId, OrganizationId, ValidatedJson, ValidatedQuery,
 };
 use crate::modules::common::responses::SimpleError;
 use crate::server::controller::AppState;
@@ -127,15 +127,8 @@ pub async fn list_access_level(
     ),
 )]
 pub async fn access_level_by_id(
-    Path(access_level_id): Path<i32>,
-    OrganizationId(org_id): OrganizationId,
-    DbConnection(db): DbConnection,
+    OrgBoundEntityFromPathId(v): OrgBoundEntityFromPathId<entity::access_level::Entity>,
 ) -> Result<Json<AccessLevelDto>, (StatusCode, SimpleError)> {
-    let v = access_level::Entity::find_by_id_and_org_id(access_level_id, org_id, &db)
-        .await
-        .map_err(DbError::from)?
-        .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?;
-
     Ok(Json(AccessLevelDto::from(v)))
 }
 
