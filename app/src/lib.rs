@@ -21,6 +21,7 @@ use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
+#[allow(clippy::never_loop)]
 pub async fn main() {
     // see the project readme for more info on how tracing is configured
     tracing_subscriber::fmt()
@@ -39,7 +40,7 @@ pub async fn main() {
 
     let rmq_conn_pool = rabbitmq::create_connection_pool(&cfg.rmq_uri);
 
-    let mut signals = Signals::new(&[SIGINT, SIGTERM]).expect("failed to setup signals hook");
+    let mut signals = Signals::new([SIGINT, SIGTERM]).expect("failed to setup signals hook");
 
     let db_conn_pool_shutdown_ref = db.clone();
     let rmq_conn_pool_shutdown_ref = rmq_conn_pool.clone();
@@ -54,7 +55,7 @@ pub async fn main() {
 
                 info!("[APP] closing postgres connections");
 
-                if let Err(_) = db_conn_pool_shutdown_ref.close().await {
+                if db_conn_pool_shutdown_ref.close().await.is_err() {
                     error!("[DB] failed to close db connection")
                 }
             }

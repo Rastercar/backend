@@ -7,7 +7,9 @@ use crate::{
     modules::{
         auth::session::SessionId,
         common::{
-            error_codes::{INVALID_SESSION, NO_SID_COOKIE, ORGANIZATION_BLOCKED},
+            error_codes::{
+                INVALID_SESSION, MISSING_PERMISSIONS, NO_SID_COOKIE, ORGANIZATION_BLOCKED,
+            },
             responses::{internal_error_msg, SimpleError},
         },
     },
@@ -190,7 +192,7 @@ where
                 } else {
                     Ok((
                         StatusCode::FORBIDDEN,
-                        SimpleError::from("user lacks permissions"),
+                        SimpleError::from(MISSING_PERMISSIONS),
                     )
                         .into_response())
                 }

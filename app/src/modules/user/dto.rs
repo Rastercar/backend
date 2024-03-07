@@ -18,6 +18,45 @@ pub struct ListUsersDto {
     pub access_level_id: Option<i32>,
 }
 
+#[derive(ToSchema, Validate, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateUserDto {
+    #[validate(email)]
+    pub email: String,
+
+    #[validate(regex(
+        path = "REGEX_IS_LOWERCASE_ALPHANUMERIC_WITH_UNDERSCORES",
+        message = "username must contain only lowercase alphanumeric characters and underscores"
+    ))]
+    #[validate(length(min = 5, max = 32))]
+    pub username: String,
+
+    #[validate(range(min = 1))]
+    pub access_level_id: i32,
+
+    #[validate(length(min = 5, max = 256))]
+    #[validate(regex(
+        path = "REGEX_CONTAINS_NUMBER",
+        message = "password must contain a number"
+    ))]
+    #[validate(regex(
+        path = "REGEX_CONTAINS_SYMBOLIC_CHARACTER",
+        message = "password must contain a symbol in: #?!@$%^&*-"
+    ))]
+    #[validate(regex(
+        path = "REGEX_CONTAINS_UPPERCASE_CHARACTER",
+        message = "password must contain a uppercase character"
+    ))]
+    #[validate(regex(
+        path = "REGEX_CONTAINS_LOWERCASE_CHARACTER",
+        message = "password must contain a lowercase character"
+    ))]
+    pub password: String,
+
+    #[validate(length(max = 500))]
+    pub description: Option<String>,
+}
+
 #[derive(ToSchema, Deserialize, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct ChangeUserAccessLevelDto {

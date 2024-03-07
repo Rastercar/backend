@@ -433,7 +433,7 @@ pub async fn create_vehicle(
             .exec(&state.db)
             .await;
 
-        if let Err(_) = update_photo_on_db_result {
+        if update_photo_on_db_result.is_err() {
             let _ = state.s3.delete(uploaded_photo).await;
             let _ = created_vehicle.delete(&state.db).await;
 

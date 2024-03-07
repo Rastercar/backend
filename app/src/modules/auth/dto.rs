@@ -109,6 +109,7 @@ pub struct OrganizationDto {
     pub created_at: DateTime<Utc>,
     pub blocked: bool,
     pub name: String,
+    pub owner_id: Option<i32>,
     pub billing_email: String,
     pub billing_email_verified: bool,
 }
@@ -135,6 +136,7 @@ impl From<entity::organization::Model> for OrganizationDto {
             created_at: m.created_at,
             billing_email: m.billing_email,
             name: m.name,
+            owner_id: m.owner_id,
             blocked: m.blocked,
             billing_email_verified: m.billing_email_verified,
         }

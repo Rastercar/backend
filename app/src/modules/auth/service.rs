@@ -47,7 +47,7 @@ impl AuthService {
         let new_session = entity::session::ActiveModel {
             ip: Set(IpNetwork::from(client_ip).to_string()),
             user_agent: Set(client_user_agent),
-            expires_at: Set((Utc::now() + Duration::days(SESSION_DAYS_DURATION)).into()),
+            expires_at: Set(Utc::now() + Duration::days(SESSION_DAYS_DURATION)),
             user_id: Set(user_identifier),
             session_token: Set(ses_token.into_database_value()),
             ..Default::default()
@@ -145,7 +145,7 @@ impl AuthService {
                     return Err(UserFromCredentialsError::InvalidPassword);
                 }
 
-                return Ok(UserDto::from((user, access_level, organization)));
+                Ok(UserDto::from((user, access_level, organization)))
             }
             None => Err(UserFromCredentialsError::NotFound),
         }
@@ -175,7 +175,7 @@ impl AuthService {
             .filter(entity::user::Column::Username.eq(username))
             .one(&self.db)
             .await?
-            .and_then(|u| Some(u.id));
+            .map(|u| u.id);
 
         Ok(user_id)
     }
@@ -320,7 +320,7 @@ impl From<UserDtoEntities> for UserDto {
             email_verified: user.email_verified,
             profile_picture: user.profile_picture,
             description: user.description,
-            organization: org.map(|o| OrganizationDto::from(o)),
+            organization: org.map(OrganizationDto::from),
             access_level: Into::into(access_level),
         }
     }

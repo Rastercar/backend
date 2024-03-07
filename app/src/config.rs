@@ -108,7 +108,7 @@ async fn get_aws_config() -> SdkConfig {
 /// returns a global read only reference to the app configuration
 pub fn app_config() -> &'static AppConfig {
     static INSTANCE: OnceLock<AppConfig> = OnceLock::new();
-    INSTANCE.get_or_init(|| AppConfig::from_env())
+    INSTANCE.get_or_init(AppConfig::from_env)
 }
 
 /// returns a global read only reference to the aws configuration

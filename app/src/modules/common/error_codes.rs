@@ -1,3 +1,8 @@
+use core::str;
+
+/// a action could not be executed because
+pub static MISSING_PERMISSIONS: &str = "MISSING_PERMISSIONS";
+
 /// a entity could not be created or updated with a given
 /// email because its already in use by another entity
 pub static EMAIL_IN_USE: &str = "EMAIL_IN_USE";
@@ -18,6 +23,6 @@ pub static INVALID_SESSION: &str = "INVALID_SESSION";
 /// the organization the user belongs to was blocked
 pub static ORGANIZATION_BLOCKED: &str = "ORGANIZATION_BLOCKED";
 
-/// cannot confirm or request a email to confirm a email address because
-/// it is already confirmed
+/// cannot confirm or request a email to confirm a email
+/// address because it is already confirmed
 pub static EMAIL_ALREADY_VERIFIED: &str = "EMAIL_ALREADY_VERIFIED";

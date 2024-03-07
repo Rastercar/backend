@@ -162,10 +162,10 @@ pub async fn request_email_address_confirmation(
         return Ok(Json("email address confirmation email queued successfully"));
     }
 
-    return Err((
+    Err((
         StatusCode::BAD_REQUEST,
         SimpleError::from("user does not have a organization to verify emails"),
-    ));
+    ))
 }
 
 /// Confirm org email address by token

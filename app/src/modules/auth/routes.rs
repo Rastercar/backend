@@ -128,7 +128,7 @@ pub async fn delete_session(
         );
     }
 
-    return Ok((headers, Json(String::from("session deleted successfully"))));
+    Ok((headers, Json(String::from("session deleted successfully"))))
 }
 
 /// Signs out of the current user session

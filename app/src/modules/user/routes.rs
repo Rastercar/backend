@@ -27,7 +27,7 @@ use crate::{
 use axum::extract::Path;
 use axum::{
     extract::State,
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
     Extension, Json, Router,
 };
 use axum_typed_multipart::TypedMultipart;
@@ -36,14 +36,20 @@ use entity::traits::QueryableByIdAndOrgId;
 use entity::user;
 use http::StatusCode;
 use migration::Expr;
-use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QueryTrait};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder,
+    QueryTrait, Set, TryIntoModel,
+};
 use sea_query::extension::postgres::PgExpr;
 use shared::Permission;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
+        .route("/", post(create_user))
         .route("/", get(list_users))
         .route("/:user_id", get(get_user))
+        .route("/:user_id", delete(delete_user))
+        .layer(AclLayer::new(vec![Permission::DeleteUser]))
         //
         .route("/:user_id/session", get(get_user_sessions))
         .layer(AclLayer::new(vec![Permission::ListUserSessions]))
@@ -68,6 +74,48 @@ pub fn create_router(state: AppState) -> Router<AppState> {
             state,
             auth::middleware::require_user,
         ))
+}
+
+#[utoipa::path(
+    post,
+    tag="user",
+    path="/user",
+    security(("session_id" = [])),
+    responses(
+        (
+            status = OK,
+            body = user::dto::SimpleUserDto,
+        ),
+        (
+            status = UNAUTHORIZED,
+            description = "invalid session",
+            body = SimpleError,
+        ),
+    ),
+)]
+pub async fn create_user(
+    DbConnection(db): DbConnection,
+    OrganizationId(org_id): OrganizationId,
+    ValidatedJson(dto): ValidatedJson<dto::CreateUserDto>,
+) -> Result<Json<dto::SimpleUserDto>, (StatusCode, SimpleError)> {
+    entity::access_level::Entity::find_by_id_and_org_id(dto.access_level_id, org_id, &db)
+        .await
+        .map_err(DbError::from)?;
+
+    let user = entity::user::ActiveModel {
+        email: Set(dto.email),
+        username: Set(dto.username),
+        organization_id: Set(Some(org_id)),
+        access_level_id: Set(dto.access_level_id),
+        ..Default::default()
+    }
+    .save(&db)
+    .await
+    .map_err(DbError::from)?
+    .try_into_model()
+    .map_err(|_| internal_error_res())?;
+
+    Ok(Json(dto::SimpleUserDto::from(user)))
 }
 
 /// List all sessions for the request user
@@ -150,7 +198,7 @@ pub async fn list_users(
     let paginator = entity::user::Entity::find()
         .filter(entity::user::Column::OrganizationId.eq(org_id))
         .apply_if(filter.email, |query, email| {
-            if email != "" {
+            if email.is_empty() {
                 let col = Expr::col((entity::user::Entity, entity::user::Column::Email));
                 query.filter(col.ilike(format!("%{}%", email)))
             } else {
@@ -212,6 +260,60 @@ pub async fn get_user(
     OrgBoundEntityFromPathId(user): OrgBoundEntityFromPathId<entity::user::Entity>,
 ) -> Result<Json<dto::SimpleUserDto>, (StatusCode, SimpleError)> {
     Ok(Json(dto::SimpleUserDto::from(user)))
+}
+
+/// Delete a user by ID
+#[utoipa::path(
+    delete,
+    tag = "user",
+    path = "/user/{user_id}",
+    security(("session_id" = [])),
+    params(
+        ("user_id" = u128, Path, description = "id of the user"),
+    ),
+    responses(
+        (
+            status = OK,
+            body = String,
+            content_type = "application/json",
+            example = json!("user deleted successfully"),
+        ),
+    ),
+)]
+pub async fn delete_user(
+    State(state): State<AppState>,
+    Extension(req_user): Extension<RequestUser>,
+    OrganizationId(org_id): OrganizationId,
+    OrgBoundEntityFromPathId(user): OrgBoundEntityFromPathId<entity::user::Entity>,
+) -> Result<Json<String>, (StatusCode, SimpleError)> {
+    if req_user.0.id == user.id {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            SimpleError::from("cannot delete your own user"),
+        ));
+    }
+
+    if let Some(org) = req_user.0.organization {
+        if org.owner_id.unwrap_or(0) == user.id {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                SimpleError::from("cannot delete a organization owner"),
+            ));
+        }
+    }
+
+    if let Some(profile_pic) = user.profile_picture {
+        let _ = state.s3.delete(profile_pic).await;
+    }
+
+    user::Entity::delete_many()
+        .filter(user::Column::Id.eq(user.id))
+        .filter(user::Column::OrganizationId.eq(org_id))
+        .exec(&state.db)
+        .await
+        .map_err(DbError::from)?;
+
+    Ok(Json(String::from("user deleted successfully")))
 }
 
 /// Get a list of a user sessions
@@ -385,7 +487,7 @@ pub async fn change_user_access_level(
     ),
 )]
 pub async fn me(Extension(req_user): Extension<RequestUser>) -> Json<UserDto> {
-    Json(UserDto::from(req_user.0))
+    Json(req_user.0)
 }
 
 /// Updates the request user
@@ -425,7 +527,7 @@ pub async fn update_me(
         .apply_if(payload.username.clone(), |query, v| {
             query.col_expr(entity::user::Column::Username, Expr::value(v))
         })
-        .filter(entity::user::Column::Id.eq(req_user.id.clone()))
+        .filter(entity::user::Column::Id.eq(req_user.id))
         .exec(&db)
         .await
         .map_err(DbError::from)?;

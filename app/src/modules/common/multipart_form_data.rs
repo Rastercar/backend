@@ -40,7 +40,7 @@ pub fn filename_from_img(
     prefix: &str,
     img: &FieldData<Bytes>,
 ) -> Result<String, (StatusCode, SimpleError)> {
-    let file_extension = get_image_extension_from_field_or_fail_request(&img)?;
+    let file_extension = get_image_extension_from_field_or_fail_request(img)?;
 
     let timestamp = chrono::Utc::now().format("%d-%m-%Y_%H:%M:%S");
 

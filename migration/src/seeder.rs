@@ -289,6 +289,12 @@ pub async fn create_test_user(db: &DatabaseTransaction) -> Result<user::Model, D
     .insert(db)
     .await?;
 
+    organization::Entity::update_many()
+        .col_expr(organization::Column::OwnerId, Expr::value(u.id))
+        .filter(organization::Column::Id.eq(test_user_organization.id))
+        .exec(db)
+        .await?;
+
     Ok(u)
 }
 
