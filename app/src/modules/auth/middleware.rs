@@ -10,7 +10,7 @@ use crate::{
             error_codes::{
                 INVALID_SESSION, MISSING_PERMISSIONS, NO_SID_COOKIE, ORGANIZATION_BLOCKED,
             },
-            responses::{internal_error_msg, SimpleError},
+            responses::{internal_error_msg, ApiError, SimpleError},
         },
     },
     server::controller::AppState,
@@ -43,14 +43,17 @@ impl RequestUser {
         self.0.organization.as_ref().map(|user| user.id)
     }
 
-    /// check if every permission on `required_permissions` is present in the user access level
-    pub fn contains_permission(&self, required_permissions: &Vec<Permission>) -> bool {
-        required_permissions.iter().all(|item| {
-            self.0
-                .access_level
-                .permissions
-                .contains(&item.to_string().to_case(Case::ScreamingSnake))
-        })
+    /// get the missing permissions the user does not have
+    pub fn get_missing_permissions(&self, required_permissions: &[Permission]) -> Vec<String> {
+        required_permissions
+            .iter()
+            .map(|required_permission| {
+                required_permission
+                    .to_string()
+                    .to_case(Case::ScreamingSnake)
+            })
+            .filter(|item| !self.0.access_level.permissions.contains(item))
+            .collect()
     }
 }
 
@@ -184,17 +187,18 @@ where
         let mut inner = std::mem::replace(&mut self.inner, maybe_not_ready_inner);
 
         if let Some(req_user) = req.extensions().get::<RequestUser>() {
-            let has_permissions = req_user.contains_permission(&self.required_permissions);
+            let missing_permissions = req_user.get_missing_permissions(&self.required_permissions);
 
             return Box::pin(async move {
-                if has_permissions {
+                if missing_permissions.is_empty() {
                     Ok(inner.call(req).await?.map(body::boxed))
                 } else {
-                    Ok((
-                        StatusCode::FORBIDDEN,
-                        SimpleError::from(MISSING_PERMISSIONS),
-                    )
-                        .into_response())
+                    let err = ApiError {
+                        error: String::from(MISSING_PERMISSIONS),
+                        info: Some(missing_permissions),
+                    };
+
+                    Ok((StatusCode::FORBIDDEN, err).into_response())
                 }
             });
         }

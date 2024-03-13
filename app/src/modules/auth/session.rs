@@ -33,7 +33,7 @@ impl SessionId {
     ///
     /// returns `None` on error
     pub fn from_database_value(bytes: Vec<u8>) -> Option<Self> {
-        if let Some(bytes) = <[u8; 16]>::try_from(bytes.as_slice()).ok() {
+        if let Ok(bytes) = <[u8; 16]>::try_from(bytes.as_slice()) {
             return Some(SessionId(u128::from_le_bytes(bytes)));
         }
 

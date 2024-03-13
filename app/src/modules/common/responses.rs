@@ -65,6 +65,20 @@ impl From<&str> for SimpleError {
     }
 }
 
+/// A struct for API error responses containing arbitrary additional info
+#[derive(Serialize, Clone, ToSchema, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiError<T: Serialize> {
+    pub error: String,
+    pub info: Option<T>,
+}
+
+impl<T: Serialize> IntoResponse for ApiError<T> {
+    fn into_response(self) -> Response {
+        Json(self).into_response()
+    }
+}
+
 pub fn internal_error_res() -> (StatusCode, SimpleError) {
     (StatusCode::INTERNAL_SERVER_ERROR, SimpleError::internal())
 }

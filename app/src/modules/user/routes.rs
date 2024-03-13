@@ -46,6 +46,7 @@ use shared::Permission;
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", post(create_user))
+        .layer(AclLayer::new(vec![Permission::CreateUser]))
         .route("/", get(list_users))
         .route("/:user_id", get(get_user))
         .route("/:user_id", delete(delete_user))
@@ -102,8 +103,11 @@ pub async fn create_user(
         .await
         .map_err(DbError::from)?;
 
+    let password_hash = hash(dto.password, DEFAULT_COST).map_err(|_| internal_error_res())?;
+
     let user = entity::user::ActiveModel {
         email: Set(dto.email),
+        password: Set(password_hash),
         username: Set(dto.username),
         organization_id: Set(Some(org_id)),
         access_level_id: Set(dto.access_level_id),
