@@ -39,13 +39,18 @@ pub struct AppState {
 
 /// Creates the main axum router/controller to be served over https
 pub fn new(db: DatabaseConnection, s3: S3, rmq: Arc<Rmq>) -> Router {
+    let rmq_ref = rmq.clone();
+
+    // TODO: rm me !
+    tokio::task::spawn(async move { rmq.consume().await });
+
     let rng = ChaCha8Rng::seed_from_u64(OsRng.next_u64());
 
     let state = AppState {
         s3,
         db: db.clone(),
         auth_service: AuthService::new(db, rng),
-        mailer_service: MailerService::new(rmq),
+        mailer_service: MailerService::new(rmq_ref),
     };
 
     let (socket_io_layer, socket_io) = socketioxide::SocketIo::builder()

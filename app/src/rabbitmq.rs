@@ -1,24 +1,29 @@
 use lapin::{
-    options::{BasicPublishOptions, ExchangeDeclareOptions},
+    options::{
+        BasicConsumeOptions, BasicPublishOptions, ExchangeDeclareOptions, QueueBindOptions,
+        QueueDeclareOptions,
+    },
     publisher_confirm::PublisherConfirm,
     types::FieldTable,
     BasicProperties, Channel, Connection, ConnectionProperties, ExchangeKind,
 };
+use serde::de;
 use std::time::Duration;
 use tokio::{sync::RwLock, time::sleep};
+use tokio_stream::StreamExt;
 use tracing::{error, info};
 
 /// RabbitMQ default exchange (yes, its a empty string)
 pub static DEFAULT_EXCHANGE: &str = "";
+
+/// RabbitMQ queue to be binded to the tracker events exchange
+pub static TRACKER_EVENTS_QUEUE: &str = "tracker";
 
 /// RabbitMQ queue to publish requests to the mailer service
 pub static MAILER_QUEUE: &str = "mailer";
 
 /// RabbitMQ exchange to listen to tracker events, such as positions and alerts
 pub static TRACKER_EVENTS_EXCHANGE: &str = "tracker_events";
-
-/// RabbitMQ exchange to listen for email events, such as clicks, opens, reports
-pub static EMAIL_EVENTS_EXCHANGE: &str = "email_events";
 
 struct ConnectionEntities {
     connection: Connection,
@@ -63,6 +68,47 @@ impl Rmq {
         }
     }
 
+    // TODO: this consumer should be dynamic
+    // check if its ok to have multiple consumers on a same channel
+    //
+    // TODO: accept some sort of callback on the consumer
+    //
+    // TODO: check consumer exclusivity
+    // https://www.rabbitmq.com/docs/consumers#exclusivity
+    pub async fn consume(&self) -> lapin::Result<()> {
+        let mut consumer = self
+            .consume_channel
+            .read()
+            .await
+            .as_ref()
+            .ok_or(lapin::Error::InvalidChannelState(
+                lapin::ChannelState::Error,
+            ))?
+            .basic_consume(
+                TRACKER_EVENTS_QUEUE,
+                "TODO",
+                // TODO: check for autoack
+                // pass consumer tag as arg
+                BasicConsumeOptions::default(),
+                FieldTable::default(),
+            )
+            .await?;
+
+        while let Some(delivery) = consumer.next().await {
+            match delivery {
+                Ok(delivery) => {
+                    println!("{:?}", String::from_utf8(delivery.data));
+                }
+                Err(err) => {
+                    println!("[RMQ] mailer queue consumer error: {}", err);
+                    return Err(err);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     pub async fn publish(
         &self,
         exchange: &str,
@@ -102,7 +148,6 @@ impl Rmq {
 
         let consume_channel = connection.create_channel().await?;
         info!("[RMQ] consume channel created");
-
         let publish_channel = connection.create_channel().await?;
         info!("[RMQ] publish channel created");
 
@@ -122,6 +167,36 @@ impl Rmq {
                 )
                 .await,
         );
+        info!("[RMQ] tracker events exchange declared");
+
+        panic_on_err(
+            consume_channel
+                .queue_declare(
+                    TRACKER_EVENTS_QUEUE,
+                    QueueDeclareOptions {
+                        passive: false,
+                        durable: false,
+                        exclusive: false,
+                        auto_delete: true,
+                        nowait: false,
+                    },
+                    FieldTable::default(),
+                )
+                .await,
+        );
+        info!("[RMQ] tracker events queue declared");
+
+        // bind the tracker events queue to the tracker events exchange and listen to all events (#)
+        consume_channel
+            .queue_bind(
+                TRACKER_EVENTS_QUEUE,
+                TRACKER_EVENTS_EXCHANGE,
+                "#",
+                QueueBindOptions::default(),
+                FieldTable::default(),
+            )
+            .await?;
+        info!("[RMQ] tracker events queue binded to tracker events exchange");
 
         Ok(ConnectionEntities {
             connection,

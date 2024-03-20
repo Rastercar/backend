@@ -46,6 +46,7 @@ utoipa-rapidoc = { version = "0.1.0", features = ["axum"] }
 utoipa-swagger-ui = { version = "3.1.5", features = ["axum"] }
 
 # Tokio
+tokio-stream = "0.1.12"
 tokio-reactor-trait = "1.1.0"
 tokio-executor-trait = "2.1.1"
 tokio = { version = "1.31.0", features = ["full"] }
