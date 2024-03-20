@@ -3,20 +3,15 @@ use super::{
     templates::{ConfirmEmailReplacements, RecoverPasswordReplacements},
 };
 use crate::{
-    config::app_config, rabbitmq::DEFAULT_EXCHANGE, services::mailer::dto::EmailRecipient,
-    test::Rmq,
+    config::app_config,
+    rabbitmq::{Rmq, DEFAULT_EXCHANGE, MAILER_QUEUE},
+    services::mailer::dto::EmailRecipient,
 };
 use anyhow::Result;
-use deadpool_lapin::Pool;
-use lapin::{
-    options::BasicPublishOptions, publisher_confirm::PublisherConfirm, BasicProperties, Channel,
-};
+use lapin::{options::BasicPublishOptions, publisher_confirm::PublisherConfirm, BasicProperties};
 use std::fs;
 use std::sync::Arc;
 use url;
-
-/// rabbitmq queue to publish RPC requests to the mailer service
-static MAILER_QUEUE: &str = "mailer";
 
 /// RPC operation to send a email
 static OP_SEND_EMAIL: &str = "sendEmail";
@@ -29,31 +24,12 @@ pub enum ConfirmEmailRecipientType {
 /// A abstraction to make RPC calls to the mailer microservice
 #[derive(Clone)]
 pub struct MailerService {
-    rmq_conn_pool: Pool,
-    // rmq: Arc<Rmq>,
+    rmq: Arc<Rmq>,
 }
 
 impl MailerService {
-    pub fn new(rmq_conn_pool: Pool) -> MailerService {
-        MailerService { rmq_conn_pool }
-    }
-
-    // [PROD-TODO] Improve me !, for now, we create a rmq channel every time we want to do something,
-    // destroying the channel when the op is done, this is not a problem if we have little
-    // to no users, however this is far from ideal.
-    //
-    // a good scenario would be to have a connection pool for both connections and their associate channels
-    // the implementation is not as simple as a channel can be locked and a connection dropped, etc.
-    //
-    // see: https://github.com/bikeshedder/deadpool/issues/47
-    //
-    // maybe its not that hard to implement the manager trait from deadpool and make our own rabbitmq
-    // connection pool that returns not a pool of connection, but rather a pool of a connection and N associated channels
-    //
-    // the tricky part is would be recycling the struct containing the connection and its channels, as ideally it
-    // would get rid of only the bad channels if the conn is ok but some channels are not.
-    async fn get_channel(&self) -> Result<Channel> {
-        Ok(self.rmq_conn_pool.get().await?.create_channel().await?)
+    pub fn new(rmq: Arc<Rmq>) -> MailerService {
+        MailerService { rmq }
     }
 
     async fn publish_to_mailer_service(
@@ -62,9 +38,8 @@ impl MailerService {
         rpc_name: &str,
     ) -> Result<PublisherConfirm> {
         Ok(self
-            .get_channel()
-            .await?
-            .basic_publish(
+            .rmq
+            .publish(
                 DEFAULT_EXCHANGE,
                 MAILER_QUEUE,
                 BasicPublishOptions::default(),

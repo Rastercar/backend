@@ -5,7 +5,6 @@ mod modules;
 mod rabbitmq;
 mod server;
 mod services;
-mod test;
 mod utils;
 
 use crate::services::s3::S3;
@@ -14,6 +13,7 @@ use signal_hook::{
     consts::{SIGINT, SIGTERM},
     iterator::Signals,
 };
+use std::sync::Arc;
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     time::Duration,
@@ -40,18 +40,17 @@ pub async fn main() {
 
     cronjobs::start_clear_sessions_cronjob(db.clone(), Duration::from_secs(5 * 60));
 
-    // TODO: finish me!
-    let rmq = test::Rmq::new(&cfg.rmq_uri).await;
-    task::spawn(async move {
-        rmq.start_reconnection_task().await;
-    });
+    let rmq = Arc::new(rabbitmq::Rmq::new(&cfg.rmq_uri).await);
+    let rmq_reconnect_ref = rmq.clone();
+    let rmq_shutdown_ref = rmq.clone();
 
-    let rmq_conn_pool = rabbitmq::create_connection_pool(&cfg.rmq_uri);
+    task::spawn(async move {
+        rmq_reconnect_ref.start_reconnection_task().await;
+    });
 
     let mut signals = Signals::new([SIGINT, SIGTERM]).expect("failed to setup signals hook");
 
     let db_conn_pool_shutdown_ref = db.clone();
-    let rmq_conn_pool_shutdown_ref = rmq_conn_pool.clone();
 
     tokio::spawn(async move {
         for sig in signals.forever() {
@@ -59,12 +58,11 @@ pub async fn main() {
                 info!("[APP] received signal: {}, shutting down", sig);
 
                 info!("[APP] closing rabbitmq connections");
-                rmq_conn_pool_shutdown_ref.close();
+                rmq_shutdown_ref.shutdown().await;
 
                 info!("[APP] closing postgres connections");
-
-                if db_conn_pool_shutdown_ref.close().await.is_err() {
-                    error!("[DB] failed to close db connection")
+                if let Err(e) = db_conn_pool_shutdown_ref.close().await {
+                    error!("[DB] failed to close db connection: {e}")
                 }
             }
 
@@ -77,8 +75,8 @@ pub async fn main() {
 
     let s3 = S3::new().await;
 
-    let server = server::controller::new(db, s3, rmq_conn_pool)
-        .into_make_service_with_connect_info::<SocketAddr>();
+    let server =
+        server::controller::new(db, s3, rmq).into_make_service_with_connect_info::<SocketAddr>();
 
     axum::Server::bind(&addr).serve(server).await.unwrap();
 }
