@@ -28,8 +28,10 @@ use shared::Permission;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
-        .route("/session/:public-session-id", delete(delete_session))
-        .layer(AclLayer::new(vec![Permission::LogoffUser]))
+        .route(
+            "/session/:public-session-id",
+            delete(delete_session).route_layer(AclLayer::single(Permission::LogoffUser)),
+        )
         .route("/sign-out", post(sign_out))
         .route(
             "/sign-out/:public-session-id",

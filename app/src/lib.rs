@@ -5,6 +5,7 @@ mod modules;
 mod rabbitmq;
 mod server;
 mod services;
+mod test;
 mod utils;
 
 use crate::services::s3::S3;
@@ -17,6 +18,7 @@ use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     time::Duration,
 };
+use tokio::task;
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
@@ -37,6 +39,12 @@ pub async fn main() {
     database::db::run_migrations(&db).await;
 
     cronjobs::start_clear_sessions_cronjob(db.clone(), Duration::from_secs(5 * 60));
+
+    // TODO: finish me!
+    let rmq = test::Rmq::new(&cfg.rmq_uri).await;
+    task::spawn(async move {
+        rmq.start_reconnection_task().await;
+    });
 
     let rmq_conn_pool = rabbitmq::create_connection_pool(&cfg.rmq_uri);
 

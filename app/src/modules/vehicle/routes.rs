@@ -39,26 +39,36 @@ pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(list_vehicles))
         //
-        .route("/", post(create_vehicle))
-        .layer(AclLayer::new(vec![Permission::CreateVehicle]))
+        .route(
+            "/",
+            post(create_vehicle).route_layer(AclLayer::single(Permission::CreateVehicle)),
+        )
         //
         .route("/:vehicle_id", get(vehicle_by_id))
         //
-        .route("/:vehicle_id", put(update_vehicle))
-        .layer(AclLayer::new(vec![Permission::UpdateVehicle]))
+        .route(
+            "/:vehicle_id",
+            put(update_vehicle).route_layer(AclLayer::single(Permission::UpdateVehicle)),
+        )
         //
-        .route("/:vehicle_id", delete(delete_vehicle))
-        .layer(AclLayer::new(vec![Permission::DeleteVehicle]))
+        .route(
+            "/:vehicle_id",
+            delete(delete_vehicle).route_layer(AclLayer::single(Permission::DeleteVehicle)),
+        )
         //
         .route("/:vehicle_id/tracker", get(get_vehicle_tracker))
         //
-        .route("/:vehicle_id/photo", put(update_vehicle_photo))
-        .layer(AclLayer::new(vec![Permission::UpdateVehicle]))
+        .route(
+            "/:vehicle_id/photo",
+            put(update_vehicle_photo).route_layer(AclLayer::single(Permission::UpdateVehicle)),
+        )
         //
-        .route("/:vehicle_id/photo", delete(delete_vehicle_photo))
-        .layer(AclLayer::new(vec![Permission::UpdateVehicle]))
+        .route(
+            "/:vehicle_id/photo",
+            delete(delete_vehicle_photo).route_layer(AclLayer::single(Permission::UpdateVehicle)),
+        )
         //
-        .layer(axum::middleware::from_fn_with_state(
+        .route_layer(axum::middleware::from_fn_with_state(
             state,
             auth::middleware::require_user,
         ))
@@ -346,7 +356,7 @@ pub async fn list_vehicles(
     let db_query = vehicle::Entity::find()
         .filter(vehicle::Column::OrganizationId.eq(org_id))
         .apply_if(filter.plate, |query, plate| {
-            if plate != "" {
+            if plate.is_empty() {
                 let col = Expr::col((vehicle::Entity, vehicle::Column::Plate));
                 query.filter(col.ilike(format!("%{}%", plate)))
             } else {

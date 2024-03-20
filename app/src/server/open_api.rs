@@ -68,6 +68,7 @@ use axum::Router;
         user::routes::create_user,
         user::routes::get_user_sessions,
         user::routes::delete_user,
+        user::routes::get_short_lived_token,
         user::routes::put_profile_picture,
         user::routes::get_user_access_level,
         user::routes::delete_profile_picture,

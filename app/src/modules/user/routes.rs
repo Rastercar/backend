@@ -45,22 +45,32 @@ use shared::Permission;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
-        .route("/", post(create_user))
-        .layer(AclLayer::new(vec![Permission::CreateUser]))
+        .route(
+            "/",
+            post(create_user).route_layer(AclLayer::single(Permission::CreateUser)),
+        )
         .route("/", get(list_users))
         .route("/:user_id", get(get_user))
-        .route("/:user_id", delete(delete_user))
-        .layer(AclLayer::new(vec![Permission::DeleteUser]))
+        .route(
+            "/:user_id",
+            delete(delete_user).route_layer(AclLayer::single(Permission::DeleteUser)),
+        )
         //
-        .route("/:user_id/session", get(get_user_sessions))
-        .layer(AclLayer::new(vec![Permission::ListUserSessions]))
+        .route(
+            "/:user_id/session",
+            get(get_user_sessions).route_layer(AclLayer::single(Permission::ListUserSessions)),
+        )
         //
         .route("/:user_id/access-level", get(get_user_access_level))
         //
-        .route("/:user_id/access-level", put(change_user_access_level))
-        .layer(AclLayer::new(vec![Permission::ManageUserAccessLevels]))
+        .route(
+            "/:user_id/access-level",
+            put(change_user_access_level)
+                .route_layer(AclLayer::single(Permission::ManageUserAccessLevels)),
+        )
         //
         .route("/me", get(me).patch(update_me))
+        .route("/me/short-lived-token", get(get_short_lived_token))
         .route("/me/session", get(get_request_user_sessions))
         .route("/me/password", put(put_password))
         .route(
@@ -75,6 +85,35 @@ pub fn create_router(state: AppState) -> Router<AppState> {
             state,
             auth::middleware::require_user,
         ))
+}
+
+/// Generates a short lived JWT for the request user
+#[utoipa::path(
+    get,
+    tag = "user",
+    path = "/user/me/short-lived-token",
+    responses(
+        (
+            status = OK,
+            description = "success message",
+            body = String,
+            content_type = "application/json",
+            example = json!("<your-jwt>"),
+        ),
+    ),
+)]
+#[axum::debug_handler]
+pub async fn get_short_lived_token(
+    State(state): State<AppState>,
+    Extension(req_user): Extension<RequestUser>,
+) -> Result<Json<String>, (StatusCode, SimpleError)> {
+    let token = state
+        .auth_service
+        .gen_short_lived_token_for_user(req_user.0.id)
+        .await
+        .or(Err(internal_error_res()))?;
+
+    Ok(Json(token))
 }
 
 #[utoipa::path(

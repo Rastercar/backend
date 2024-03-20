@@ -137,9 +137,9 @@ pub struct AclLayer {
 }
 
 impl AclLayer {
-    pub fn new(required_permissions: Vec<Permission>) -> Self {
+    pub fn single(required_permission: Permission) -> Self {
         AclLayer {
-            required_permissions,
+            required_permissions: vec![required_permission],
         }
     }
 }

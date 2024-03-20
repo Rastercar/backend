@@ -28,19 +28,20 @@ use shared::Permission;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
-        .route("/", patch(update_org))
-        //
+        .route(
+            "/",
+            patch(update_org).route_layer(AclLayer::single(Permission::UpdateOrganization)),
+        )
         .route(
             "/request-email-address-confirmation",
-            post(request_email_address_confirmation),
+            post(request_email_address_confirmation)
+                .route_layer(AclLayer::single(Permission::UpdateOrganization)),
         )
-        //
         .route(
             "/confirm-email-address-by-token",
-            post(confirm_email_address_by_token),
+            post(confirm_email_address_by_token)
+                .route_layer(AclLayer::single(Permission::UpdateOrganization)),
         )
-        .layer(AclLayer::new(vec![Permission::UpdateOrganization]))
-        //
         .layer(axum::middleware::from_fn_with_state(
             state,
             auth::middleware::require_user,
@@ -92,7 +93,7 @@ pub async fn update_org(
             .await
             .map_err(DbError::from)?;
 
-        return Ok(Json(auth::dto::OrganizationDto::from(org)));
+        return Ok(Json(org));
     }
 
     Err((

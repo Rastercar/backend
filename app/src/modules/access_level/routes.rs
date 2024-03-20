@@ -32,14 +32,23 @@ use super::dto::{
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(list_access_level))
-        .route("/", post(create_access_level))
-        .layer(AclLayer::new(vec![Permission::ManageUserAccessLevels]))
+        .route(
+            "/",
+            post(create_access_level)
+                .route_layer(AclLayer::single(Permission::ManageUserAccessLevels)),
+        )
         .route("/:access_level_id", get(access_level_by_id))
-        .route("/:access_level_id", put(update_access_level))
-        .layer(AclLayer::new(vec![Permission::ManageUserAccessLevels]))
-        .route("/:access_level_id", delete(delete_access_level))
-        .layer(AclLayer::new(vec![Permission::ManageUserAccessLevels]))
-        .layer(axum::middleware::from_fn_with_state(
+        .route(
+            "/:access_level_id",
+            put(update_access_level)
+                .route_layer(AclLayer::single(Permission::ManageUserAccessLevels)),
+        )
+        .route(
+            "/:access_level_id",
+            delete(delete_access_level)
+                .route_layer(AclLayer::single(Permission::ManageUserAccessLevels)),
+        )
+        .route_layer(axum::middleware::from_fn_with_state(
             state,
             auth::middleware::require_user,
         ))
@@ -73,7 +82,7 @@ pub async fn list_access_level(
     let paginator = entity::access_level::Entity::find()
         .filter(entity::access_level::Column::OrganizationId.eq(org_id))
         .apply_if(filter.name, |query, name| {
-            if name != "" {
+            if name.is_empty() {
                 let col = Expr::col((
                     entity::access_level::Entity,
                     entity::access_level::Column::Name,

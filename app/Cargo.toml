@@ -60,6 +60,9 @@ axum = { version = "0.6.20", features = [
     "multipart",
 ] }
 
+# SocketIO
+socketioxide = { version="0.8", features = ["state", "extensions"] }
+
 # Deadpool
 deadpool = "0.9.5"
 deadpool-lapin = "0.10.0"

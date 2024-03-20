@@ -35,21 +35,29 @@ use std::str::FromStr;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
-        .route("/", post(create_tracker))
-        .layer(AclLayer::new(vec![Permission::CreateTracker]))
+        .route(
+            "/",
+            post(create_tracker).layer(AclLayer::single(Permission::CreateTracker)),
+        )
         //
         .route("/", get(list_trackers))
         //
         .route("/:tracker_id", get(get_tracker))
         //
-        .route("/:tracker_id", put(update_tracker))
-        .layer(AclLayer::new(vec![Permission::UpdateTracker]))
+        .route(
+            "/:tracker_id",
+            put(update_tracker).layer(AclLayer::single(Permission::UpdateTracker)),
+        )
         //
-        .route("/:tracker_id", delete(delete_tracker))
-        .layer(AclLayer::new(vec![Permission::DeleteTracker]))
+        .route(
+            "/:tracker_id",
+            delete(delete_tracker).layer(AclLayer::single(Permission::DeleteTracker)),
+        )
         //
-        .route("/:tracker_id/vehicle", put(set_tracker_vehicle))
-        .layer(AclLayer::new(vec![Permission::UpdateTracker]))
+        .route(
+            "/:tracker_id/vehicle",
+            put(set_tracker_vehicle).layer(AclLayer::single(Permission::UpdateTracker)),
+        )
         //
         .route("/:tracker_id/location", get(get_tracker_location))
         .route("/:tracker_id/sim-cards", get(list_tracker_sim_cards))
@@ -466,7 +474,7 @@ pub async fn list_trackers(
             }
         })
         .apply_if(filter.imei, |query, imei| {
-            if imei != "" {
+            if imei.is_empty() {
                 let col = Expr::col((vehicle_tracker::Entity, vehicle_tracker::Column::Imei));
                 query.filter(col.ilike(format!("%{}%", imei)))
             } else {

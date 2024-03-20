@@ -4,7 +4,9 @@ use crate::{
     modules::{
         access_level,
         auth::{self, service::AuthService},
-        organization, sim_card, tracker, user, vehicle,
+        organization, sim_card, tracker,
+        tracking::{self, dto::PositionDto},
+        user, vehicle,
     },
     services::{mailer::service::MailerService, s3::S3},
     utils::string::StringExt,
@@ -23,6 +25,9 @@ use tower_http::{
 };
 use tracing::{Level, Span};
 
+/// The main application state, this is cloned for every HTTP / WS
+/// request and thus its fields should contain types that are cheap
+/// to clone.
 #[derive(Clone)]
 pub struct AppState {
     pub s3: S3,
@@ -36,11 +41,39 @@ pub fn new(db: DatabaseConnection, s3: S3, rmq_conn_pool: RmqPool) -> Router {
     let rng = ChaCha8Rng::seed_from_u64(OsRng.next_u64());
 
     let state = AppState {
-        db: db.clone(),
         s3,
-        mailer_service: MailerService::new(rmq_conn_pool),
+        db: db.clone(),
         auth_service: AuthService::new(db, rng),
+        mailer_service: MailerService::new(rmq_conn_pool),
     };
+
+    let (socket_io_layer, socket_io) = socketioxide::SocketIo::builder()
+        .with_state(state.clone())
+        .build_layer();
+
+    socket_io.ns("/tracking", tracking::routes::on_connect);
+
+    // TODO: rm me !
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(2));
+
+        loop {
+            interval.tick().await;
+
+            let _ = socket_io
+                .of("/tracking")
+                .unwrap()
+                .within(vec!["1", "2", "3"])
+                .emit(
+                    "position",
+                    PositionDto {
+                        tracker_id: 1,
+                        lat: 1,
+                        lng: 1,
+                    },
+                );
+        }
+    });
 
     // URL.to_string for some reason adds a trailing slash
     // we need to remove it to avoid cors errors
@@ -79,7 +112,8 @@ pub fn new(db: DatabaseConnection, s3: S3, rmq_conn_pool: RmqPool) -> Router {
     let global_middlewares = ServiceBuilder::new()
         .layer(ip_extractor_layer)
         .layer(tracing_layer)
-        .layer(cors);
+        .layer(cors)
+        .layer(socket_io_layer);
 
     Router::new()
         .merge(open_api::create_openapi_router())

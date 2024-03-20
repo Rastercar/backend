@@ -1,17 +1,18 @@
-use std::fs;
-
 use super::{
     dto::SendEmailIn,
     templates::{ConfirmEmailReplacements, RecoverPasswordReplacements},
 };
 use crate::{
     config::app_config, rabbitmq::DEFAULT_EXCHANGE, services::mailer::dto::EmailRecipient,
+    test::Rmq,
 };
 use anyhow::Result;
 use deadpool_lapin::Pool;
 use lapin::{
     options::BasicPublishOptions, publisher_confirm::PublisherConfirm, BasicProperties, Channel,
 };
+use std::fs;
+use std::sync::Arc;
 use url;
 
 /// rabbitmq queue to publish RPC requests to the mailer service
@@ -29,6 +30,7 @@ pub enum ConfirmEmailRecipientType {
 #[derive(Clone)]
 pub struct MailerService {
     rmq_conn_pool: Pool,
+    // rmq: Arc<Rmq>,
 }
 
 impl MailerService {
@@ -36,7 +38,7 @@ impl MailerService {
         MailerService { rmq_conn_pool }
     }
 
-    // [IMPROVE ME] for now, we create a rmq channel every time we want to do something,
+    // [PROD-TODO] Improve me !, for now, we create a rmq channel every time we want to do something,
     // destroying the channel when the op is done, this is not a problem if we have little
     // to no users, however this is far from ideal.
     //
@@ -75,9 +77,8 @@ impl MailerService {
     }
 
     pub async fn send_email(&self, input: SendEmailIn) -> Result<PublisherConfirm> {
-        Ok(self
-            .publish_to_mailer_service(serde_json::to_string(&input)?.as_bytes(), OP_SEND_EMAIL)
-            .await?)
+        self.publish_to_mailer_service(serde_json::to_string(&input)?.as_bytes(), OP_SEND_EMAIL)
+            .await
     }
 
     pub async fn send_recover_password_email(
@@ -102,7 +103,7 @@ impl MailerService {
                 replacements,
             }]);
 
-        Ok(self.send_email(email).await?)
+        self.send_email(email).await
     }
 
     pub async fn send_confirm_email_address_email(
@@ -140,16 +141,16 @@ impl MailerService {
                 replacements,
             }]);
 
-        Ok(self.send_email(email).await?)
+        self.send_email(email).await
     }
 }
 
 /// creates a link to the rastercar frontend
 fn create_frontend_link(path: &str) -> Result<url::Url, url::ParseError> {
-    Ok(app_config().frontend_url.join(path)?)
+    app_config().frontend_url.join(path)
 }
 
 /// creates a link to the rastercar frontend
 fn read_template(template: &str) -> std::io::Result<String> {
-    Ok(fs::read_to_string(format!("templates/{}.hbs", template))?)
+    fs::read_to_string(format!("templates/{}.hbs", template))
 }

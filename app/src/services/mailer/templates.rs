@@ -7,11 +7,11 @@ pub struct RecoverPasswordReplacements {
     pub reset_password_link: String,
 }
 
-impl Into<HashMap<String, String>> for RecoverPasswordReplacements {
-    fn into(self) -> HashMap<String, String> {
+impl From<RecoverPasswordReplacements> for HashMap<String, String> {
+    fn from(val: RecoverPasswordReplacements) -> Self {
         HashMap::from([
-            (String::from("username"), self.username),
-            (String::from("resetPasswordLink"), self.reset_password_link),
+            (String::from("username"), val.username),
+            (String::from("resetPasswordLink"), val.reset_password_link),
         ])
     }
 }
@@ -21,11 +21,11 @@ pub struct ConfirmEmailReplacements {
     pub confirmation_link: String,
 }
 
-impl Into<HashMap<String, String>> for ConfirmEmailReplacements {
-    fn into(self) -> HashMap<String, String> {
+impl From<ConfirmEmailReplacements> for HashMap<String, String> {
+    fn from(val: ConfirmEmailReplacements) -> Self {
         HashMap::from([
-            (String::from("title"), self.title),
-            (String::from("confirmationLink"), self.confirmation_link),
+            (String::from("title"), val.title),
+            (String::from("confirmationLink"), val.confirmation_link),
         ])
     }
 }

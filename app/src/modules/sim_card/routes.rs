@@ -32,19 +32,27 @@ pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(list_sim_cards))
         //
-        .route("/", post(create_sim_card))
-        .layer(AclLayer::new(vec![Permission::CreateSimCard]))
+        .route(
+            "/",
+            post(create_sim_card).layer(AclLayer::single(Permission::CreateSimCard)),
+        )
         //
         .route("/:sim_card_id", get(get_sim_card))
         //
-        .route("/:sim_card_id", put(update_sim_card))
-        .layer(AclLayer::new(vec![Permission::UpdateSimCard]))
+        .route(
+            "/:sim_card_id",
+            put(update_sim_card).layer(AclLayer::single(Permission::UpdateSimCard)),
+        )
         //
-        .route("/:sim_card_id", delete(delete_sim_card))
-        .layer(AclLayer::new(vec![Permission::DeleteSimCard]))
+        .route(
+            "/:sim_card_id",
+            delete(delete_sim_card).layer(AclLayer::single(Permission::DeleteSimCard)),
+        )
         //
-        .route("/:sim_card_id/tracker", put(set_sim_card_tracker))
-        .layer(AclLayer::new(vec![Permission::UpdateTracker]))
+        .route(
+            "/:sim_card_id/tracker",
+            put(set_sim_card_tracker).layer(AclLayer::single(Permission::UpdateTracker)),
+        )
         //
         .layer(axum::middleware::from_fn_with_state(
             state,

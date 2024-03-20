@@ -180,6 +180,26 @@ impl AuthService {
         Ok(user_id)
     }
 
+    pub async fn gen_short_lived_token_for_user(&self, user_id: i32) -> Result<String> {
+        let mut claims = Claims::default();
+
+        claims.set_expiration_in(Duration::seconds(20));
+        claims.aud = format!("user:{}", user_id);
+        claims.sub = String::from("user short lived token");
+
+        let token = jwt::encode(&claims)?;
+
+        Ok(token)
+    }
+
+    pub fn get_user_id_from_token_aud(&self, aud: String) -> Result<i32> {
+        let n = aud
+            .strip_prefix("user:")
+            .context("invalid token aud, user prefix not found")?;
+
+        n.parse::<i32>().context("user token is not a valid int")
+    }
+
     pub async fn gen_and_set_user_reset_password_token(&self, user_id: i32) -> Result<String> {
         let mut claims = Claims::default();
 
