@@ -10,7 +10,7 @@ use std::time::Instant;
 /// the catch is that since this cache might be hit multiple
 /// times with a non existing ID consecutively, it avoids accessing
 /// the database if there are too many failed attempts to get
-/// a ID by a certain email within a time window
+/// a ID by a certain IMEI within a time window
 pub struct TrackerIdCache {
     db: DatabaseConnection,
 
