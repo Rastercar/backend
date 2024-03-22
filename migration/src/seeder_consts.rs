@@ -2,7 +2,7 @@ use lazy_static::lazy_static;
 use rand::seq::SliceRandom;
 
 /// SEE: https://github.com/cheprasov/json-colors/blob/master/colors.json
-pub const COLORS: [&'static str; 1302] = [
+pub const COLORS: [&str; 1302] = [
     "Absolute Zero",
     "Acid Green",
     "Aero",
@@ -1307,7 +1307,7 @@ pub const COLORS: [&'static str; 1302] = [
     "Zomp",
 ];
 
-pub const CAR_BRANDS: [&'static str; 39] = [
+pub const CAR_BRANDS: [&str; 39] = [
     "Seat",
     "Renault",
     "Peugeot",
@@ -1350,7 +1350,7 @@ pub const CAR_BRANDS: [&'static str; 39] = [
 ];
 
 /// SEE: https://github.com/matthlavacka/car-list/blob/master/car-list.json
-pub const VEHICLE_MODELS: [&'static str; 892] = [
+pub const VEHICLE_MODELS: [&str; 892] = [
     "Alhambra",
     "Altea",
     "Altea XL",

@@ -1,4 +1,5 @@
 use lapin::{
+    message::Delivery,
     options::{
         BasicConsumeOptions, BasicPublishOptions, ExchangeDeclareOptions, QueueBindOptions,
         QueueDeclareOptions,
@@ -7,7 +8,6 @@ use lapin::{
     types::FieldTable,
     BasicProperties, Channel, Connection, ConnectionProperties, ExchangeKind,
 };
-use serde::de;
 use std::time::Duration;
 use tokio::{sync::RwLock, time::sleep};
 use tokio_stream::StreamExt;
@@ -27,7 +27,6 @@ pub static TRACKER_EVENTS_EXCHANGE: &str = "tracker_events";
 
 struct ConnectionEntities {
     connection: Connection,
-    consume_channel: Channel,
     publish_channel: Channel,
 }
 
@@ -37,9 +36,6 @@ pub struct Rmq {
 
     /// RabbitMQ connection
     connection: RwLock<Option<Connection>>,
-
-    /// channel for consuming exchanges
-    consume_channel: RwLock<Option<Channel>>,
 
     /// channel for publishing messages, see:
     ///
@@ -54,7 +50,6 @@ impl Rmq {
             return Rmq {
                 connection: RwLock::new(Some(c.connection)),
                 amqp_uri: String::from(amqp_uri),
-                consume_channel: RwLock::new(Some(c.consume_channel)),
                 publish_channel: RwLock::new(Some(c.publish_channel)),
             };
         }
@@ -63,44 +58,51 @@ impl Rmq {
         Rmq {
             connection: RwLock::new(None),
             amqp_uri: String::from(amqp_uri),
-            consume_channel: RwLock::new(None),
             publish_channel: RwLock::new(None),
         }
     }
 
-    // TODO: this consumer should be dynamic
-    // check if its ok to have multiple consumers on a same channel
-    //
-    // TODO: accept some sort of callback on the consumer
-    //
-    // TODO: check consumer exclusivity
-    // https://www.rabbitmq.com/docs/consumers#exclusivity
-    pub async fn consume(&self) -> lapin::Result<()> {
-        let mut consumer = self
-            .consume_channel
+    /// Creates a new channel and starts a consumer
+    /// passing messages to the `handler` arg.
+    ///
+    /// returns `Err` whenever failing to create the consumer channel,
+    /// starting the consumer or the consumer ended due to a bad connection
+    ///
+    /// returns `Ok` when the consumer is cancelled using its consumer_tag
+    pub async fn consume<F, Fut>(
+        &self,
+        queue: &str,
+        consumer_tag: &str,
+        options: BasicConsumeOptions,
+        args: FieldTable,
+        handler: F,
+    ) -> lapin::Result<()>
+    where
+        F: Fn(Delivery) -> Fut,
+        Fut: std::future::Future<Output = ()>,
+    {
+        let consume_channel = self
+            .connection
             .read()
             .await
             .as_ref()
             .ok_or(lapin::Error::InvalidChannelState(
                 lapin::ChannelState::Error,
             ))?
-            .basic_consume(
-                TRACKER_EVENTS_QUEUE,
-                "TODO",
-                // TODO: check for autoack
-                // pass consumer tag as arg
-                BasicConsumeOptions::default(),
-                FieldTable::default(),
-            )
+            .create_channel()
             .await?;
 
-        while let Some(delivery) = consumer.next().await {
-            match delivery {
+        let mut consumer = consume_channel
+            .basic_consume(queue, consumer_tag, options, args)
+            .await?;
+
+        while let Some(delivery_result) = consumer.next().await {
+            match delivery_result {
                 Ok(delivery) => {
-                    println!("{:?}", String::from_utf8(delivery.data));
+                    handler(delivery).await;
                 }
                 Err(err) => {
-                    println!("[RMQ] mailer queue consumer error: {}", err);
+                    error!("[RMQ] mailer queue consumer error: {}", err);
                     return Err(err);
                 }
             }
@@ -144,15 +146,13 @@ impl Rmq {
             .with_reactor(tokio_reactor_trait::Tokio);
 
         let connection = Connection::connect(amqp_uri, connecion_properties).await?;
-        info!("[RMQ] Reconnected to RabbitMQ");
+        info!("[RMQ] connected to RabbitMQ");
 
-        let consume_channel = connection.create_channel().await?;
-        info!("[RMQ] consume channel created");
         let publish_channel = connection.create_channel().await?;
         info!("[RMQ] publish channel created");
 
         panic_on_err(
-            consume_channel
+            publish_channel
                 .exchange_declare(
                     TRACKER_EVENTS_EXCHANGE,
                     ExchangeKind::Topic,
@@ -170,7 +170,7 @@ impl Rmq {
         info!("[RMQ] tracker events exchange declared");
 
         panic_on_err(
-            consume_channel
+            publish_channel
                 .queue_declare(
                     TRACKER_EVENTS_QUEUE,
                     QueueDeclareOptions {
@@ -187,7 +187,7 @@ impl Rmq {
         info!("[RMQ] tracker events queue declared");
 
         // bind the tracker events queue to the tracker events exchange and listen to all events (#)
-        consume_channel
+        publish_channel
             .queue_bind(
                 TRACKER_EVENTS_QUEUE,
                 TRACKER_EVENTS_EXCHANGE,
@@ -201,7 +201,6 @@ impl Rmq {
         Ok(ConnectionEntities {
             connection,
             publish_channel,
-            consume_channel,
         })
     }
 
@@ -223,45 +222,35 @@ impl Rmq {
 
             *self.connection.write().await = None;
             *self.publish_channel.write().await = None;
-            *self.consume_channel.write().await = None;
 
             match Self::connect(&self.amqp_uri).await {
                 Ok(c) => {
                     *self.connection.write().await = Some(c.connection);
-                    *self.consume_channel.write().await = Some(c.consume_channel);
                     *self.publish_channel.write().await = Some(c.publish_channel);
                 }
                 Err(err) => {
-                    error!("[RMQ] Reconnection failed: {:?}", err);
+                    error!("[RMQ] reconnection failed: {:?}", err);
                 }
             }
         }
     }
 
     pub async fn shutdown(&self) {
-        println!("[RMQ] closing publish channel");
+        info!("[RMQ] closing publish channel");
         if let Some(chan) = self.publish_channel.read().await.as_ref() {
             if let Err(chan_close_err) = chan.close(200, "user shutdown").await {
-                info!("[RMQ] failed to close channel: {}", chan_close_err)
+                error!("[RMQ] failed to close channel: {}", chan_close_err)
             }
         }
 
-        println!("[RMQ] closing consume channel");
-        if let Some(chan) = self.publish_channel.read().await.as_ref() {
-            if let Err(chan_close_err) = chan.close(200, "user shutdown").await {
-                info!("[RMQ] failed to close channel: {}", chan_close_err)
-            }
-        }
-
-        println!("[RMQ] closing connection");
+        info!("[RMQ] closing connection");
         if let Some(conn) = self.connection.read().await.as_ref() {
             if let Err(conn_close_err) = conn.close(200, "user shutdown").await {
-                info!("[RMQ] failed to close connection: {}", conn_close_err)
+                error!("[RMQ] failed to close connection: {}", conn_close_err)
             }
         }
 
         *self.connection.write().await = None;
-        *self.consume_channel.write().await = None;
         *self.publish_channel.write().await = None;
     }
 }

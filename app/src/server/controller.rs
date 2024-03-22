@@ -5,7 +5,7 @@ use crate::{
         access_level,
         auth::{self, service::AuthService},
         organization, sim_card, tracker,
-        tracking::{self, dto::PositionDto},
+        tracking::{self},
         user, vehicle,
     },
     rabbitmq::Rmq,
@@ -39,18 +39,15 @@ pub struct AppState {
 
 /// Creates the main axum router/controller to be served over https
 pub fn new(db: DatabaseConnection, s3: S3, rmq: Arc<Rmq>) -> Router {
-    let rmq_ref = rmq.clone();
-
-    // TODO: rm me !
-    tokio::task::spawn(async move { rmq.consume().await });
-
     let rng = ChaCha8Rng::seed_from_u64(OsRng.next_u64());
+
+    let positions_consumer_rmq = rmq.clone();
 
     let state = AppState {
         s3,
         db: db.clone(),
-        auth_service: AuthService::new(db, rng),
-        mailer_service: MailerService::new(rmq_ref),
+        auth_service: AuthService::new(db.clone(), rng),
+        mailer_service: MailerService::new(rmq),
     };
 
     let (socket_io_layer, socket_io) = socketioxide::SocketIo::builder()
@@ -59,27 +56,7 @@ pub fn new(db: DatabaseConnection, s3: S3, rmq: Arc<Rmq>) -> Router {
 
     socket_io.ns("/tracking", tracking::routes::on_connect);
 
-    // TODO: rm me !
-    tokio::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(2));
-
-        loop {
-            interval.tick().await;
-
-            let _ = socket_io
-                .of("/tracking")
-                .unwrap()
-                .within(vec!["1", "2", "3"])
-                .emit(
-                    "position",
-                    PositionDto {
-                        tracker_id: 1,
-                        lat: 1,
-                        lng: 1,
-                    },
-                );
-        }
-    });
+    tracking::background::start_positions_consumer(positions_consumer_rmq, socket_io, db);
 
     // URL.to_string for some reason adds a trailing slash
     // we need to remove it to avoid cors errors

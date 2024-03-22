@@ -67,10 +67,7 @@ fn fake_puk_code() -> String {
 
 /// Creates a random SIM card SSN
 fn fake_sim_ssn() -> String {
-    format!(
-        "00{}",
-        rand::thread_rng().gen_range(10000..999999).to_string()
-    )
+    format!("00{}", rand::thread_rng().gen_range(10000..999999))
 }
 
 fn fake_phone_number() -> String {
@@ -209,15 +206,15 @@ pub async fn gen_user(
     // those random numbers are to void unique conflicts
     let email = format!(
         "{}_{}_{}",
-        rand::thread_rng().gen_range(100000..999999).to_string(),
-        rand::thread_rng().gen_range(100000..999999).to_string(),
+        rand::thread_rng().gen_range(100000..999999),
+        rand::thread_rng().gen_range(100000..999999),
         faker::internet::en::SafeEmail().fake::<String>()
     );
 
     let username = format!(
         "{}_{}_{}",
-        rand::thread_rng().gen_range(100000..999999).to_string(),
-        rand::thread_rng().gen_range(100000..999999).to_string(),
+        rand::thread_rng().gen_range(100000..999999),
+        rand::thread_rng().gen_range(100000..999999),
         faker::internet::en::Username().fake::<String>()
     );
 

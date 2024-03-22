@@ -92,6 +92,8 @@ CREATE TABLE "vehicle_tracker" (
     "vehicle_id" int NULL
 );
 
+CREATE INDEX idx_vehicle_tracker_imei ON "vehicle_tracker" ("imei");
+
 ALTER TABLE "vehicle_tracker"
 ADD CONSTRAINT "vehicle_tracker_imei_unique" UNIQUE ("imei", "organization_id");
 

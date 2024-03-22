@@ -16,7 +16,7 @@ pub async fn connect(db_url: &str) -> DatabaseConnection {
     info!("[DB] getting connection");
     Database::connect(opt)
         .await
-        .unwrap_or_else(|_| panic!("[DB] failed to build connection pool"))
+        .unwrap_or_else(|e| panic!("[DB] failed to build connection pool: {e}"))
 }
 
 /// Apply all pending migrations
@@ -24,5 +24,5 @@ pub async fn run_migrations(db: &DatabaseConnection) {
     info!("[DB] running migrations");
     Migrator::up(db, None)
         .await
-        .unwrap_or_else(|_| panic!("[DB] failed to run migrations"));
+        .unwrap_or_else(|e| panic!("[DB] failed to run migrations: {e}"));
 }

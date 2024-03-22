@@ -8,29 +8,10 @@ use crate::{
 use entity::vehicle_tracker;
 use sea_orm::{entity::prelude::*, QuerySelect, QueryTrait};
 use socketioxide::extract::{Data, SocketRef, State, TryData};
-use std::collections::HashMap;
-use tokio::sync::RwLock;
 
 /// The maximun amount of trackers a user can
 /// listen to for realtime position updates
 const TRACKER_SUBSCRIPTION_PER_USER_LIMIT: usize = 20;
-
-/// Which users are listening to what trackers locations in real time
-///
-/// This is behind a RwLock because it will likely be read everytime a
-/// position is recieved (that's a lot of reads), but written only whenever
-/// a rastercar user changes what trackers he is interested in.
-///
-/// The `HashMap` key is the user ID and the value is a `Vec<i32>` of
-/// tracker ID's because a user might listen up to only 20 trackers at
-/// a given time so a vec is fine for performance and a HashSet would
-/// probably be worse.
-///
-/// Since a entry is at most 21 bytes, 10k rastercar users would only
-/// use 210 kilobytes of memory
-///
-/// TODO: think about memory leaks and TTL here
-struct UserTrackersSubscription(RwLock<HashMap<i32, Vec<i32>>>);
 
 /// The authenticated user connected to a socket
 #[derive(Clone, Copy)]
@@ -39,9 +20,6 @@ struct SocketUser {
     /// superuser and thus not bound to a single org
     pub org_id: Option<i32>,
 }
-
-// TODO: impl subscribe and unsubscribe methods
-impl UserTrackersSubscription {}
 
 #[derive(serde::Deserialize)]
 pub struct AuthPayload {
