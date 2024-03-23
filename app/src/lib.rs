@@ -5,6 +5,7 @@ mod modules;
 mod rabbitmq;
 mod server;
 mod services;
+mod tracer;
 mod utils;
 
 use crate::services::s3::S3;
@@ -19,18 +20,19 @@ use std::{
     time::Duration,
 };
 use tokio::task;
-use tracing::{error, info};
-use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 #[allow(clippy::never_loop)]
 pub async fn main() {
+    tracer::init("rastercar_api").expect("failed to init tracer");
+
+    // TODO:
     // see the project readme for more info on how tracing is configured
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .with_test_writer()
-        .with_target(false)
-        .init();
+    // tracing_subscriber::fmt()
+    //     .with_env_filter(EnvFilter::from_default_env())
+    //     .with_test_writer()
+    //     .with_target(false)
+    //     .init();
 
     let cfg = app_config();
 
@@ -55,15 +57,17 @@ pub async fn main() {
     tokio::spawn(async move {
         for sig in signals.forever() {
             if !cfg.is_development {
-                info!("[APP] received signal: {}, shutting down", sig);
+                println!("[APP] received signal: {}, shutting down", sig);
 
-                info!("[APP] closing rabbitmq connections");
+                println!("[APP] closing rabbitmq connections");
                 rmq_shutdown_ref.shutdown().await;
 
-                info!("[APP] closing postgres connections");
+                println!("[APP] closing postgres connections");
                 if let Err(e) = db_conn_pool_shutdown_ref.close().await {
-                    error!("[DB] failed to close db connection: {e}")
+                    println!("[DB] failed to close db connection: {e}")
                 }
+
+                tracer::shutdown().await;
             }
 
             std::process::exit(sig)
@@ -71,7 +75,7 @@ pub async fn main() {
     });
 
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), cfg.http_port);
-    info!("[WEB] soon listening on {}", addr);
+    println!("[WEB] soon listening on {}", addr);
 
     let s3 = S3::new().await;
 

@@ -1,10 +1,9 @@
+use crate::traits::QueryableByIdAndOrgId;
 use chrono::{DateTime, Utc};
 use sea_orm::entity::prelude::*;
 use serde::Serialize;
 use shared::TrackerModel;
 use utoipa::ToSchema;
-
-use crate::traits::QueryableByIdAndOrgId;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, ToSchema)]
 #[schema(as = entity::vehicle_tracker::Model)]

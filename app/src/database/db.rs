@@ -1,7 +1,6 @@
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use std::time::Duration;
-use tracing::info;
 
 pub async fn connect(db_url: &str) -> DatabaseConnection {
     let mut opt = ConnectOptions::new(db_url);
@@ -13,7 +12,7 @@ pub async fn connect(db_url: &str) -> DatabaseConnection {
         .idle_timeout(Duration::from_secs(8))
         .max_lifetime(Duration::from_secs(8));
 
-    info!("[DB] getting connection");
+    println!("[DB] getting connection");
     Database::connect(opt)
         .await
         .unwrap_or_else(|e| panic!("[DB] failed to build connection pool: {e}"))
@@ -21,7 +20,7 @@ pub async fn connect(db_url: &str) -> DatabaseConnection {
 
 /// Apply all pending migrations
 pub async fn run_migrations(db: &DatabaseConnection) {
-    info!("[DB] running migrations");
+    println!("[DB] running migrations");
     Migrator::up(db, None)
         .await
         .unwrap_or_else(|e| panic!("[DB] failed to run migrations: {e}"));

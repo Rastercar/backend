@@ -11,6 +11,7 @@ use s3::{
     primitives::SdkBody,
     Client,
 };
+use tracing::error;
 
 /// a AWS S3 key to store rastercar objects
 ///
@@ -68,7 +69,7 @@ impl S3 {
             .await;
 
         if result.is_err() {
-            tracing::error!("[S3] failed to upload S3 object: {}", key);
+            error!("[S3] failed to upload S3 object: {}", key);
         }
 
         result
@@ -87,7 +88,7 @@ impl S3 {
             .await;
 
         if result.is_err() {
-            tracing::error!("[S3] failed to delete S3 object: {}", key)
+            error!("[S3] failed to delete S3 object: {}", key);
         }
 
         result

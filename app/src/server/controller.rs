@@ -24,7 +24,7 @@ use tower_http::{
     cors::CorsLayer,
     trace::{DefaultOnResponse, TraceLayer},
 };
-use tracing::{Level, Span};
+use tracing::{info, Level, Span};
 
 /// The main application state, this is cloned for every HTTP / WS
 /// request and thus its fields should contain types that are cheap
@@ -88,7 +88,7 @@ pub fn new(db: DatabaseConnection, s3: S3, rmq: Arc<Rmq>) -> Router {
     // [PROD-TODO] decide on useful values here
     let tracing_layer = TraceLayer::new_for_http()
         .on_request(|request: &Request<Body>, _span: &Span| {
-            tracing::info!("request: {} {}", request.method(), request.uri().path())
+            info!("request: {} {}", request.method(), request.uri().path())
         })
         .on_response(DefaultOnResponse::new().level(Level::INFO));
 

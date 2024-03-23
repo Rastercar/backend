@@ -1,75 +1,19 @@
 use super::{cache::TrackerIdCache, decoder::h02};
 use crate::{
-    modules::tracking::dto::PositionDto,
     rabbitmq::{Rmq, TRACKER_EVENTS_QUEUE},
+    tracer::correlate_trace_from_delivery,
 };
-use chrono::{DateTime, Utc};
-use geozero::wkb;
 use lapin::{message::Delivery, options::BasicConsumeOptions, types::FieldTable};
 use sea_orm::DatabaseConnection;
 use socketioxide::SocketIo;
-use sqlx::postgres::PgQueryResult;
 use std::{sync::Arc, time::Duration};
 use tokio::sync::Mutex;
-use tracing::{error, info, warn};
+use tracing::{error, warn, Instrument};
 
-async fn insert_vehicle_tracker_location(
-    db: &DatabaseConnection,
-    timestamp: DateTime<Utc>,
-    tracker_id: i32,
-    lat: f64,
-    lng: f64,
-) -> Result<PgQueryResult, sqlx::Error> {
-    let point: geo_types::Geometry<f64> = geo_types::Point::new(lat, lng).into();
-
-    sqlx::query(
-        "INSERT INTO vehicle_tracker_location (time, vehicle_tracker_id, point) VALUES ($1, $2, ST_SetSRID($3, 4326))",
-    )
-    .bind(timestamp)
-    .bind(tracker_id)
-    .bind(wkb::Encode(point))
-    .execute(db.get_postgres_connection_pool())
-    .await
-}
-
-async fn handle_h02_location(
-    delivery: &Delivery,
-    socket: &SocketIo,
-    tracker_id: i32,
-    db: &DatabaseConnection,
-) {
-    let parse_result: Result<h02::LocationMsg, serde_json::Error> =
-        serde_json::from_slice(delivery.data.as_slice());
-
-    match parse_result {
-        Ok(decoded) => {
-            let _ = insert_vehicle_tracker_location(
-                db,
-                decoded.timestamp,
-                tracker_id,
-                decoded.lat,
-                decoded.lng,
-            )
-            .await;
-
-            let position = PositionDto {
-                lat: decoded.lat,
-                lng: decoded.lng,
-                tracker_id,
-            };
-
-            let _ = socket
-                .of("/tracking")
-                .expect("/tracking socket io namespace not available")
-                .within(tracker_id.to_string())
-                .emit("position", position);
-        }
-        Err(e) => {
-            error!("failed to parse H02 location: {e}");
-        }
-    }
-}
-
+/// handler for tracker events recieved from the decoder microservice through a
+/// RabbitMQ delivery, this mainly passes the message to the appropriate function
+/// based on the `protocol`, `event_type` and the `imei` on the delivery routing key
+#[tracing::instrument(skip_all)]
 async fn on_tracker_event(
     tracker_cache: &Arc<Mutex<TrackerIdCache>>,
     delivery: Delivery,
@@ -112,12 +56,12 @@ async fn on_tracker_event(
     let tracker_id: i32 = match tracker_cache.lock().await.get(imei).await {
         Some(id) => id,
         None => {
-            warn!("tracker: {imei} doest not exist");
+            warn!("tracker: {imei} does not exist");
             return;
         }
     };
 
-    let _ = handle_h02_location(&delivery, socket, tracker_id, db).await;
+    let _ = h02::handle_location(&delivery, socket, tracker_id, db).await;
 }
 
 /// Starts a RabbitMQ consumer that listens for any tracker event
@@ -143,10 +87,14 @@ pub fn start_positions_consumer(rmq: Arc<Rmq>, socket_io: SocketIo, db: Database
 
         loop {
             tokio::time::sleep(Duration::from_secs(5)).await;
-            info!("[RMQ] starting tracker positions consumer");
+            println!("[RMQ] starting tracker positions consumer");
 
-            // TODO: decide how to properly trace this
-            // integrate with jaeger and context propagation
+            // TODO: how can we update this cache whenever a tracker IMEI
+            // is updated or a tracker is deleted ?
+            //
+            // on deletion we should delete from cache as well
+            //
+            // on update, we should delete the old imei from the cache
             let consume_end_result = rmq
                 .consume(
                     TRACKER_EVENTS_QUEUE,
@@ -154,7 +102,11 @@ pub fn start_positions_consumer(rmq: Arc<Rmq>, socket_io: SocketIo, db: Database
                     consume_options,
                     FieldTable::default(),
                     |delivery: Delivery| async move {
-                        on_tracker_event(tracker_cache_ref, delivery, db_ref, socket_ref).await
+                        let (span, delivery) = correlate_trace_from_delivery(delivery);
+
+                        on_tracker_event(tracker_cache_ref, delivery, db_ref, socket_ref)
+                            .instrument(span)
+                            .await
                     },
                 )
                 .await;

@@ -11,7 +11,7 @@ use lapin::{
 use std::time::Duration;
 use tokio::{sync::RwLock, time::sleep};
 use tokio_stream::StreamExt;
-use tracing::{error, info};
+use tracing::error;
 
 /// RabbitMQ default exchange (yes, its a empty string)
 pub static DEFAULT_EXCHANGE: &str = "";
@@ -146,10 +146,10 @@ impl Rmq {
             .with_reactor(tokio_reactor_trait::Tokio);
 
         let connection = Connection::connect(amqp_uri, connecion_properties).await?;
-        info!("[RMQ] connected to RabbitMQ");
+        println!("[RMQ] connected to RabbitMQ");
 
         let publish_channel = connection.create_channel().await?;
-        info!("[RMQ] publish channel created");
+        println!("[RMQ] publish channel created");
 
         panic_on_err(
             publish_channel
@@ -167,7 +167,7 @@ impl Rmq {
                 )
                 .await,
         );
-        info!("[RMQ] tracker events exchange declared");
+        println!("[RMQ] tracker events exchange declared");
 
         panic_on_err(
             publish_channel
@@ -184,7 +184,7 @@ impl Rmq {
                 )
                 .await,
         );
-        info!("[RMQ] tracker events queue declared");
+        println!("[RMQ] tracker events queue declared");
 
         // bind the tracker events queue to the tracker events exchange and listen to all events (#)
         publish_channel
@@ -196,7 +196,7 @@ impl Rmq {
                 FieldTable::default(),
             )
             .await?;
-        info!("[RMQ] tracker events queue binded to tracker events exchange");
+        println!("[RMQ] tracker events queue binded to tracker events exchange");
 
         Ok(ConnectionEntities {
             connection,
@@ -236,14 +236,14 @@ impl Rmq {
     }
 
     pub async fn shutdown(&self) {
-        info!("[RMQ] closing publish channel");
+        println!("[RMQ] closing publish channel");
         if let Some(chan) = self.publish_channel.read().await.as_ref() {
             if let Err(chan_close_err) = chan.close(200, "user shutdown").await {
                 error!("[RMQ] failed to close channel: {}", chan_close_err)
             }
         }
 
-        info!("[RMQ] closing connection");
+        println!("[RMQ] closing connection");
         if let Some(conn) = self.connection.read().await.as_ref() {
             if let Err(conn_close_err) = conn.close(200, "user shutdown").await {
                 error!("[RMQ] failed to close connection: {}", conn_close_err)
