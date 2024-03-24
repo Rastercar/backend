@@ -24,7 +24,7 @@ use axum::{
 use http::StatusCode;
 use migration::Expr;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryTrait};
-use shared::Permission;
+use shared::constants::Permission;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()

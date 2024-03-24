@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use shared::Permission;
+use shared::constants::Permission;
 use utoipa::{IntoParams, ToSchema};
 use validator::{Validate, ValidationError};
 

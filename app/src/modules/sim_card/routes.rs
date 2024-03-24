@@ -26,7 +26,7 @@ use sea_orm::{
     sea_query::extension::postgres::PgExpr, ActiveModelTrait, QuerySelect, Set, TryIntoModel,
 };
 use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QueryTrait};
-use shared::Permission;
+use shared::constants::Permission;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
@@ -242,7 +242,7 @@ pub async fn set_sim_card_tracker(
                 "sim card is already associated with tracker: {}",
                 new_tracker_id
             );
-            return Ok(Json(String::from(success_msg)));
+            return Ok(Json(success_msg));
         }
 
         let sim_cards_associated_with_tracker: i64 = sim_card::Entity::find()
@@ -375,7 +375,7 @@ pub async fn list_sim_cards(
             }
         })
         .apply_if(filter.phone_number, |query, phone| {
-            if phone != "" {
+            if phone.is_empty() {
                 let col = Expr::col((sim_card::Entity, sim_card::Column::PhoneNumber));
                 query.filter(col.ilike(format!("%{}%", phone)))
             } else {

@@ -24,7 +24,7 @@ use entity::{session, user};
 use http::HeaderMap;
 use migration::Expr;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-use shared::Permission;
+use shared::constants::Permission;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()

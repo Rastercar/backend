@@ -33,10 +33,8 @@ impl Entity {
             .one(db)
             .await?;
 
-        if let Some((session, user_opt)) = res {
-            if let Some(user) = user_opt {
-                return Ok(Some((user, session)));
-            }
+        if let Some((session, Some(user))) = res {
+            return Ok(Some((user, session)));
         }
 
         Ok(None)

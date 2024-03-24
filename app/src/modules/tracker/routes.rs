@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use super::dto::{self, CreateTrackerDto, DeleteTrackerDto, ListTrackersDto, UpdateTrackerDto};
 use crate::{
     database::{self, error::DbError, helpers::set_if_some},
@@ -30,8 +32,7 @@ use sea_orm::{
 };
 use sea_query::{Cond, PostgresQueryBuilder, Query as SeaQuery};
 use sea_query_binder::SqlxBinder;
-use shared::Permission;
-use std::str::FromStr;
+use shared::constants::{Permission, TrackerModel};
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
@@ -418,7 +419,7 @@ pub async fn create_tracker(
         }
     }
 
-    let tracker_model = shared::TrackerModel::from_str(&dto.model).or(Err((
+    let tracker_model = TrackerModel::from_str(&dto.model).or(Err((
         StatusCode::BAD_REQUEST,
         SimpleError::from("invalid tracker model"),
     )))?;

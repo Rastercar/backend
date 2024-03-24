@@ -41,7 +41,7 @@ use sea_orm::{
     QueryTrait, Set, TryIntoModel,
 };
 use sea_query::extension::postgres::PgExpr;
-use shared::Permission;
+use shared::constants::Permission;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()

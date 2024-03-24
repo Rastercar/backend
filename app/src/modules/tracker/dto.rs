@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use shared::TrackerModel;
+use shared::constants::TrackerModel;
 use utoipa::{IntoParams, ToSchema};
 use validator::{Validate, ValidationError};
 

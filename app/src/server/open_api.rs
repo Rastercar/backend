@@ -10,7 +10,7 @@ use axum::Router;
 #[derive(OpenApi)]
 #[openapi(
     components(schemas(
-        shared::TrackerModel,
+        shared::constants::TrackerModel,
 
         entity::vehicle::Model,
         entity::sim_card::Model,

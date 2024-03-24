@@ -23,7 +23,7 @@ use sea_orm::{
 };
 use sea_query::extension::postgres::PgExpr;
 use sea_query::Expr;
-use shared::Permission;
+use shared::constants::Permission;
 
 use super::dto::{
     self, AccessLevelDto, CreateAccessLevelDto, ListAccessLevelsDto, UpdateAccessLevelDto,

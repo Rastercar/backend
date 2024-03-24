@@ -11,7 +11,7 @@ use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, Set,
     TransactionTrait, TryIntoModel,
 };
-use shared::Permission;
+use shared::constants::Permission;
 use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 

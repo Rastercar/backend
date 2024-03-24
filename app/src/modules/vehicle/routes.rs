@@ -33,7 +33,7 @@ use sea_orm::{
     ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, PaginatorTrait, QueryFilter,
     QueryOrder, QueryTrait,
 };
-use shared::Permission;
+use shared::constants::Permission;
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()

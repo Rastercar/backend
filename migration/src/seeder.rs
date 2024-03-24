@@ -6,7 +6,7 @@ use sea_orm_migration::{
     sea_query::Expr,
     DbErr,
 };
-use shared::Permission;
+use shared::constants::{Permission, TrackerModel};
 
 use crate::seeder_consts;
 
@@ -102,7 +102,7 @@ pub async fn gen_tracker(
     vehicle_id: Option<i32>,
 ) -> Result<vehicle_tracker::Model, DbErr> {
     let t = vehicle_tracker::ActiveModel {
-        model: Set(shared::TrackerModel::H02),
+        model: Set(TrackerModel::H02),
         imei: Set(fake_imei()),
         vehicle_id: Set(vehicle_id),
         organization_id: Set(org_id),

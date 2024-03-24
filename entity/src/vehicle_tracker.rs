@@ -2,7 +2,7 @@ use crate::traits::QueryableByIdAndOrgId;
 use chrono::{DateTime, Utc};
 use sea_orm::entity::prelude::*;
 use serde::Serialize;
-use shared::TrackerModel;
+use shared::constants::TrackerModel;
 use utoipa::ToSchema;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, ToSchema)]
