@@ -417,6 +417,7 @@ pub async fn sign_up(
         ),
     ),
 )]
+#[tracing::instrument(skip_all)]
 pub async fn request_recover_password_email(
     DbConnection(db): DbConnection,
     State(state): State<AppState>,

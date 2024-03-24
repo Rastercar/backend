@@ -1,6 +1,6 @@
 use lapin::message::Delivery;
 use lapin::types::{AMQPValue, ShortString};
-use opentelemetry::propagation::Extractor;
+use opentelemetry::propagation::{Extractor, Injector};
 use std::collections::BTreeMap;
 use tokio::time;
 use tracing::subscriber::SetGlobalDefaultError;
@@ -71,6 +71,23 @@ impl<'a> Extractor for AmqpHeaderCarrier<'a> {
 
     fn keys(&self) -> Vec<&str> {
         self.headers.keys().map(|header| header.as_str()).collect()
+    }
+}
+
+pub struct AmqpClientCarrier<'a> {
+    properties: &'a mut BTreeMap<ShortString, AMQPValue>,
+}
+
+impl<'a> AmqpClientCarrier<'a> {
+    pub fn new(properties: &'a mut BTreeMap<ShortString, AMQPValue>) -> Self {
+        Self { properties }
+    }
+}
+
+impl<'a> Injector for AmqpClientCarrier<'a> {
+    fn set(&mut self, key: &str, value: String) {
+        self.properties
+            .insert(key.into(), AMQPValue::LongString(value.into()));
     }
 }
 

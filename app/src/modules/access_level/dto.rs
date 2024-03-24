@@ -4,7 +4,7 @@ use shared::constants::Permission;
 use utoipa::{IntoParams, ToSchema};
 use validator::{Validate, ValidationError};
 
-fn is_known_permissions(permissions: &Vec<String>) -> Result<(), ValidationError> {
+fn is_known_permissions(permissions: &[String]) -> Result<(), ValidationError> {
     let allowed_permissions = Permission::to_string_vec();
 
     let permissions_are_allowed = permissions

@@ -60,7 +60,7 @@ fn handle_sqlx_error(sqlx_error: SqlxError) -> (StatusCode, SimpleError) {
 /// returns `Some(<column>)` if the pattern is ok otherwise `None`.
 fn get_column_name_from_unique_constraint_name(unique_constraint_name: &str) -> Option<&str> {
     if let Some(non_suffixed_constraint_name) = unique_constraint_name.strip_suffix("_unique") {
-        return non_suffixed_constraint_name.split("_").last();
+        return non_suffixed_constraint_name.split('_').last();
     }
 
     None

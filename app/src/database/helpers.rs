@@ -11,16 +11,14 @@ use super::error::DbError;
 /// this is intended to be used for queries where its rows implement
 /// `utoipa::ToSchema`, since `PaginationResult` expects its records
 /// to be able to generate openApi docs.
-pub async fn paginated_query_to_pagination_result<
-    'db,
-    C: sea_orm::ConnectionTrait,
-    S: sea_orm::SelectorTrait,
->(
-    paginator: Paginator<'db, C, S>,
+pub async fn paginated_query_to_pagination_result<C, S>(
+    paginator: Paginator<'_, C, S>,
     pagination: Pagination,
 ) -> Result<PaginationResult<S::Item>, DbError>
 where
     for<'_s> <S as SelectorTrait>::Item: ToSchema<'_s>,
+    C: sea_orm::ConnectionTrait,
+    S: sea_orm::SelectorTrait,
 {
     let n = paginator.num_items_and_pages().await?;
     let records = paginator.fetch_page(pagination.page - 1).await?;

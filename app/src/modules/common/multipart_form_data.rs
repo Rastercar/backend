@@ -14,7 +14,7 @@ pub fn get_image_extension_from_field_or_fail_request(
         .clone()
         .ok_or((StatusCode::BAD_REQUEST, SimpleError::from("empty filename")))?;
 
-    let allowed_file_types = vec!["jpe", "jpg", "jpeg", "png", "webp"];
+    let allowed_file_types = ["jpe", "jpg", "jpeg", "png", "webp"];
 
     let (_, file_extension) = file_name.rsplit_once('.').ok_or((
         StatusCode::BAD_REQUEST,

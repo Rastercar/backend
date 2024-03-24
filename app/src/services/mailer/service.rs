@@ -6,11 +6,17 @@ use crate::{
     config::app_config,
     rabbitmq::{Rmq, DEFAULT_EXCHANGE, MAILER_QUEUE},
     services::mailer::dto::EmailRecipient,
+    tracer::AmqpClientCarrier,
 };
 use anyhow::Result;
-use lapin::{options::BasicPublishOptions, publisher_confirm::PublisherConfirm, BasicProperties};
-use std::fs;
+use lapin::{
+    options::BasicPublishOptions, publisher_confirm::PublisherConfirm, types::FieldTable,
+    BasicProperties,
+};
 use std::sync::Arc;
+use std::{collections::BTreeMap, fs};
+use tracing::Span;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 use url;
 
 /// RPC operation to send a email
@@ -32,11 +38,22 @@ impl MailerService {
         MailerService { rmq }
     }
 
+    #[tracing::instrument(skip(self, payload))]
     async fn publish_to_mailer_service(
         &self,
         payload: &[u8],
         rpc_name: &str,
     ) -> Result<PublisherConfirm> {
+        let span = Span::current();
+        let ctx = span.context();
+
+        let mut amqp_headers = BTreeMap::new();
+
+        // inject the current context through the amqp headers
+        opentelemetry::global::get_text_map_propagator(|propagator| {
+            propagator.inject_context(&ctx, &mut AmqpClientCarrier::new(&mut amqp_headers))
+        });
+
         Ok(self
             .rmq
             .publish(
@@ -46,11 +63,13 @@ impl MailerService {
                 payload,
                 BasicProperties::default()
                     .with_content_type("application/json".into())
-                    .with_kind(rpc_name.into()),
+                    .with_kind(rpc_name.into())
+                    .with_headers(FieldTable::from(amqp_headers)),
             )
             .await?)
     }
 
+    #[tracing::instrument(skip_all)]
     pub async fn send_email(&self, input: SendEmailIn) -> Result<PublisherConfirm> {
         self.publish_to_mailer_service(serde_json::to_string(&input)?.as_bytes(), OP_SEND_EMAIL)
             .await
@@ -81,6 +100,7 @@ impl MailerService {
         self.send_email(email).await
     }
 
+    #[tracing::instrument(skip(self, reset_password_token, recipient_type))]
     pub async fn send_confirm_email_address_email(
         &self,
         email: String,
