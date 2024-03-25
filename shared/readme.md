@@ -1,1 +1,1 @@
-Mini crate for constants that are shared between other crates
+Main crate for libraries and DTOS shared by services

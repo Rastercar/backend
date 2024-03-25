@@ -1,6 +1,6 @@
 # Rastercar API
 
-The worlds best car tracking api :car: :blue_car: :taxi: :bus:
+The worlds best car tracking platform :car: :blue_car: :taxi: :bus:
 
 ### Running the api
 
@@ -18,14 +18,9 @@ make docker_run_deps
 make docker_stop_deps
 ```
 
-### Openapi Docs
-
-The API is documented in openapi 3.0, when running in development mode check it out at: `localhost:<dev_port>/docs/openapi.json`, for
-user interfaces see: `localhost:<dev_port>/swagger` or `localhost:<dev_port>/rapidoc`
-
 ### Logging / Tracing
 
-Logging and tracing is done by the `tracing` and `tracing_subscriber` crates and is configured using [env filter](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html?search=with_env_filter#method.from_env)
+All services have logging and tracing done by the `tracing` and `tracing_subscriber` crates and is configured using [env filter](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html?search=with_env_filter#method.from_env)
 
 useful links:
 
@@ -37,10 +32,6 @@ useful links:
 ##### Docker/
 
 All docker, docker-compose related files
-
-##### Templates/
-
-HTML, HBS and other templates, mainly for sending emails
 
 ##### (crate) App/
 
