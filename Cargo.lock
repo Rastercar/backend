@@ -2753,7 +2753,6 @@ dependencies = [
  "axum",
  "chrono",
  "convert_case",
- "email-format",
  "envy",
  "futures",
  "governor",
@@ -4281,6 +4280,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "convert_case",
+ "email-format",
  "lapin",
  "opentelemetry",
  "sea-orm",
@@ -4290,6 +4290,8 @@ dependencies = [
  "tracing",
  "tracing-opentelemetry",
  "utoipa",
+ "uuid",
+ "validator",
 ]
 
 [[package]]

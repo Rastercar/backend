@@ -9,7 +9,7 @@ run_api_dev:
 
 .PHONY: run_api_dev_no_watch
 run_api_dev_no_watch:
-	RUST_LOG=warn,sea_orm=debug,sqlx_logging=debug IS_DEVELOPMENT=true AWS_PROFILE=rastercar-vitor cargo 'run -p api'
+	RUST_LOG=warn,sea_orm=debug,sqlx_logging=debug IS_DEVELOPMENT=true AWS_PROFILE=rastercar-vitor cargo run -p api
 	
 .PHONY: run_api_error
 run_api_error:
@@ -34,7 +34,7 @@ run_mailer_dev:
 
 .PHONY: run_mailer_dev_no_watch
 run_mailer_dev_no_watch:
-	RUST_LOG=warn AWS_PROFILE=rastercar-vitor cargo 'run -p mailer'
+	RUST_LOG=warn AWS_PROFILE=rastercar-vitor cargo run -p mailer
 	
 .PHONY: run_mailer_error
 run_mailer_error:
@@ -59,7 +59,7 @@ run_decoder_dev:
 
 .PHONY: run_decoder_dev_no_watch
 run_decoder_dev_no_watch:
-	RUST_LOG=warn cargo 'run -p decoder'
+	RUST_LOG=warn cargo run -p decoder
 	
 .PHONY: run_decoder_error
 run_decoder_error:

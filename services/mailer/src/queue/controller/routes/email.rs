@@ -1,15 +1,13 @@
 use crate::{
     mailer::SendEmailOptions,
     queue::controller::{
-        dto::{
-            events::{EmailRequestFinishedEvent, EmailSendingReceivedEvent},
-            input,
-        },
+        dto::events::{EmailRequestFinishedEvent, EmailSendingReceivedEvent},
         router::QueueRouter,
         utils::ack_delivery,
     },
 };
 use lapin::message::Delivery;
+use shared::dto::mailer::SendEmailIn;
 use tracing::{event, Level};
 use uuid::Uuid;
 use validator::Validate;
@@ -19,7 +17,7 @@ impl QueueRouter {
     pub async fn send_email_handler(&self, delivery: Delivery) -> Result<(), String> {
         ack_delivery(&delivery).await?;
 
-        let send_email_in = serde_json::from_slice::<input::SendEmailIn>(&delivery.data)
+        let send_email_in = serde_json::from_slice::<SendEmailIn>(&delivery.data)
             .map_err(|e| format!("parse error: {:#?}", e))?;
 
         let uuid = send_email_in.uuid.unwrap_or(Uuid::new_v4());

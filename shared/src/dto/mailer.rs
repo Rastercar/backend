@@ -1,10 +1,16 @@
-use serde::Serialize;
-use std::collections::HashMap;
+//! DTOS for all events and operation inputs accepted by the mailer service
 
-#[derive(Debug, Serialize, Clone)]
+use super::validation::{email_vec, rfc_5322_email};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use uuid;
+use validator::Validate;
+
+#[derive(Debug, Validate, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct EmailRecipient {
     /// recipient email address
+    #[validate(email)]
     pub email: String,
 
     /// An array of email addresses to send the email to and the
@@ -16,35 +22,45 @@ pub struct EmailRecipient {
     pub replacements: Option<HashMap<String, String>>,
 }
 
-#[derive(Default, Debug, Serialize, Clone)]
+impl EmailRecipient {
+    pub fn has_replacements(&self) -> bool {
+        match &self.replacements {
+            Some(replacements) => !replacements.is_empty(),
+            None => false,
+        }
+    }
+}
+
+#[derive(Debug, Default, Validate, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SendEmailIn {
     /// A unique identifier for the email sending request, this is so the client can store this on
     /// his side and use this identifier on future requests, such as getting metrics for this uuid
     pub uuid: Option<uuid::Uuid>,
 
-    /// The RFC5322 email address to be used to send the email, if None the service default address is used.
-    ///
-    /// only email addresses that are registered in the AWS SES can be used here, in case of doubt, leave as `None`
+    /// The RFC5322 email address to be used to send the email, if None the service default address is used
+    #[validate(custom = "rfc_5322_email")]
     pub sender: Option<String>,
 
     /// List of recipients for the email
+    #[validate]
+    #[validate(length(min = 1))]
     pub to: Vec<EmailRecipient>,
 
     /// List of email addresses to show on the email reply-to options, only makes
     /// sense if at least one email address different than the sender is used
+    #[validate(custom = "email_vec")]
     pub reply_to_addresses: Option<Vec<String>>,
 
-    /// Email subject
     pub subject: String,
 
-    /// Email HTML content
     pub body_html: Option<String>,
 
     /// Optional email text content: displayed on clients that do not support Html
     pub body_text: Option<String>,
 
     /// If tracking for email events such as clicks and opens should be enabled
+    #[serde(default)]
     pub enable_tracking: bool,
 }
 

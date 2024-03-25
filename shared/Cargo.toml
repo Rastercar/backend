@@ -9,6 +9,7 @@ name = "shared"
 path = "src/lib.rs"
 
 [dependencies]
+uuid = { workspace = true }
 tokio = { workspace = true }
 lapin = { workspace = true }
 strum = { workspace = true }
@@ -17,6 +18,9 @@ utoipa = { workspace = true }
 chrono = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
+validator = { workspace = true }
 convert_case = { workspace = true }
 opentelemetry = { workspace = true }
 tracing-opentelemetry = { workspace = true }
+
+email-format = "0.8.1"

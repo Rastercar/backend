@@ -1,17 +1,14 @@
-use super::{
-    dto::SendEmailIn,
-    templates::{ConfirmEmailReplacements, RecoverPasswordReplacements},
-};
+use super::templates::{ConfirmEmailReplacements, RecoverPasswordReplacements};
 use crate::{
     config::app_config,
     rabbitmq::{Rmq, DEFAULT_EXCHANGE, MAILER_QUEUE},
-    services::mailer::dto::EmailRecipient,
 };
 use anyhow::Result;
 use lapin::{
     options::BasicPublishOptions, publisher_confirm::PublisherConfirm, types::FieldTable,
     BasicProperties,
 };
+use shared::dto::mailer::{EmailRecipient, SendEmailIn};
 use std::fs;
 use std::sync::Arc;
 use tracing::Span;
@@ -84,9 +81,11 @@ impl MailerService {
             reset_password_link: link.into(),
         }));
 
+        let html = &read_template("recover-password")?;
+
         let email = SendEmailIn::default()
             .with_subject("Rastercar: recover password")
-            .with_body_html(&read_template("recover-password")?)
+            .with_body_html(html)
             .with_to(vec![EmailRecipient {
                 email,
                 replacements,

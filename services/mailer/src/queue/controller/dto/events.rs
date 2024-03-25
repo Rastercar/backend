@@ -1,9 +1,10 @@
 //! DTOS for all the events that are fired by this service
 
-use super::{input::SendEmailIn, ses};
+use super::ses;
 use crate::queue::Routable;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use shared::dto::mailer::SendEmailIn;
 use uuid::Uuid;
 
 #[derive(strum_macros::Display, Deserialize, Serialize)]

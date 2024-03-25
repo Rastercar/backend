@@ -1,6 +1,6 @@
 use crate::{
     config::app_config,
-    queue::controller::dto::{events::EmailSendingErrorEvent, input},
+    queue::controller::dto::events::EmailSendingErrorEvent,
     queue::{self},
 };
 use aws_sdk_sesv2::{
@@ -17,6 +17,7 @@ use governor::{
     Quota,
 };
 use handlebars::Handlebars;
+use shared::dto::mailer::EmailRecipient;
 use std::{num::NonZeroU32, sync::Arc, thread, time};
 use tokio::task::JoinSet;
 use tracing::{error, event, Instrument, Level};
@@ -34,7 +35,7 @@ static RETRY_ATTEMPTS_INTERVAL: u8 = 5;
 
 #[derive(Debug)]
 pub struct SendEmailOptions {
-    pub to: Vec<input::EmailRecipient>,
+    pub to: Vec<EmailRecipient>,
     pub from: Option<String>,
     pub subject: String,
     pub body_text: Option<String>,
