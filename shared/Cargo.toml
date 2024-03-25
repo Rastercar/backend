@@ -12,5 +12,6 @@ path = "src/lib.rs"
 strum = { workspace = true }
 serde = { workspace = true }
 utoipa = { workspace = true }
+chrono = { workspace = true }
 sea-orm = { workspace = true }
 convert_case = { workspace = true }

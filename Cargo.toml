@@ -1,21 +1,27 @@
-[package]
-name = "api-rust"
-version = "0.1.0"
-edition = "2021"
-
 [workspace]
-members = [".", "app", "entity", "migration"]
+members = [
+    "shared",
+    "services/api",
+    "services/mailer",
+    "services/decoder",
+    "services/migration", 
+]
+resolver = "2"
 
-[dependencies]
-app = { path = "app" }
-entity = { path = "entity" }
-migration = { path = "migration" }
-
-# Depencies shared by "sub" workspaces
+# Depencies shared by at least two "sub" workspaces
+# if a dependency is used by only one workspace there
+# is no reason for it to be declared here
 [workspace.dependencies]
-bcrypt = "0.15.0"
+shared = { path = "shared" }
+
+envy = "0.4"
+bcrypt = "0.15.1"
 lazy_static = "1.4.0"
 convert_case = "0.6.0"
+strum = { version = "0.25", features = ["derive"] }
+chrono = { version = "0.4.26", features = ["serde"] }
+utoipa = { version = "4.2.0", features = ["chrono", "uuid"] }
+
 sea-orm = { version = "0.12", features = [
     "macros",
     "with-chrono",
@@ -24,7 +30,45 @@ sea-orm = { version = "0.12", features = [
     "sea-orm-internal",
     "runtime-tokio-rustls",
 ] }
+
+# Axum
+axum = { version = "0.7.5", features = [
+    "json",
+    "macros",
+    "multipart",
+] }
+
+# AWS
+aws-config = { version = "1.1.8", features = ["behavior-version-latest"] }
+aws-sdk-config = "1.18.0"
+
+# UUIDs
+uuid = { version = "1.4.1", features = ["v4", "serde"] }
+
+# DTO validation
+validator = { version = "0.16", features = ["derive"] }
+
+# Shutdown signal handling
+signal-hook = "0.3.15"
+
+# RabbitMQ
+lapin = "2.3.1"
+
+# Serde
 serde = { version = "1", features = ["derive"] }
-strum = { version = "0.25", features = ["derive"] }
-chrono = { version = "0.4.26", features = ["serde"] }
-utoipa = { version = "3.5.0", features = ["chrono", "uuid"] }
+serde_json = { version = "1" }
+
+# Tokio
+tokio = { version = "1.3.1", features = ["full"] }
+tokio-stream = "0.1.12"
+tokio-executor-trait = "2.1.0"
+tokio-reactor-trait = "1.1.0"
+
+# Tracing
+tracing = "0.1.39"
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+tracing-opentelemetry = "0.18.0"
+
+# Open Telemetry
+opentelemetry = { version = "0.18.0", features = ["rt-tokio", "metrics"] }
+opentelemetry-jaeger = { version = "0.17.0", features = ["rt-tokio"] }
