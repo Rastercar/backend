@@ -2,9 +2,9 @@
 members = [
     "shared",
     "services/api",
-    # "services/mailer",
+    "services/mailer",
     "services/decoder",
-    # "services/migration", 
+    "services/migration", 
 ]
 resolver = "2"
 
