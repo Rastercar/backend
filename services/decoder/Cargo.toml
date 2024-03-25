@@ -1,0 +1,24 @@
+[package]
+name = "decoder"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { workspace = true }
+tokio-executor-trait = { workspace = true }
+tokio-reactor-trait = { workspace = true }
+serde = { workspace = true }
+chrono = { workspace = true }
+serde_json = { workspace = true }
+lapin = { workspace = true }
+envy = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry-jaeger = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-opentelemetry = { workspace = true }
+signal-hook = { workspace = true }
+strum = { workspace = true }
+
+hex = "0.4"
+
