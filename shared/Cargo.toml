@@ -9,9 +9,14 @@ name = "shared"
 path = "src/lib.rs"
 
 [dependencies]
+tokio = { workspace = true }
+lapin = { workspace = true }
 strum = { workspace = true }
 serde = { workspace = true }
 utoipa = { workspace = true }
 chrono = { workspace = true }
 sea-orm = { workspace = true }
+tracing = { workspace = true }
 convert_case = { workspace = true }
+opentelemetry = { workspace = true }
+tracing-opentelemetry = { workspace = true }

@@ -1,8 +1,5 @@
 use super::{cache::TrackerIdCache, decoder::h02};
-use crate::{
-    rabbitmq::{Rmq, TRACKER_EVENTS_QUEUE},
-    tracer::correlate_trace_from_delivery,
-};
+use crate::rabbitmq::{Rmq, TRACKER_EVENTS_QUEUE};
 use lapin::{message::Delivery, options::BasicConsumeOptions, types::FieldTable};
 use sea_orm::DatabaseConnection;
 use socketioxide::SocketIo;
@@ -102,7 +99,8 @@ pub fn start_positions_consumer(rmq: Arc<Rmq>, socket_io: SocketIo, db: Database
                     consume_options,
                     FieldTable::default(),
                     |delivery: Delivery| async move {
-                        let (span, delivery) = correlate_trace_from_delivery(delivery);
+                        let (span, delivery) =
+                            shared::tracer::correlate_trace_from_delivery(delivery);
 
                         on_tracker_event(tracker_cache_ref, delivery, db_ref, socket_ref)
                             .instrument(span)

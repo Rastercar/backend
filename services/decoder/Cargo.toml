@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+shared = { workspace = true }
 tokio = { workspace = true }
 tokio-executor-trait = { workspace = true }
 tokio-reactor-trait = { workspace = true }

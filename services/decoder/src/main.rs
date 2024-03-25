@@ -35,7 +35,7 @@ async fn main() {
         for sig in signals.forever() {
             println!("\n[APP] received signal: {}, shutting down", sig);
 
-            tracer::shutdown().await;
+            shared::tracer::shutdown().await;
             rmq_server_ref.shutdown().await;
 
             std::process::exit(sig)

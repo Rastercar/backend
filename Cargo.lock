@@ -1548,6 +1548,7 @@ dependencies = [
  "opentelemetry-jaeger",
  "serde",
  "serde_json",
+ "shared",
  "signal-hook",
  "strum",
  "tokio",
@@ -2762,6 +2763,7 @@ dependencies = [
  "opentelemetry-jaeger",
  "serde",
  "serde_json",
+ "shared",
  "signal-hook",
  "strum_macros 0.24.3",
  "tokio",
@@ -4279,9 +4281,14 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "convert_case",
+ "lapin",
+ "opentelemetry",
  "sea-orm",
  "serde",
  "strum",
+ "tokio",
+ "tracing",
+ "tracing-opentelemetry",
  "utoipa",
 ]
 

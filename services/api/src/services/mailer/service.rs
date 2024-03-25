@@ -6,15 +6,14 @@ use crate::{
     config::app_config,
     rabbitmq::{Rmq, DEFAULT_EXCHANGE, MAILER_QUEUE},
     services::mailer::dto::EmailRecipient,
-    tracer::AmqpClientCarrier,
 };
 use anyhow::Result;
 use lapin::{
     options::BasicPublishOptions, publisher_confirm::PublisherConfirm, types::FieldTable,
     BasicProperties,
 };
+use std::fs;
 use std::sync::Arc;
-use std::{collections::BTreeMap, fs};
 use tracing::Span;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use url;
@@ -47,12 +46,7 @@ impl MailerService {
         let span = Span::current();
         let ctx = span.context();
 
-        let mut amqp_headers = BTreeMap::new();
-
-        // inject the current context through the amqp headers
-        opentelemetry::global::get_text_map_propagator(|propagator| {
-            propagator.inject_context(&ctx, &mut AmqpClientCarrier::new(&mut amqp_headers))
-        });
+        let amqp_headers = shared::tracer::create_amqp_headers_with_span_ctx(&ctx);
 
         Ok(self
             .rmq
@@ -75,6 +69,7 @@ impl MailerService {
             .await
     }
 
+    #[tracing::instrument(skip(self, reset_password_token))]
     pub async fn send_recover_password_email(
         &self,
         email: String,

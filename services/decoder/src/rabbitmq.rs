@@ -1,11 +1,11 @@
-use crate::{config, errors, tracer::AmqpClientCarrier};
+use crate::{config, errors};
 use lapin::{
     options::{BasicPublishOptions, ExchangeDeclareOptions},
     publisher_confirm::PublisherConfirm,
     types::FieldTable,
     BasicProperties, Channel, Connection, ConnectionProperties, ExchangeKind,
 };
-use std::{collections::BTreeMap, thread, time};
+use std::{thread, time};
 use tokio::sync::{mpsc::UnboundedReceiver, RwLock};
 use tracing::{Instrument, Span};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
@@ -156,12 +156,7 @@ impl RmqListener {
         let span = Span::current();
         let ctx = span.context();
 
-        let mut amqp_headers = BTreeMap::new();
-
-        // inject the current context through the amqp headers
-        opentelemetry::global::get_text_map_propagator(|propagator| {
-            propagator.inject_context(&ctx, &mut AmqpClientCarrier::new(&mut amqp_headers))
-        });
+        let amqp_headers = shared::tracer::create_amqp_headers_with_span_ctx(&ctx);
 
         self.channel
             .read()

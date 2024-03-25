@@ -59,7 +59,7 @@ pub async fn main() {
                     println!("[DB] failed to close db connection: {e}")
                 }
 
-                tracer::shutdown().await;
+                shared::tracer::shutdown().await;
             }
 
             std::process::exit(sig)

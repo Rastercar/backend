@@ -36,7 +36,7 @@ async fn main() {
     listen_to_shutdown_signals(shutdown_mailer_rmq_ref);
 
     while let Some(delivery) = receiver.recv().await {
-        let (span, delivery) = tracer::correlate_trace_from_delivery(delivery);
+        let (span, delivery) = shared::tracer::correlate_trace_from_delivery(delivery);
         let router = router.clone();
         tokio::spawn(async move { router.handle_delivery(delivery).instrument(span).await });
     }
@@ -51,7 +51,7 @@ fn listen_to_shutdown_signals(rmq: Arc<MailerRabbitmq>) {
         for sig in signals.forever() {
             println!("\n[APP] received signal: {}, shutting down", sig);
 
-            tracer::shutdown().await;
+            shared::tracer::shutdown().await;
             rmq.shutdown().await;
 
             std::process::exit(sig)
