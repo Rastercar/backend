@@ -54,6 +54,11 @@ impl TrackerIdCache {
     ///
     /// If there was too many failed attempts within the a time window
     /// None is returned without accessing the database.
+    ///
+    /// [PROD-TODO]
+    /// in order to make this write to the cache and the DB, this needs to be mutable
+    /// and since this is used in a multithreaded context and wrapped by a mutex this
+    /// is locked quite often, which is not desirable
     pub async fn get(&mut self, imei: &str) -> Option<i32> {
         if let Some((attempt_count, first_error)) = self.failed_attempts.get_mut(imei) {
             let is_within_time_windown = first_error.elapsed().as_secs() < self.time_window_seconds;
@@ -74,7 +79,7 @@ impl TrackerIdCache {
         }
 
         if let Some(id) = self.get_from_db(imei).await.unwrap_or(None) {
-            self.insert_to_cache(imei.to_string(), id);
+            self.cache.insert(imei.to_string(), id);
             return Some(id);
         }
 
@@ -97,8 +102,9 @@ impl TrackerIdCache {
         None
     }
 
-    fn insert_to_cache(&mut self, imei: String, id: i32) {
-        self.cache.insert(imei, id);
+    pub fn delete(&mut self, imei: &str) {
+        self.cache.remove(imei);
+        self.failed_attempts.remove(imei);
     }
 
     async fn get_from_db(&self, imei: &str) -> Result<Option<i32>, DbErr> {

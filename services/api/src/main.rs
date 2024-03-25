@@ -8,8 +8,9 @@ mod services;
 mod tracer;
 mod utils;
 
-use crate::services::s3::S3;
+use crate::{modules::tracking::cache::TrackerIdCache, services::s3::S3};
 use config::app_config;
+use sea_orm::DatabaseConnection;
 use signal_hook::{
     consts::{SIGINT, SIGTERM},
     iterator::Signals,
@@ -19,16 +20,18 @@ use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     time::Duration,
 };
-use tokio::task;
+use tokio::{sync::RwLock, task};
 
 #[tokio::main]
-#[allow(clippy::never_loop)]
 pub async fn main() {
     tracer::init("rastercar_api").expect("failed to init tracer");
 
     let cfg = app_config();
 
     let db = database::db::connect(&cfg.db_url).await;
+
+    modules::globals::TRACKER_ID_CACHE
+        .get_or_init(|| Arc::new(RwLock::new(TrackerIdCache::new(db.clone()))));
 
     database::db::run_migrations(&db).await;
 
@@ -42,29 +45,13 @@ pub async fn main() {
         rmq_reconnect_ref.start_reconnection_task().await;
     });
 
-    let mut signals = Signals::new([SIGINT, SIGTERM]).expect("failed to setup signals hook");
-
     let db_conn_pool_shutdown_ref = db.clone();
 
-    tokio::spawn(async move {
-        for sig in signals.forever() {
-            if !cfg.is_development {
-                println!("[APP] received signal: {}, shutting down", sig);
-
-                println!("[APP] closing rabbitmq connections");
-                rmq_shutdown_ref.shutdown().await;
-
-                println!("[APP] closing postgres connections");
-                if let Err(e) = db_conn_pool_shutdown_ref.close().await {
-                    println!("[DB] failed to close db connection: {e}")
-                }
-
-                shared::tracer::shutdown().await;
-            }
-
-            std::process::exit(sig)
-        }
-    });
+    listen_to_shutdown_signals(
+        !cfg.is_development,
+        rmq_shutdown_ref,
+        db_conn_pool_shutdown_ref,
+    );
 
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), cfg.http_port);
     println!("[WEB] soon listening on {}", addr);
@@ -81,4 +68,34 @@ pub async fn main() {
     axum::serve(listener, server)
         .await
         .unwrap_or_else(|_| panic!("[WEB] failed to serve app on address {}", addr));
+}
+
+/// Listen to shutdown signals `SIGINT` and `SIGTERM`, on a signal gracefully shutdowns down the application
+#[allow(clippy::never_loop)]
+fn listen_to_shutdown_signals(
+    gracefully_shutdown: bool,
+    rmq: Arc<rabbitmq::Rmq>,
+    db: DatabaseConnection,
+) {
+    let mut signals = Signals::new([SIGINT, SIGTERM]).expect("failed to setup signals hook");
+
+    tokio::spawn(async move {
+        for sig in signals.forever() {
+            if gracefully_shutdown {
+                println!("[APP] received signal: {}, shutting down", sig);
+
+                println!("[APP] closing rabbitmq connections");
+                rmq.shutdown().await;
+
+                println!("[APP] closing postgres connections");
+                if let Err(e) = db.close().await {
+                    println!("[DB] failed to close db connection: {e}")
+                }
+
+                shared::tracer::shutdown().await;
+            }
+
+            std::process::exit(sig)
+        }
+    });
 }

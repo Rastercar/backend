@@ -1,8 +1,5 @@
 use super::templates::{ConfirmEmailReplacements, RecoverPasswordReplacements};
-use crate::{
-    config::app_config,
-    rabbitmq::{Rmq, DEFAULT_EXCHANGE, MAILER_QUEUE},
-};
+use crate::{config::app_config, rabbitmq::Rmq};
 use anyhow::Result;
 use lapin::{
     options::BasicPublishOptions, publisher_confirm::PublisherConfirm, types::FieldTable,
@@ -14,9 +11,6 @@ use std::sync::Arc;
 use tracing::Span;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use url;
-
-/// RPC operation to send a email
-static OP_SEND_EMAIL: &str = "sendEmail";
 
 pub enum ConfirmEmailRecipientType {
     User,
@@ -48,8 +42,8 @@ impl MailerService {
         Ok(self
             .rmq
             .publish(
-                DEFAULT_EXCHANGE,
-                MAILER_QUEUE,
+                shared::constants::rabbitmq::DEFAULT_EXCHANGE,
+                shared::constants::rabbitmq::MAILER_QUEUE,
                 BasicPublishOptions::default(),
                 payload,
                 BasicProperties::default()
@@ -62,8 +56,11 @@ impl MailerService {
 
     #[tracing::instrument(skip_all)]
     pub async fn send_email(&self, input: SendEmailIn) -> Result<PublisherConfirm> {
-        self.publish_to_mailer_service(serde_json::to_string(&input)?.as_bytes(), OP_SEND_EMAIL)
-            .await
+        self.publish_to_mailer_service(
+            serde_json::to_string(&input)?.as_bytes(),
+            shared::constants::rabbitmq::OP_SEND_EMAIL,
+        )
+        .await
     }
 
     #[tracing::instrument(skip(self, reset_password_token))]

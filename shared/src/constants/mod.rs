@@ -5,6 +5,8 @@ use std::str::FromStr;
 use strum::{Display, EnumIter, IntoEnumIterator};
 use utoipa::ToSchema;
 
+pub mod rabbitmq;
+
 /// All the permissions available for the rastercar API
 #[derive(Debug, EnumIter, Display, Clone)]
 pub enum Permission {

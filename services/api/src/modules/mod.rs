@@ -1,6 +1,7 @@
 pub mod access_level;
 pub mod auth;
 pub mod common;
+pub mod globals;
 pub mod organization;
 pub mod sim_card;
 pub mod tracker;

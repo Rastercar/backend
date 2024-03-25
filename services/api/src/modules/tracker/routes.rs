@@ -11,6 +11,7 @@ use crate::{
             },
             responses::{internal_error_res, SimpleError},
         },
+        globals::TRACKER_ID_CACHE,
     },
     server::controller::AppState,
 };
@@ -38,6 +39,7 @@ use shared::{
     entity::vehicle,
 };
 use std::str::FromStr;
+use tracing::{info, Instrument, Span};
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
@@ -72,6 +74,15 @@ pub fn create_router(state: AppState) -> Router<AppState> {
             state,
             auth::middleware::require_user,
         ))
+}
+
+#[tracing::instrument]
+async fn delete_tracker_imei_from_cache(imei: String) {
+    info!("removing tracker with imei {imei} from global cache");
+
+    if let Some(tracker_id_cache) = TRACKER_ID_CACHE.get() {
+        tracker_id_cache.write().await.delete(&imei)
+    }
 }
 
 /// Get a tracker by ID
@@ -115,28 +126,39 @@ pub async fn get_tracker(
         ),
     ),
 )]
+#[tracing::instrument(skip_all)]
 pub async fn update_tracker(
     Path(tracker_id): Path<i64>,
     OrganizationId(org_id): OrganizationId,
     DbConnection(db): DbConnection,
     ValidatedJson(dto): ValidatedJson<UpdateTrackerDto>,
 ) -> Result<Json<vehicle_tracker::Model>, (StatusCode, SimpleError)> {
-    let mut t: vehicle_tracker::ActiveModel = vehicle_tracker::Entity::find()
+    let tt = vehicle_tracker::Entity::find()
         .filter(vehicle_tracker::Column::OrganizationId.eq(org_id))
         .filter(vehicle_tracker::Column::Id.eq(tracker_id))
         .one(&db)
         .await
         .map_err(DbError::from)?
-        .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?
-        .into();
+        .ok_or((StatusCode::NOT_FOUND, SimpleError::entity_not_found()))?;
 
-    t.imei = set_if_some(dto.imei);
+    let old_imei = tt.imei.clone();
+
+    let mut t: vehicle_tracker::ActiveModel = tt.into();
+
+    t.imei = set_if_some(dto.imei.clone());
 
     if let Some(model) = dto.model {
         t.model = Set(model)
     }
 
     let updated_tracker = t.update(&db).await.map_err(DbError::from)?;
+
+    // If the imei has changed, we need to delete the old IMEI from the cache
+    // otherwise the old imei cache will keep relating the old imei to the ID
+    if dto.imei.is_some() {
+        let span = Span::current();
+        tokio::spawn(delete_tracker_imei_from_cache(old_imei).instrument(span));
+    }
 
     Ok(Json(updated_tracker))
 }
@@ -160,43 +182,44 @@ pub async fn update_tracker(
         ),
     ),
 )]
+#[tracing::instrument(skip_all)]
 pub async fn delete_tracker(
-    Path(tracker_id): Path<i32>,
     Query(dto): Query<DeleteTrackerDto>,
     OrganizationId(org_id): OrganizationId,
     DbConnection(db): DbConnection,
+    OrgBoundEntityFromPathId(tracker): OrgBoundEntityFromPathId<vehicle_tracker::Entity>,
 ) -> Result<Json<String>, (StatusCode, SimpleError)> {
     if dto.delete_associated_sim_cards.unwrap_or(false) {
         sim_card::Entity::delete_many()
-            .filter(sim_card::Column::VehicleTrackerId.eq(tracker_id))
+            .filter(sim_card::Column::VehicleTrackerId.eq(tracker.id))
             .filter(sim_card::Column::OrganizationId.eq(org_id))
             .exec(&db)
             .await
             .map_err(DbError::from)?;
     }
 
-    let tracker_delete_result = vehicle_tracker::Entity::delete_many()
-        .filter(vehicle_tracker::Column::Id.eq(tracker_id))
+    vehicle_tracker::Entity::delete_many()
+        .filter(vehicle_tracker::Column::Id.eq(tracker.id))
         .filter(vehicle_tracker::Column::OrganizationId.eq(org_id))
         .exec(&db)
         .await
         .map_err(DbError::from)?;
 
-    // we need to delete from the vehicle tracker location manually since this
+    // if there was a deleted tracker, we know it belongs to the user org so
+    // we delete from the vehicle tracker location manually since this
     // table does not have a FK with ON DELETE CASCADE; to the vehicle_tracker
     // table for performance reasons
     vehicle_tracker_location::Entity::delete_many()
-        .filter(vehicle_tracker_location::Column::VehicleTrackerId.eq(tracker_id))
+        .filter(vehicle_tracker_location::Column::VehicleTrackerId.eq(tracker.id))
         .exec(&db)
         .await
         .map_err(DbError::from)?;
 
-    if tracker_delete_result.rows_affected < 1 {
-        let err_msg = "tracker does not exist or does not belong to the request user organization";
-        Err((StatusCode::BAD_REQUEST, SimpleError::from(err_msg)))
-    } else {
-        Ok(Json(String::from("tracker deleted successfully")))
-    }
+    let span = Span::current();
+
+    tokio::spawn(delete_tracker_imei_from_cache(tracker.imei).instrument(span));
+
+    Ok(Json(String::from("tracker deleted successfully")))
 }
 
 /// List SIM cards that belong to a tracker

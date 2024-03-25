@@ -1,22 +1,16 @@
-use super::{cache::TrackerIdCache, decoder::h02};
-use crate::rabbitmq::{Rmq, TRACKER_EVENTS_QUEUE};
+use super::decoder::h02;
+use crate::{modules::globals::TRACKER_ID_CACHE, rabbitmq::Rmq};
 use lapin::{message::Delivery, options::BasicConsumeOptions, types::FieldTable};
 use sea_orm::DatabaseConnection;
 use socketioxide::SocketIo;
 use std::{sync::Arc, time::Duration};
-use tokio::sync::Mutex;
 use tracing::{error, warn, Instrument};
 
 /// handler for tracker events recieved from the decoder microservice through a
 /// RabbitMQ delivery, this mainly passes the message to the appropriate function
 /// based on the `protocol`, `event_type` and the `imei` on the delivery routing key
 #[tracing::instrument(skip_all)]
-async fn on_tracker_event(
-    tracker_cache: &Arc<Mutex<TrackerIdCache>>,
-    delivery: Delivery,
-    db: &DatabaseConnection,
-    socket: &SocketIo,
-) {
+async fn on_tracker_event(delivery: Delivery, db: &DatabaseConnection, socket: &SocketIo) {
     let routing_key = delivery.routing_key.to_string();
 
     // tracking events routing keys have the following pattern
@@ -50,7 +44,11 @@ async fn on_tracker_event(
         return;
     }
 
-    let tracker_id: i32 = match tracker_cache.lock().await.get(imei).await {
+    let tracker_cache = TRACKER_ID_CACHE
+        .get()
+        .expect("tracker id cache not initialized");
+
+    let tracker_id: i32 = match tracker_cache.write().await.get(imei).await {
         Some(id) => id,
         None => {
             warn!("tracker: {imei} does not exist");
@@ -76,11 +74,8 @@ pub fn start_positions_consumer(rmq: Arc<Rmq>, socket_io: SocketIo, db: Database
             ..Default::default()
         };
 
-        let tracker_cache = Arc::new(Mutex::new(TrackerIdCache::new(db.clone())));
-
         let db_ref = &db;
         let socket_ref = &socket_io;
-        let tracker_cache_ref = &tracker_cache;
 
         loop {
             tokio::time::sleep(Duration::from_secs(5)).await;
@@ -94,7 +89,7 @@ pub fn start_positions_consumer(rmq: Arc<Rmq>, socket_io: SocketIo, db: Database
             // on update, we should delete the old imei from the cache
             let consume_end_result = rmq
                 .consume(
-                    TRACKER_EVENTS_QUEUE,
+                    shared::constants::rabbitmq::TRACKER_EVENTS_QUEUE,
                     "api_tracker_events_consumer",
                     consume_options,
                     FieldTable::default(),
@@ -102,7 +97,7 @@ pub fn start_positions_consumer(rmq: Arc<Rmq>, socket_io: SocketIo, db: Database
                         let (span, delivery) =
                             shared::tracer::correlate_trace_from_delivery(delivery);
 
-                        on_tracker_event(tracker_cache_ref, delivery, db_ref, socket_ref)
+                        on_tracker_event(delivery, db_ref, socket_ref)
                             .instrument(span)
                             .await
                     },
