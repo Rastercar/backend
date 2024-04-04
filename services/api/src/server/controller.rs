@@ -85,10 +85,9 @@ pub fn new(db: DatabaseConnection, s3: S3, rmq: Arc<Rmq>) -> Router {
     // set by cloudflare or other load balancers.
     let ip_extractor_layer = SecureClientIpSource::ConnectInfo.into_extension();
 
-    // [PROD-TODO] decide on useful values here
     let tracing_layer = TraceLayer::new_for_http()
         .on_request(|request: &Request<Body>, _span: &Span| {
-            info!("request: {} {}", request.method(), request.uri().path())
+            info!("{} {}", request.method(), request.uri().path())
         })
         .on_response(DefaultOnResponse::new().level(Level::INFO));
 

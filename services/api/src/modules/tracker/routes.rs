@@ -501,7 +501,7 @@ pub async fn list_trackers(
             }
         })
         .apply_if(filter.imei, |query, imei| {
-            if imei.is_empty() {
+            if !imei.is_empty() {
                 let col = Expr::col((vehicle_tracker::Entity, vehicle_tracker::Column::Imei));
                 query.filter(col.ilike(format!("%{}%", imei)))
             } else {

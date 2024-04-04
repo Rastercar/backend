@@ -1,5 +1,6 @@
-use super::{heartbeat::HeartbeatMsg, location::LocationMsg, utils};
+use super::{heartbeat::HeartbeatMsg, utils};
 use crate::protocols::common::Decoded;
+use shared::dto::decoder::h02::LocationMsg;
 use std::str::{self, from_utf8};
 
 mod msg_ids {

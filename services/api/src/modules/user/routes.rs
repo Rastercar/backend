@@ -241,7 +241,7 @@ pub async fn list_users(
     let paginator = user::Entity::find()
         .filter(user::Column::OrganizationId.eq(org_id))
         .apply_if(filter.email, |query, email| {
-            if email.is_empty() {
+            if !email.is_empty() {
                 let col = Expr::col((user::Entity, user::Column::Email));
                 query.filter(col.ilike(format!("%{}%", email)))
             } else {

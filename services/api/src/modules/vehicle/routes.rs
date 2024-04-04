@@ -356,7 +356,7 @@ pub async fn list_vehicles(
     let db_query = vehicle::Entity::find()
         .filter(vehicle::Column::OrganizationId.eq(org_id))
         .apply_if(filter.plate, |query, plate| {
-            if plate.is_empty() {
+            if !plate.is_empty() {
                 let col = Expr::col((vehicle::Entity, vehicle::Column::Plate));
                 query.filter(col.ilike(format!("%{}%", plate)))
             } else {

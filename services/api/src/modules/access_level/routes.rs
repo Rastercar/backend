@@ -81,7 +81,7 @@ pub async fn list_access_level(
     let paginator = access_level::Entity::find()
         .filter(access_level::Column::OrganizationId.eq(org_id))
         .apply_if(filter.name, |query, name| {
-            if name.is_empty() {
+            if !name.is_empty() {
                 let col = Expr::col((access_level::Entity, access_level::Column::Name));
                 query.filter(col.ilike(format!("%{}%", name)))
             } else {

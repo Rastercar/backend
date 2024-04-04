@@ -81,12 +81,6 @@ pub fn start_positions_consumer(rmq: Arc<Rmq>, socket_io: SocketIo, db: Database
             tokio::time::sleep(Duration::from_secs(5)).await;
             println!("[RMQ] starting tracker positions consumer");
 
-            // TODO: how can we update this cache whenever a tracker IMEI
-            // is updated or a tracker is deleted ?
-            //
-            // on deletion we should delete from cache as well
-            //
-            // on update, we should delete the old imei from the cache
             let consume_end_result = rmq
                 .consume(
                     shared::constants::rabbitmq::TRACKER_EVENTS_QUEUE,

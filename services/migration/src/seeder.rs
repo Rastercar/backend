@@ -1,3 +1,6 @@
+use std::sync::atomic::{AtomicU16, Ordering};
+
+use crate::seeder_consts;
 use fake::{faker, Fake};
 use rand::{seq::SliceRandom, Rng};
 use sea_orm_migration::{
@@ -8,10 +11,15 @@ use sea_orm_migration::{
 use shared::constants::{Permission, TrackerModel};
 use shared::entity::{access_level, organization, sim_card, user, vehicle, vehicle_tracker};
 
-use crate::seeder_consts;
-
 const ALPHA: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const NUMERIC: &str = "0123456789";
+
+static UNIQUE_CNT: AtomicU16 = AtomicU16::new(0);
+
+/// gets ID that is guaranteed to be unique during the execution of this binary
+fn get_unique_id() -> u16 {
+    UNIQUE_CNT.fetch_add(1, Ordering::SeqCst) + 1
+}
 
 /// Hash a password with bcrypt using the lowest cost (4)
 /// since we do not care about security of seeded data
@@ -201,20 +209,16 @@ pub async fn gen_user(
     org_id: i32,
     access_level_id: i32,
 ) -> Result<user::Model, DbErr> {
-    // TODO: find a actually decent way to generate values and guarantee they are unique
-
     // those random numbers are to void unique conflicts
     let email = format!(
-        "{}_{}_{}",
-        rand::thread_rng().gen_range(100000..999999),
-        rand::thread_rng().gen_range(100000..999999),
+        "{}_{}",
+        get_unique_id(),
         faker::internet::en::SafeEmail().fake::<String>()
     );
 
     let username = format!(
-        "{}_{}_{}",
-        rand::thread_rng().gen_range(100000..999999),
-        rand::thread_rng().gen_range(100000..999999),
+        "{}_{}",
+        get_unique_id(),
         faker::internet::en::Username().fake::<String>()
     );
 

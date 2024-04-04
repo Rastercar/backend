@@ -62,9 +62,9 @@ fn str_to_coord(s: &str, to: Coord) -> Result<f64, String> {
     let minutes = if minute_digits.is_empty() {
         0.0
     } else {
-        minute_digits
-            .parse::<f64>()
-            .or(Err("failed to parse point minutes"))?
+        minute_digits.parse::<f64>().or(Err(format!(
+            "failed to parse point minutes {minute_digits}"
+        )))?
     };
 
     if !(0.0..60.0).contains(&minutes) {

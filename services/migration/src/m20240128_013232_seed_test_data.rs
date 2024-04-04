@@ -1,6 +1,9 @@
-use sea_orm_migration::{prelude::*, sea_orm::TransactionTrait};
-
 use crate::seeder;
+use sea_orm_migration::{
+    prelude::*,
+    sea_orm::{prelude::*, EntityTrait, TransactionTrait},
+};
+use shared::entity::vehicle_tracker;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -19,6 +22,22 @@ impl MigrationTrait for Migration {
 
         for _ in 0..5 {
             seeder::root_user_with_user_org(&transaction).await.unwrap();
+        }
+
+        // change the first 10 tracker ids to values used by the tracker
+        // sender mock so we can send mocked positions easily to all of them
+        for i in 0..10 {
+            vehicle_tracker::Entity::update_many()
+                .col_expr(
+                    vehicle_tracker::Column::Imei,
+                    Expr::value(Value::String(Some(Box::new(format!(
+                        "86723205114835{}",
+                        i
+                    ))))),
+                )
+                .filter(vehicle_tracker::Column::Id.eq(i))
+                .exec(&transaction)
+                .await?;
         }
 
         transaction.commit().await?;

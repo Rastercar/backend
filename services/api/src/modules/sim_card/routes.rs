@@ -375,7 +375,7 @@ pub async fn list_sim_cards(
             }
         })
         .apply_if(filter.phone_number, |query, phone| {
-            if phone.is_empty() {
+            if !phone.is_empty() {
                 let col = Expr::col((sim_card::Entity, sim_card::Column::PhoneNumber));
                 query.filter(col.ilike(format!("%{}%", phone)))
             } else {
