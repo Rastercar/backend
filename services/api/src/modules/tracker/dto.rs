@@ -70,6 +70,17 @@ pub struct DeleteTrackerDto {
     pub delete_associated_sim_cards: Option<bool>,
 }
 
+#[derive(Deserialize, ToSchema, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct GetTrackerPositionsDto {
+    /// List only positions after this timestamp
+    pub start: Option<DateTime<Utc>>,
+
+    #[validate(range(min = 1, max = 100))]
+    /// Limit the number of positions to be queried
+    pub limit: Option<u64>,
+}
+
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackerLocationDto {

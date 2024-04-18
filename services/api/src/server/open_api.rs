@@ -1,4 +1,4 @@
-use crate::modules::{auth, common, user, organization, vehicle, tracker, sim_card, access_level};
+use crate::modules::{auth, common, user, organization, vehicle, tracker, sim_card, access_level, tracking};
 use crate::server::controller;
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use utoipa::openapi::{ContactBuilder, InfoBuilder};
@@ -48,6 +48,9 @@ use shared::entity;
         tracker::dto::CreateTrackerDto,
         tracker::dto::TrackerLocationDto,
         tracker::dto::SetTrackerVehicleDto,
+
+        tracking::dto::PositionDto,
+        tracking::dto::GetTrackersLastPositionsDto,
         
         sim_card::dto::CreateSimCardDto,
         sim_card::dto::UpdateSimCardDto,
@@ -110,6 +113,8 @@ use shared::entity;
         tracker::routes::set_tracker_vehicle,
         tracker::routes::get_tracker_location,
         tracker::routes::list_tracker_sim_cards,
+
+        tracking::routes::get_trackers_last_positions,
 
         access_level::routes::list_access_level,
         access_level::routes::access_level_by_id,

@@ -105,6 +105,7 @@ pub fn new(db: DatabaseConnection, s3: S3, rmq: Arc<Rmq>) -> Router {
         .nest("/vehicle", vehicle::routes::create_router(state.clone()))
         .nest("/sim-card", sim_card::routes::create_router(state.clone()))
         .nest("/tracker", tracker::routes::create_router(state.clone()))
+        .nest("/tracking", tracking::routes::create_router(state.clone()))
         .nest(
             "/access-level",
             access_level::routes::create_router(state.clone()),

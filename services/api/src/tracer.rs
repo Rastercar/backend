@@ -15,6 +15,9 @@ pub fn init(service_name: &str) -> Result<(), SetGlobalDefaultError> {
 
     tracing::subscriber::set_global_default(subscriber)?;
 
+    // For quick debuging by printing to stdout uncomment bellow
+    // tracing::subscriber::set_global_default(tracing_subscriber::FmtSubscriber::new()).unwrap()
+
     println!("[TRACER] initialized");
     Ok(())
 }

@@ -26,7 +26,7 @@ impl MigrationTrait for Migration {
 
         // change the first 10 tracker ids to values used by the tracker
         // sender mock so we can send mocked positions easily to all of them
-        for i in 0..10 {
+        for i in 1..10 {
             vehicle_tracker::Entity::update_many()
                 .col_expr(
                     vehicle_tracker::Column::Imei,

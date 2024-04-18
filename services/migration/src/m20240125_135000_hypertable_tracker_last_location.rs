@@ -8,9 +8,14 @@ impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
 
+        // for reasoning about the indexes, see:
+        // https://www.timescale.com/blog/select-the-most-recent-record-of-many-items-with-postgresql/
         db.execute_unprepared(
             "CREATE INDEX ix_time ON vehicle_tracker_location (time DESC);
-            SELECT create_hypertable('vehicle_tracker_location','time');",
+
+             CREATE INDEX ix_time_vehicle_tracker_id ON vehicle_tracker_location (vehicle_tracker_id, time DESC);
+
+             SELECT create_hypertable('vehicle_tracker_location','time');",
         )
         .await?;
 

@@ -1,4 +1,7 @@
-use super::dto::{self, CreateTrackerDto, DeleteTrackerDto, ListTrackersDto, UpdateTrackerDto};
+use super::dto::{
+    self, CreateTrackerDto, DeleteTrackerDto, GetTrackerPositionsDto, ListTrackersDto,
+    UpdateTrackerDto,
+};
 use crate::{
     database::{self, error::DbError, helpers::set_if_some},
     modules::{
@@ -23,7 +26,7 @@ use axum::{
 use chrono::{DateTime, Utc};
 use http::StatusCode;
 use migration::Expr;
-use sea_orm::sea_query::extension::postgres::PgExpr;
+use sea_orm::{sea_query::extension::postgres::PgExpr, Order};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder,
     QuerySelect, QueryTrait, Set, TryIntoModel,
@@ -67,7 +70,8 @@ pub fn create_router(state: AppState) -> Router<AppState> {
             put(set_tracker_vehicle).layer(AclLayer::single(Permission::UpdateTracker)),
         )
         //
-        .route("/:tracker_id/location", get(get_tracker_location))
+        .route("/:tracker_id/get-location-list", post(get_location_list))
+        .route("/:tracker_id/last-location", get(get_tracker_location))
         .route("/:tracker_id/sim-cards", get(list_tracker_sim_cards))
         //
         .layer(axum::middleware::from_fn_with_state(
@@ -255,11 +259,86 @@ pub async fn list_tracker_sim_cards(
     Ok(Json(cards))
 }
 
+/// Get a list of tracker locations
+#[utoipa::path(
+    get,
+    tag = "tracker",
+    path = "/tracker/{tracker_id}/get-location-list",
+    security(("session_id" = [])),
+    params(
+        ("tracker_id" = u128, Path, description = "id of the tracker"),
+    ),
+    responses(
+        (
+            status = OK,
+            description = "tracker location",
+            body = Vec<TrackerLocationDto>,
+            content_type = "application/json",
+        ),
+    ),
+)]
+pub async fn get_location_list(
+    OrgBoundEntityFromPathId(tracker): OrgBoundEntityFromPathId<vehicle_tracker::Entity>,
+    DbConnection(db): DbConnection,
+    ValidatedJson(search_query): ValidatedJson<GetTrackerPositionsDto>,
+) -> Result<Json<Vec<dto::TrackerLocationDto>>, (StatusCode, SimpleError)> {
+    // TODO:
+    // what about the hard coded limit ? a date range seems retarded as i would
+    // need to validade the date range to be small (maybe a start date as a cursor and a limit ?)
+    //
+    // what about duplicated positions ? (positions that are very similar to each other)
+    let (q, args) = SeaQuery::select()
+        .column(vehicle_tracker_location::Column::Time)
+        .column(vehicle_tracker_location::Column::Point)
+        .from(vehicle_tracker_location::Entity)
+        .cond_where(
+            Cond::all()
+                .add(Expr::col(vehicle_tracker_location::Column::VehicleTrackerId).eq(tracker.id))
+                .add_option(
+                    search_query
+                        .start
+                        .map(|start| Expr::col(vehicle_tracker_location::Column::Time).gte(start)),
+                ),
+        )
+        .order_by(vehicle_tracker_location::Column::Time, Order::Desc)
+        .limit(search_query.limit.unwrap_or(15))
+        .to_owned()
+        .build_sqlx(PostgresQueryBuilder);
+
+    let rows: Vec<(
+        DateTime<Utc>,
+        geozero::wkb::Decode<geo_types::Geometry<f64>>,
+    )> = sqlx::query_as_with(&q, args)
+        .fetch_all(db.get_postgres_connection_pool())
+        .await
+        .map_err(|_| internal_error_res())?;
+
+    println!("{} -> {}", q, rows.len());
+
+    let positions: Vec<dto::TrackerLocationDto> = rows
+        .iter()
+        .filter_map(|row| {
+            if let Some(geo_types::Geometry::Point(point)) = row.1.geometry {
+                let loc = dto::TrackerLocationDto {
+                    point: point.into(),
+                    time: row.0,
+                };
+
+                return Some(loc);
+            }
+
+            None
+        })
+        .collect();
+
+    Ok(Json(positions))
+}
+
 /// Get the most recent tracker location
 #[utoipa::path(
     get,
     tag = "tracker",
-    path = "/tracker/{tracker_id}/location",
+    path = "/tracker/{tracker_id}/last-location",
     security(("session_id" = [])),
     params(
         ("tracker_id" = u128, Path, description = "id of the tracker"),
