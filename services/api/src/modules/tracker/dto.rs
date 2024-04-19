@@ -4,6 +4,8 @@ use shared::constants::TrackerModel;
 use utoipa::{IntoParams, ToSchema};
 use validator::{Validate, ValidationError};
 
+use crate::modules::common::dto::AscOrDescOrder;
+
 fn is_supported_tracker_model(model: &str) -> Result<(), ValidationError> {
     let allowed_models = TrackerModel::to_string_vec();
 
@@ -73,12 +75,18 @@ pub struct DeleteTrackerDto {
 #[derive(Deserialize, ToSchema, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct GetTrackerPositionsDto {
-    /// List only positions after this timestamp
-    pub start: Option<DateTime<Utc>>,
+    /// List positions after a timestamp
+    pub after: Option<DateTime<Utc>>,
+
+    /// List positions before a timestamp
+    pub before: Option<DateTime<Utc>>,
 
     #[validate(range(min = 1, max = 100))]
     /// Limit the number of positions to be queried
     pub limit: Option<u64>,
+
+    #[serde(default)]
+    pub order: AscOrDescOrder,
 }
 
 #[derive(Serialize, ToSchema)]

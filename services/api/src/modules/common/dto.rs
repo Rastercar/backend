@@ -1,7 +1,7 @@
 use crate::modules::{access_level, user};
 use axum::body::Bytes;
 use axum_typed_multipart::{FieldData, TryFromMultipart};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use shared::entity;
 use utoipa::{IntoParams, ToSchema};
 use validator::Validate;
@@ -78,4 +78,44 @@ pub struct PaginationResult<T: for<'_s> ToSchema<'_s>> {
 pub struct SingleImageDto {
     #[schema(value_type = String, format = Binary)]
     pub image: FieldData<Bytes>,
+}
+
+/// Simple enum to order a query by ascending or descending order
+#[derive(Debug, ToSchema)]
+pub enum AscOrDescOrder {
+    Asc,
+    Desc,
+}
+
+impl Default for AscOrDescOrder {
+    fn default() -> Self {
+        Self::Desc
+    }
+}
+
+impl From<AscOrDescOrder> for sea_query::Order {
+    fn from(value: AscOrDescOrder) -> Self {
+        match value {
+            AscOrDescOrder::Asc => Self::Asc,
+            AscOrDescOrder::Desc => Self::Desc,
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for AscOrDescOrder {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = <String>::deserialize(deserializer)?;
+        let k: &str = &s.to_lowercase();
+
+        Ok(match k {
+            "asc" => AscOrDescOrder::Asc,
+            "ascending" => AscOrDescOrder::Asc,
+            "desc" => AscOrDescOrder::Desc,
+            "descending" => AscOrDescOrder::Desc,
+            _ => AscOrDescOrder::default(),
+        })
+    }
 }

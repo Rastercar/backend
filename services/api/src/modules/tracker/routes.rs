@@ -26,7 +26,7 @@ use axum::{
 use chrono::{DateTime, Utc};
 use http::StatusCode;
 use migration::Expr;
-use sea_orm::{sea_query::extension::postgres::PgExpr, Order};
+use sea_orm::sea_query::extension::postgres::PgExpr;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder,
     QuerySelect, QueryTrait, Set, TryIntoModel,
@@ -261,10 +261,11 @@ pub async fn list_tracker_sim_cards(
 
 /// Get a list of tracker locations
 #[utoipa::path(
-    get,
+    post,
     tag = "tracker",
     path = "/tracker/{tracker_id}/get-location-list",
     security(("session_id" = [])),
+    request_body(content = GetTrackerPositionsDto),
     params(
         ("tracker_id" = u128, Path, description = "id of the tracker"),
     ),
@@ -282,11 +283,6 @@ pub async fn get_location_list(
     DbConnection(db): DbConnection,
     ValidatedJson(search_query): ValidatedJson<GetTrackerPositionsDto>,
 ) -> Result<Json<Vec<dto::TrackerLocationDto>>, (StatusCode, SimpleError)> {
-    // TODO:
-    // what about the hard coded limit ? a date range seems retarded as i would
-    // need to validade the date range to be small (maybe a start date as a cursor and a limit ?)
-    //
-    // what about duplicated positions ? (positions that are very similar to each other)
     let (q, args) = SeaQuery::select()
         .column(vehicle_tracker_location::Column::Time)
         .column(vehicle_tracker_location::Column::Point)
@@ -296,11 +292,19 @@ pub async fn get_location_list(
                 .add(Expr::col(vehicle_tracker_location::Column::VehicleTrackerId).eq(tracker.id))
                 .add_option(
                     search_query
-                        .start
-                        .map(|start| Expr::col(vehicle_tracker_location::Column::Time).gte(start)),
+                        .after
+                        .map(|a| Expr::col(vehicle_tracker_location::Column::Time).gt(a)),
+                )
+                .add_option(
+                    search_query
+                        .before
+                        .map(|b| Expr::col(vehicle_tracker_location::Column::Time).lt(b)),
                 ),
         )
-        .order_by(vehicle_tracker_location::Column::Time, Order::Desc)
+        .order_by(
+            vehicle_tracker_location::Column::Time,
+            search_query.order.into(),
+        )
         .limit(search_query.limit.unwrap_or(15))
         .to_owned()
         .build_sqlx(PostgresQueryBuilder);
@@ -312,8 +316,6 @@ pub async fn get_location_list(
         .fetch_all(db.get_postgres_connection_pool())
         .await
         .map_err(|_| internal_error_res())?;
-
-    println!("{} -> {}", q, rows.len());
 
     let positions: Vec<dto::TrackerLocationDto> = rows
         .iter()
