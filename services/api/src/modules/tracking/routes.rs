@@ -32,11 +32,44 @@ struct SocketUser {
 
 pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
+        .route("/positions/per-day", post(get_positions_per_day))
         .route("/last-positions", post(get_trackers_last_positions))
         .layer(axum::middleware::from_fn_with_state(
             state,
             auth::middleware::require_user,
         ))
+}
+
+/// Gets the amount of positions recieved grouped by days
+#[utoipa::path(
+    post,
+    tag = "tracking",
+    path = "/tracking/positions/per-day",
+    security(("session_id" = [])),
+    // TODO:
+    request_body = GetTrackersLastPositionsDto,
+    responses(
+        (
+            status = OK,
+            description = "the positions count per day",
+            // TODO:
+            body = Vec<PositionDto>,
+            content_type = "application/json",
+        ),
+    ),
+)]
+pub async fn get_positions_per_day(
+    DbConnection(db): DbConnection,
+    OrganizationId(org_id): OrganizationId,
+    ValidatedJson(dto): ValidatedJson<GetTrackersLastPositionsDto>,
+) -> Result<Json<Vec<PositionDto>>, (StatusCode, SimpleError)> {
+    // TODO:
+    // SELECT DATE_TRUNC('day', time) AS day, count(*)
+    // FROM vehicle_tracker_location
+    // WHERE time >= '2023-02-01' AND time <= '2023-02-01'::timestamp + INTERVAL '7 days'
+    // GROUP BY DATE_TRUNC('day', time);
+
+    todo!();
 }
 
 /// Gets the most recent positions of a few trackers
