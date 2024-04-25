@@ -1,7 +1,9 @@
 use tracing::subscriber::SetGlobalDefaultError;
 use tracing_subscriber::{prelude::__tracing_subscriber_SubscriberExt, Registry};
 
-pub fn init(service_name: &str) -> Result<(), SetGlobalDefaultError> {
+/// initialize the API tracing, creating a layer that exports spans to Jaeger
+/// using opentelemetry and a stdout layer if `with_stdout` is true
+pub fn init(service_name: &str, with_stdout: bool) -> Result<(), SetGlobalDefaultError> {
     opentelemetry::global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
 
     let tracer = opentelemetry_jaeger::new_agent_pipeline()
@@ -10,13 +12,17 @@ pub fn init(service_name: &str) -> Result<(), SetGlobalDefaultError> {
         .install_batch(opentelemetry::runtime::Tokio)
         .expect("failed to initialize tracer");
 
-    let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
-    let subscriber = Registry::default().with(telemetry);
+    let telemetry_layer = tracing_opentelemetry::layer().with_tracer(tracer);
+
+    let stdout_layer = if with_stdout {
+        Some(tracing_subscriber::fmt::Layer::default())
+    } else {
+        None
+    };
+
+    let subscriber = Registry::default().with(stdout_layer).with(telemetry_layer);
 
     tracing::subscriber::set_global_default(subscriber)?;
-
-    // For quick debuging by printing to stdout uncomment bellow
-    // tracing::subscriber::set_global_default(tracing_subscriber::FmtSubscriber::new()).unwrap()
 
     println!("[TRACER] initialized");
     Ok(())

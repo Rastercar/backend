@@ -24,9 +24,9 @@ use tokio::{sync::RwLock, task};
 
 #[tokio::main]
 pub async fn main() {
-    tracer::init("rastercar_api").expect("failed to init tracer");
-
     let cfg = app_config();
+
+    tracer::init("rastercar_api", cfg.is_development).expect("failed to init tracer");
 
     let db = database::db::connect(&cfg.db_url).await;
 
