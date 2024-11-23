@@ -6,26 +6,25 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-shared = { workspace = true }
-serde_json = { workspace = true }
-lapin = { workspace = true }
 envy = { workspace = true }
+uuid = { workspace = true }
+axum = { workspace = true }
+lapin = { workspace = true }
+shared = { workspace = true }
+validator = { workspace = true }
+aws-config = { workspace = true }
+serde_json = { workspace = true }
+signal-hook = { workspace = true }
+
+tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tokio-executor-trait = { workspace = true }
 tokio-reactor-trait = { workspace = true }
-tokio = { workspace = true }
+
 serde = { workspace = true }
 chrono = { workspace = true }
-opentelemetry = { workspace = true }
-opentelemetry-jaeger = { workspace = true }
+
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
-tracing-opentelemetry = { workspace = true }
-aws-config = { workspace = true }
-validator = { workspace = true }
-uuid = { workspace = true }
-axum = { workspace = true }
-signal-hook = { workspace = true }
 
 futures = "0.3.28"
 aws-sdk-sesv2 = "1.1.18"

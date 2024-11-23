@@ -33,7 +33,8 @@ pub async fn main() {
     modules::globals::TRACKER_ID_CACHE
         .get_or_init(|| Arc::new(RwLock::new(TrackerIdCache::new(db.clone()))));
 
-    database::db::run_migrations(&db).await;
+    // # disable since were nuking the api
+    // database::db::run_migrations(&db).await;
 
     cronjobs::start_clear_sessions_cronjob(db.clone(), Duration::from_secs(5 * 60));
 

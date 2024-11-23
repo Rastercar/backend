@@ -424,27 +424,40 @@ pub async fn request_recover_password_email(
     State(state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<common::dto::EmailAddress>,
 ) -> Result<Json<&'static str>, (StatusCode, SimpleError)> {
-    let maybe_user = user::Entity::find()
-        .filter(user::Column::Email.eq(&payload.email))
-        .one(&db)
+    // let maybe_user = user::Entity::find()
+    //     .filter(user::Column::Email.eq(&payload.email))
+    //     .one(&db)
+    //     .await
+    //     .map_err(DbError::from)?;
+
+    // if let Some(usr) = maybe_user {
+    //     let token = state
+    //         .auth_service
+    //         .gen_and_set_user_reset_password_token(usr.id)
+    //         .await
+    //         .or(Err(internal_error_res()))?;
+
+    // state
+    // .mailer_service
+    // .send_recover_password_email(payload.email, token, usr.username)
+    // .await
+    // .or(Err(internal_error_res()))?;
+
+    //     return Ok(Json("password recovery email queued successfully"));
+    // }
+
+    state
+        .mailer_service
+        .send_recover_password_email(
+            payload.email,
+            String::from("token"),
+            String::from("username"),
+        )
         .await
-        .map_err(DbError::from)?;
-
-    if let Some(usr) = maybe_user {
-        let token = state
-            .auth_service
-            .gen_and_set_user_reset_password_token(usr.id)
-            .await
-            .or(Err(internal_error_res()))?;
-
-        state
-            .mailer_service
-            .send_recover_password_email(payload.email, token, usr.username)
-            .await
-            .or(Err(internal_error_res()))?;
-
-        return Ok(Json("password recovery email queued successfully"));
-    }
+        .or_else(|err| {
+            dbg!(err);
+            return Err(internal_error_res());
+        })?;
 
     Err((
         StatusCode::NOT_FOUND,

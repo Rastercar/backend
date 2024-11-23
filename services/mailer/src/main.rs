@@ -1,3 +1,4 @@
+use config::app_config;
 use lapin::message::Delivery;
 use mailer::Mailer;
 use queue::{controller::router::QueueRouter, MailerRabbitmq};
@@ -13,12 +14,16 @@ mod config;
 mod http;
 mod mailer;
 mod queue;
-mod tracer;
 mod utils;
 
 #[tokio::main]
 async fn main() {
-    tracer::init();
+    let app_cfg = app_config();
+
+    shared::tracer::init_tracing_with_jaeger_otel(
+        app_cfg.tracer_service_name.clone(),
+        app_cfg.app_debug,
+    );
 
     let (sender, mut receiver) = mpsc::unbounded_channel::<Delivery>();
 
@@ -37,6 +42,7 @@ async fn main() {
 
     while let Some(delivery) = receiver.recv().await {
         let (span, delivery) = shared::tracer::correlate_trace_from_delivery(delivery);
+
         let router = router.clone();
         tokio::spawn(async move { router.handle_delivery(delivery).instrument(span).await });
     }

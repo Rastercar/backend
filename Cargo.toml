@@ -4,7 +4,7 @@ members = [
     "services/api",
     "services/mailer",
     "services/decoder",
-    "services/migration", 
+    "services/migration",
 ]
 resolver = "2"
 
@@ -32,11 +32,7 @@ sea-orm = { version = "0.12", features = [
 ] }
 
 # Axum
-axum = { version = "0.7.5", features = [
-    "json",
-    "macros",
-    "multipart",
-] }
+axum = { version = "0.7.5", features = ["json", "macros", "multipart"] }
 
 # AWS
 aws-config = { version = "1.1.8", features = ["behavior-version-latest"] }
@@ -65,10 +61,13 @@ tokio-executor-trait = "2.1.0"
 tokio-reactor-trait = "1.1.0"
 
 # Tracing
-tracing = "0.1.39"
-tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
-tracing-opentelemetry = "0.18.0"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tracing-opentelemetry = "0.28.0"
 
 # Open Telemetry
-opentelemetry = { version = "0.18.0", features = ["rt-tokio", "metrics"] }
-opentelemetry-jaeger = { version = "0.17.0", features = ["rt-tokio"] }
+opentelemetry = { version = "0.27.0" }
+opentelemetry_sdk = { version = "0.27.0", features = ["rt-tokio"] }
+opentelemetry-otlp = "0.27.0"
+opentelemetry-semantic-conventions = "0.27.0"
+opentelemetry-jaeger-propagator = "0.27.0"
