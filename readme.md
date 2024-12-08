@@ -5,11 +5,14 @@ The worlds best car tracking platform :car: :blue_car: :taxi: :bus:
 ### Running the api
 
 ```bash
+# (optional) install cargo-watch
+cargo install cargo-watch
+
 # run the api in development mode
-make run_dev
+make run_api_dev # or run_api_dev_no_watch
 
 # run the api in development mode with debug output
-make run_debug
+make run_api_debug
 
 # run the api dependencies containers (database, rabbitmq, jaeger, etc)
 make docker_run_deps
