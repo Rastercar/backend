@@ -1,11 +1,5 @@
 [workspace]
-members = [
-    "shared",
-    "services/api",
-    "services/mailer",
-    "services/decoder",
-    "services/migration",
-]
+members = ["shared", "services/mailer", "services/decoder"]
 resolver = "2"
 
 # Depencies shared by at least two "sub" workspaces
