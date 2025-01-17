@@ -165,7 +165,7 @@ impl Mailer {
 
         let from = options.from.unwrap_or(self.default_sender.clone());
 
-        event!(Level::INFO, from,);
+        event!(Level::INFO, from);
 
         let config_set = if options.track_events {
             Some(self.aws_ses_tracking_config_set.clone())

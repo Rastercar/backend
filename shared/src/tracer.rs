@@ -7,11 +7,7 @@ use opentelemetry::{
     propagation::{Extractor, Injector},
     Context, KeyValue,
 };
-use opentelemetry_sdk::{
-    runtime,
-    trace::{self, TracerProvider},
-    Resource,
-};
+use opentelemetry_sdk::{runtime, trace::TracerProvider, Resource};
 use opentelemetry_semantic_conventions::resource::SERVICE_NAME;
 use std::collections::BTreeMap;
 use tokio::time;
@@ -124,14 +120,12 @@ pub fn init_tracing_with_jaeger_otel(service_name: String, with_std_out_layer: b
         .build()
         .expect("failed to initialize tracer");
 
-    let cfg = trace::Config::default().with_resource(Resource::new(vec![KeyValue::new(
-        SERVICE_NAME,
-        String::from(service_name.clone()),
-    )]));
-
     let provider = TracerProvider::builder()
         .with_batch_exporter(exporter, runtime::Tokio)
-        .with_config(cfg)
+        .with_resource(Resource::new(vec![KeyValue::new(
+            SERVICE_NAME,
+            String::from(service_name.clone()),
+        )]))
         .build();
 
     opentelemetry::global::set_tracer_provider(provider.clone());

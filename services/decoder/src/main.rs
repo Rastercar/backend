@@ -13,14 +13,13 @@ mod errors;
 mod protocols;
 mod rabbitmq;
 mod server;
-mod tracer;
 
 #[tokio::main]
 #[allow(clippy::never_loop)]
 async fn main() {
     let config = AppConfig::from_env().expect("failed to load application config");
 
-    tracer::init(config.tracer_service_name.to_owned()).expect("failed to init tracer");
+    shared::tracer::init_tracing_with_jaeger_otel(config.tracer_service_name.clone(), config.debug);
 
     let mut signals = Signals::new([SIGINT, SIGTERM]).expect("failed to setup signals hook");
 
