@@ -3,14 +3,6 @@ lazy:
 	git add . && git commit -m "." && git push origin master
 
 # ---------------------- [MAILER] ----------------------
-.PHONY: run_mailer_dev
-run_mailer_dev:
-	RUST_LOG=info AWS_PROFILE=rastercar-vitor cargo watch -x 'run -p mailer'
-
-.PHONY: run_mailer_dev_no_watch
-run_mailer_dev_no_watch:
-	RUST_LOG=info AWS_PROFILE=rastercar-vitor cargo run -p mailer
-	
 .PHONY: run_mailer_error
 run_mailer_error:
 	RUST_LOG=error AWS_PROFILE=rastercar-vitor cargo watch -x 'run -p mailer'
@@ -28,14 +20,6 @@ run_mailer_debug:
 	APP_DEBUG=true RUST_LOG=debug AWS_PROFILE=rastercar-vitor cargo watch -x 'run -p mailer'
 
 # ---------------------- [DECODER] ----------------------
-.PHONY: run_decoder_dev
-run_decoder_dev:
-	RUST_LOG=warn cargo watch -x 'run -p decoder'
-
-.PHONY: run_decoder_dev_no_watch
-run_decoder_dev_no_watch:
-	RUST_LOG=warn cargo run -p decoder
-	
 .PHONY: run_decoder_error
 run_decoder_error:
 	RUST_LOG=error cargo watch -x 'run -p decoder'
