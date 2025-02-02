@@ -1,5 +1,7 @@
+# Rust
 /target
 /Cargo.lock
 
-todo.txt
-test-emails.txt
+# Env
+env/**
+!env/.example.yaml

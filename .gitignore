@@ -1,12 +1,3 @@
 # rust
 /target
 **/target
-
-# Env
-.env
-env/*
-!env/.example.env
-
-# Other
-todo.txt
-openapi.json

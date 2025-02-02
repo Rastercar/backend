@@ -1,0 +1,21 @@
+# Application configuration
+app_debug: true
+tracer_service_name: "my-tracing-service"
+
+# RabbitMQ configuration
+rmq_uri: "amqp://user:password@rabbitmq_host:5672"
+rmq_queue: "my-queue"
+rmq_consumer_tag: "my-consumer-tag"
+rmq_email_events_exchange: "email-events-exchange"
+
+# AWS configuration
+aws_region: "us-west-2"
+aws_ses_tracking_config_set: "my-ses-config-set"
+aws_sns_tracking_subscription_arn: "arn:aws:sns:us-west-2:123456789012:my-sns-subscription"
+aws_ses_max_emails_per_second: 5
+
+# HTTP server configuration
+http_port: 8080
+
+# Default email sender address
+app_default_email_sender: "no-reply@example.com"
