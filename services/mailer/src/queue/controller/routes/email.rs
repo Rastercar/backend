@@ -1,13 +1,15 @@
 use crate::{
     mailer::SendEmailOptions,
     queue::controller::{
-        dto::events::{EmailRequestFinishedEvent, EmailSendingReceivedEvent},
+        dto::{
+            events::{EmailRequestFinishedEvent, EmailSendingReceivedEvent},
+            rmq::SendEmailIn,
+        },
         router::QueueRouter,
         utils::ack_delivery,
     },
 };
 use lapin::message::Delivery;
-use shared::dto::mailer::SendEmailIn;
 use tracing::{event, Level};
 use uuid::Uuid;
 use validator::Validate;

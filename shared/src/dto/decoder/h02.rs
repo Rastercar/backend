@@ -1,6 +1,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+// TODO: i can be moved to the decoder service if im not shared between rust services
+
 #[derive(Serialize, Deserialize)]
 pub struct LocationMsg {
     /// latitude (90 to -90) in decimal degrees

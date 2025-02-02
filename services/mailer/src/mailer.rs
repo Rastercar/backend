@@ -1,7 +1,9 @@
 use crate::{
     config::app_config,
-    queue::controller::dto::events::EmailSendingErrorEvent,
-    queue::{self},
+    queue::{
+        self,
+        controller::dto::{events::EmailSendingErrorEvent, rmq::EmailRecipient},
+    },
 };
 use aws_sdk_sesv2::{
     config::Region,
@@ -17,7 +19,6 @@ use governor::{
     Quota,
 };
 use handlebars::Handlebars;
-use shared::dto::mailer::EmailRecipient;
 use std::{num::NonZeroU32, sync::Arc, thread, time};
 use tokio::task::JoinSet;
 use tracing::{error, event, Instrument, Level};

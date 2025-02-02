@@ -1,7 +1,7 @@
-//! DTOS for all events and operation inputs accepted by the mailer service
+//! DTOS for all events and operation inputs accepted by the mailer service over rabbitmq
 
-use super::validation::{email_vec, rfc_5322_email};
 use serde::{Deserialize, Serialize};
+use shared::dto::validation::{email_vec, rfc_5322_email};
 use std::collections::HashMap;
 use uuid;
 use validator::Validate;
@@ -62,21 +62,4 @@ pub struct SendEmailIn {
     /// If tracking for email events such as clicks and opens should be enabled
     #[serde(default)]
     pub enable_tracking: bool,
-}
-
-impl SendEmailIn {
-    pub fn with_body_html(mut self, html: &str) -> SendEmailIn {
-        self.body_html = Some(String::from(html));
-        self
-    }
-
-    pub fn with_to(mut self, recipients: Vec<EmailRecipient>) -> SendEmailIn {
-        self.to = recipients;
-        self
-    }
-
-    pub fn with_subject(mut self, subject: &str) -> SendEmailIn {
-        self.subject = String::from(subject);
-        self
-    }
 }

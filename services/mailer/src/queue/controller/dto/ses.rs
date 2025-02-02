@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct SnsNotification {
     #[serde(rename = "Type")]

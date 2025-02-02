@@ -7,23 +7,31 @@ version: '3.7'
 
 services:
   rabbitmq:
-    container_name: mailer-rabbitmq
+    container_name: rastercar-rmq
     image: rabbitmq:3.10.1-management
     ports:
       - 5672:5672
       - 15672:15672
 
+  # see: https://www.jaegertracing.io/docs/2.0/getting-started/
   jaeger:
-    container_name: mailer-jaeger
-    image: "jaegertracing/all-in-one:latest"
+    container_name: rastercar-jaeger
+    image: 'jaegertracing/jaeger:2.0.0'
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
     ports:
-      - "5775:5775/udp"
-      - "6831:6831/udp"
-      - "6832:6832/udp"
-      - "5778:5778"
-      - "16686:16686"
-      - "14268:14268"
-      - "9411:9411"
+      - '5778:5778' # Configuration
+      - '16686:16686' # Query UI
+      - '4317:4317' # OTLP gRPC
+      - '4318:4318' # OTLP HTTP
+      - '14250:14250' # gRPC for collector
+      - '14268:14268' # HTTP for collector
+      - '9411:9411' # Zipkin
+    command:
+      - --set
+      - receivers.otlp.protocols.http.endpoint=0.0.0.0:4318
+      - --set
+      - receivers.otlp.protocols.grpc.endpoint=0.0.0.0:4317
 ```
 
 ## SES setup
@@ -71,7 +79,7 @@ will publish the events to the HTTPS endpoint to your PC.
 |           name                    |                                    meaning                         | example                           |
 |-----------------------------------|--------------------------------------------------------------------|-----------------------------------|
 | APP_DEBUG                         | debug mode, if true will log to debug info to stdout               | false                             |
-| APP_DEFAULT_EMAIL_SENDER          | default email address to be used as the sender                     | no-reply@your-company.com         |
+| APP_DEFAULT_EMAIL_SENDER          | default email address to be used as the sender                     | <no-reply@your-company.com>       |
 | RMQ_URI                           | rabbitmq url                                                       | amqp://guest:guest@localhost:5672 |
 | RMQ_QUEUE                         | name of the rabbitmq queue to listen for messages                  | mailer_queue                      |
 | RMQ_CONSUMER_TAG                  | name of the consumer tag for the queue consumer                    | mailer_queue_consumer             |

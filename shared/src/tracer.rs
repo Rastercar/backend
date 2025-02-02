@@ -1,3 +1,5 @@
+//! utilities for tracing using open telemetry and jaeger
+
 use lapin::{
     message::Delivery,
     types::{AMQPValue, ShortString},
