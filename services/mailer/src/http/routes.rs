@@ -13,8 +13,6 @@ use axum::{
     response::Response,
 };
 use convert_case::{Case, Casing};
-use opentelemetry::trace::TraceContextExt;
-use opentelemetry::KeyValue;
 use tracing::Span;
 use tracing::{error, event, Level};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
@@ -120,18 +118,16 @@ pub async fn check_aws_sns_arn_middleware(
     nxt: Next,
 ) -> Result<Response, (StatusCode, String)> {
     let span = Span::current();
-    let span_ctx = span.context();
-    let otel_span = span_ctx.span();
 
-    otel_span.set_attribute(KeyValue::new(
+    span.set_attribute(
         "provided aws.sns.subscription_arn",
         format!("{:?}", req.headers().get("x-amz-sns-subscription-arn")),
-    ));
+    );
 
-    otel_span.set_attribute(KeyValue::new(
+    span.set_attribute(
         "required aws.sns.subscription_arn",
         format!("{:?}", state.aws_email_sns_subscription_arn),
-    ));
+    );
 
     if let Some(sns_arn_to_match) = state.aws_email_sns_subscription_arn {
         if let Some(sns_arn_header) = req.headers().get("x-amz-sns-subscription-arn") {
