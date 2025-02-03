@@ -1,7 +1,7 @@
 # ---------------------- [GIT] ----------------------
 .PHONY: lazy
 lazy:
-	git add . && git commit -m "." && git push origin master
+	git add . && git commit -m "." && git push origin homolog
 
 # ---------------------- [MAILER] ----------------------
 .PHONY: run_mailer_error
