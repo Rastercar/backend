@@ -129,24 +129,23 @@ pub async fn check_aws_sns_arn_middleware(
         format!("{:?}", state.aws_email_sns_subscription_arn),
     );
 
-    if let Some(sns_arn_to_match) = state.aws_email_sns_subscription_arn {
-        if let Some(sns_arn_header) = req.headers().get("x-amz-sns-subscription-arn") {
-            let request_sns_arn = sns_arn_header.to_str().unwrap_or("");
+    // if let Some(sns_arn_to_match) = state.aws_email_sns_subscription_arn {
+    //     if let Some(sns_arn_header) = req.headers().get("x-amz-sns-subscription-arn") {
+    //         let request_sns_arn = sns_arn_header.to_str().unwrap_or("");
 
-            if request_sns_arn.eq(&sns_arn_to_match) {
-                return Ok(nxt.run(req).await);
-            }
-        }
+    //         if request_sns_arn.eq(&sns_arn_to_match) {
+    //             return Ok(nxt.run(req).await);
+    //         }
+    //     }
 
-        tracing::error!("invalid sns arn");
-        return Err((StatusCode::FORBIDDEN, String::from("invalid SNS ARN")));
-    }
+    //     tracing::error!("invalid sns arn");
+    //     return Err((StatusCode::FORBIDDEN, String::from("invalid SNS ARN")));
+    // }
 
     Ok(nxt.run(req).await)
 }
 
 /// just returns a ok response to say the service is healthy
-#[tracing::instrument(skip_all)]
 pub async fn healthcheck() -> (StatusCode, String) {
     (StatusCode::OK, String::from("ok"))
 }
