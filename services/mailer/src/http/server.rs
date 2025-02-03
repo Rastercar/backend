@@ -1,11 +1,11 @@
 use crate::{
     config::app_config,
-    http::routes::{check_aws_sns_arn_middleware, handle_ses_event},
+    http::routes::{check_aws_sns_arn_middleware, handle_ses_event, healthcheck},
     queue::MailerRabbitmq,
 };
 use axum::{
     middleware::{self},
-    routing::post,
+    routing::{get, post},
     Router,
 };
 use std::{
@@ -27,12 +27,18 @@ pub async fn start(mailer_rmq: Arc<MailerRabbitmq>) {
         aws_email_sns_subscription_arn: cfg.aws_sns_tracking_subscription_arn.clone(),
     };
 
-    let app = Router::new()
+    let healthcheck_router = Router::new().route("/healthcheck", get(healthcheck)); // No middleware here
+
+    let protected_router = Router::new()
         .route("/ses-events", post(handle_ses_event))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             check_aws_sns_arn_middleware,
-        ))
+        ));
+
+    let app = Router::new()
+        .merge(healthcheck_router)
+        .merge(protected_router)
         .with_state(state);
 
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), cfg.http_port);

@@ -129,3 +129,9 @@ pub async fn check_aws_sns_arn_middleware(
 
     Ok(nxt.run(req).await)
 }
+
+/// just returns a ok response to say the service is healthy
+#[tracing::instrument(skip_all)]
+pub async fn healthcheck() -> (StatusCode, String) {
+    (StatusCode::OK, String::from("ok"))
+}
