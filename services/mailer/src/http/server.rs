@@ -27,7 +27,7 @@ pub async fn start(mailer_rmq: Arc<MailerRabbitmq>) {
         aws_email_sns_subscription_arn: cfg.aws_sns_tracking_subscription_arn.clone(),
     };
 
-    let healthcheck_router = Router::new().route("/healthcheck", get(healthcheck)); // No middleware here
+    let healthcheck_router = Router::new().route("/healthcheck", get(healthcheck));
 
     let protected_router = Router::new()
         .route("/ses-events", post(handle_ses_event))
@@ -41,7 +41,7 @@ pub async fn start(mailer_rmq: Arc<MailerRabbitmq>) {
         .merge(protected_router)
         .with_state(state);
 
-    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), cfg.http_port);
+    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 0)), cfg.http_port);
     println!("[WEB] listening on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(&addr)
