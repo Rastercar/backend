@@ -42,7 +42,7 @@ async fn main() {
     });
 
     listeners::start_tcp_listener(
-        format!("127.0.0.1:{}", config.port_h02).as_str(),
+        format!("127.0.0.0:{}", config.port_h02).as_str(),
         sender,
         h02::stream_handler,
     )

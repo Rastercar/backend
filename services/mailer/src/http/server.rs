@@ -41,7 +41,7 @@ pub async fn start(mailer_rmq: Arc<MailerRabbitmq>) {
         .merge(protected_router)
         .with_state(state);
 
-    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 0)), cfg.http_port);
+    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), cfg.http_port);
     println!("[WEB] listening on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(&addr)
