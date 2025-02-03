@@ -47,7 +47,7 @@ jobs:
           MAILER_ECR_REPOSITORY: ${{ secrets.MAILER_ECR_REPOSITORY }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build --build-arg GIT_COMMIT_HASH=$(git rev-parse HEAD) -t $ECR_REGISTRY/$MAILER_ECR_REPOSITORY:$IMAGE_TAG .
+          docker build -f services/mailer/Dockerfile -t $ECR_REGISTRY/$MAILER_ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$MAILER_ECR_REPOSITORY:$IMAGE_TAG
           echo "::set-output name=image::$ECR_REGISTRY/$MAILER_ECR_REPOSITORY:$IMAGE_TAG"
 
