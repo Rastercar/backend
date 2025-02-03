@@ -13,7 +13,11 @@ use axum::{
     response::Response,
 };
 use convert_case::{Case, Casing};
+use opentelemetry::trace::TraceContextExt;
+use opentelemetry::KeyValue;
+use tracing::Span;
 use tracing::{error, event, Level};
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 #[tracing::instrument(skip_all)]
 fn get_email_event_from_json_str(body: &str) -> Result<EmailEvent, String> {
@@ -115,6 +119,20 @@ pub async fn check_aws_sns_arn_middleware(
     req: Request<axum::body::Body>,
     nxt: Next,
 ) -> Result<Response, (StatusCode, String)> {
+    let span = Span::current();
+    let span_ctx = span.context();
+    let otel_span = span_ctx.span();
+
+    otel_span.set_attribute(KeyValue::new(
+        "provided aws.sns.subscription_arn",
+        format!("{:?}", req.headers().get("x-amz-sns-subscription-arn")),
+    ));
+
+    otel_span.set_attribute(KeyValue::new(
+        "required aws.sns.subscription_arn",
+        format!("{:?}", state.aws_email_sns_subscription_arn),
+    ));
+
     if let Some(sns_arn_to_match) = state.aws_email_sns_subscription_arn {
         if let Some(sns_arn_header) = req.headers().get("x-amz-sns-subscription-arn") {
             let request_sns_arn = sns_arn_header.to_str().unwrap_or("");
@@ -124,6 +142,7 @@ pub async fn check_aws_sns_arn_middleware(
             }
         }
 
+        tracing::error!("invalid sns arn");
         return Err((StatusCode::FORBIDDEN, String::from("invalid SNS ARN")));
     }
 

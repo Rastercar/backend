@@ -8,6 +8,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use axum_tracing_opentelemetry::middleware::{OtelAxumLayer, OtelInResponseLayer};
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::Arc,
@@ -34,7 +35,9 @@ pub async fn start(mailer_rmq: Arc<MailerRabbitmq>) {
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             check_aws_sns_arn_middleware,
-        ));
+        ))
+        .layer(OtelInResponseLayer::default())
+        .layer(OtelAxumLayer::default());
 
     let app = Router::new()
         .merge(healthcheck_router)

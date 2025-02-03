@@ -23,7 +23,9 @@ tokio-reactor-trait = { workspace = true }
 serde = { workspace = true }
 chrono = { workspace = true }
 
+opentelemetry = { workspace = true }
 tracing = { workspace = true }
+tracing-opentelemetry = { workspace = true }
 
 futures = "0.3.28"
 aws-sdk-sesv2 = "1.1.18"
@@ -32,3 +34,4 @@ strum_macros = "0.24.3"
 handlebars = "4.3.6"
 governor = "0.5.1"
 config = "0.15.7"
+axum-tracing-opentelemetry = "0.25.0"

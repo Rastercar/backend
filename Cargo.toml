@@ -8,7 +8,6 @@ resolver = "2"
 [workspace.dependencies]
 shared = { path = "shared" }
 
-envy = "0.4"
 bcrypt = "0.15.1"
 lazy_static = "1.4.0"
 convert_case = "0.6.0"
