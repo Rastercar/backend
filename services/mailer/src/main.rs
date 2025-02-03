@@ -2,6 +2,7 @@ use config::app_config;
 use lapin::message::Delivery;
 use mailer::Mailer;
 use queue::{controller::router::QueueRouter, MailerRabbitmq};
+use shared::tracer::TracingOpts;
 use signal_hook::{
     consts::{SIGINT, SIGTERM},
     iterator::Signals,
@@ -20,10 +21,11 @@ mod utils;
 async fn main() {
     let app_cfg = app_config();
 
-    shared::tracer::init_tracing_with_jaeger_otel(
-        app_cfg.tracer_service_name.clone(),
-        app_cfg.app_debug,
-    );
+    shared::tracer::init_tracing_with_jaeger_otel(TracingOpts {
+        service_name: app_cfg.tracer_service_name.clone(),
+        exporter_endpoint: app_cfg.otel_exporter_otlp_endpoint.clone(),
+        with_std_out_layer: app_cfg.app_debug,
+    });
 
     let (sender, mut receiver) = mpsc::unbounded_channel::<Delivery>();
 

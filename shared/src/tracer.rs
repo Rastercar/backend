@@ -9,6 +9,7 @@ use opentelemetry::{
     propagation::{Extractor, Injector},
     Context, KeyValue,
 };
+use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{runtime, trace::TracerProvider, Resource};
 use opentelemetry_semantic_conventions::resource::SERVICE_NAME;
 use std::collections::BTreeMap;
@@ -89,6 +90,12 @@ pub fn correlate_trace_from_delivery(delivery: Delivery) -> (Span, Delivery) {
     (span, delivery)
 }
 
+pub struct TracingOpts {
+    pub service_name: String,
+    pub exporter_endpoint: String,
+    pub with_std_out_layer: bool,
+}
+
 /// # PANICS
 ///
 /// when failing to initialize tracing or set globals
@@ -113,12 +120,13 @@ pub fn correlate_trace_from_delivery(delivery: Delivery) -> (Span, Delivery) {
 /// - opentelemetry::global::set_tracer_provider
 /// - global tracing subscriber (https://docs.rs/tracing/0.1.21/tracing/dispatcher/index.html#setting-the-default-subscriber)
 ///
-pub fn init_tracing_with_jaeger_otel(service_name: String, with_std_out_layer: bool) {
+pub fn init_tracing_with_jaeger_otel(opts: TracingOpts) {
     let text_map_propagator = opentelemetry_jaeger_propagator::propagator::Propagator::new();
     opentelemetry::global::set_text_map_propagator(text_map_propagator);
 
     let exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_tonic()
+        .with_endpoint(opts.exporter_endpoint.clone())
         .build()
         .expect("failed to initialize tracer");
 
@@ -126,17 +134,17 @@ pub fn init_tracing_with_jaeger_otel(service_name: String, with_std_out_layer: b
         .with_batch_exporter(exporter, runtime::Tokio)
         .with_resource(Resource::new(vec![KeyValue::new(
             SERVICE_NAME,
-            String::from(service_name.clone()),
+            String::from(opts.service_name.clone()),
         )]))
         .build();
 
     opentelemetry::global::set_tracer_provider(provider.clone());
 
-    let otel_tracer = provider.tracer(service_name.clone());
+    let otel_tracer = provider.tracer(opts.service_name.clone());
 
     let otel_layer = tracing_opentelemetry::layer().with_tracer(otel_tracer);
 
-    let stdout_layer = if with_std_out_layer {
+    let stdout_layer = if opts.with_std_out_layer {
         Some(tracing_subscriber::fmt::Layer::default())
     } else {
         None
@@ -148,7 +156,8 @@ pub fn init_tracing_with_jaeger_otel(service_name: String, with_std_out_layer: b
         .with(otel_layer)
         .init();
 
-    println!("[TRACER] initialized as service: {}", service_name);
+    println!("[TRACER] exporter endpoint: {}", opts.exporter_endpoint);
+    println!("[TRACER] initialized as service: {}", opts.service_name);
 }
 
 /// async wrapper for `opentelemetry::global::shutdown_tracer_provider()` because it might hang forever

@@ -43,35 +43,27 @@ pub struct AppConfig {
 
     /// Email address to be used to send emails if the caller does not specify a address
     pub app_default_email_sender: String,
+
+    /// opentelemetry exporter endpoint
+    pub otel_exporter_otlp_endpoint: String,
 }
 
 impl AppConfig {
     pub fn from_env() -> AppConfig {
         let run_mode = env::var("RUN_MODE").unwrap_or_else(|_| "development".into());
-        let base_path = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let base_path = env::var("CARGO_MANIFEST_DIR").unwrap_or_default();
 
-        // Start off by merging in the "default" configuration file
-        let s = Config::builder()
-            .add_source(
-                File::with_name(&format!("{base_path}/env/.{run_mode}.yaml"))
-                    .format(config::FileFormat::Yaml)
-                    .required(false),
-            )
+        let yaml_config_file = File::with_name(&format!("{base_path}/env/{run_mode}.yaml"))
+            .format(config::FileFormat::Yaml)
+            .required(false);
+
+        Config::builder()
+            .add_source(yaml_config_file)
             .add_source(Environment::default())
             .build()
-            .unwrap_or_else(|error| {
-                panic!("[CFG] failed to load application config, {:#?}", error)
-            });
-
-        println!("app_debug: {:?}", s.get_bool("app_debug"));
-        println!("APP_DEBUG: {:?}", s.get_bool("APP_DEBUG"));
-
-        s.try_deserialize::<AppConfig>().unwrap_or_else(|error| {
-            panic!(
-                "[CFG] failed to deserialize application config, {:#?}",
-                error
-            )
-        })
+            .unwrap_or_else(|error| panic!("[CFG] error loading config, {:#?}", error))
+            .try_deserialize::<AppConfig>()
+            .unwrap_or_else(|error| panic!("[CFG] error deserializing config, {:#?}", error))
     }
 }
 

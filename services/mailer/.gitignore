@@ -4,4 +4,4 @@
 
 # Env
 env/**
-!env/.example.yaml
+!env/example.yaml

@@ -9,9 +9,11 @@ rmq_consumer_tag: "my-consumer-tag"
 rmq_email_events_exchange: "email-events-exchange"
 
 # AWS configuration
-aws_region: "us-west-2"
+aws_access_key_id: "..."
+aws_secret_access_key: "..."
+aws_region: "us-east-1"
 aws_ses_tracking_config_set: "my-ses-config-set"
-aws_sns_tracking_subscription_arn: "arn:aws:sns:us-west-2:123456789012:my-sns-subscription"
+aws_sns_tracking_subscription_arn: "arn:aws:sns:us-east-1:123456789012:my-sns-subscription"
 aws_ses_max_emails_per_second: 5
 
 # HTTP server configuration
@@ -19,3 +21,6 @@ http_port: 8080
 
 # Default email sender address
 app_default_email_sender: "no-reply@example.com"
+
+# Otel config
+otel_exporter_otlp_endpoint: "http://localhost:4317"
