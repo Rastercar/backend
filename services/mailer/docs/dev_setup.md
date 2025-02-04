@@ -1,38 +1,6 @@
 # Development setup
 
-To develop/run this service you will need Jaeger and rabbitmq, like in this example docker-compose file.
-
-```yaml
-version: '3.7'
-
-services:
-  rabbitmq:
-    container_name: rastercar-rmq
-    image: rabbitmq:3.10.1-management
-    ports:
-      - 5672:5672
-      - 15672:15672
-
-  # see: https://www.jaegertracing.io/docs/2.0/getting-started/
-  jaeger:
-    container_name: rastercar-jaeger
-    image: 'jaegertracing/jaeger:2.0.0'
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
-    ports:
-      - '5778:5778' # Configuration
-      - '16686:16686' # Query UI
-      - '4317:4317' # OTLP gRPC
-      - '4318:4318' # OTLP HTTP
-      - '14250:14250' # gRPC for collector
-      - '14268:14268' # HTTP for collector
-      - '9411:9411' # Zipkin
-    command:
-      - --set
-      - receivers.otlp.protocols.http.endpoint=0.0.0.0:4318
-      - --set
-      - receivers.otlp.protocols.grpc.endpoint=0.0.0.0:4317
-```
+To develop/run this service you will need Jaeger and rabbitmq, running on localhost
 
 ## SES setup
 
@@ -50,7 +18,6 @@ Now we need to create a configuration set to track email events using SNS and SE
 - on your SES configuration set, add a event destination to the created SNS topic
 - create a HTTPS subscription pointing to the URL of where you pretend to host this service
 - finally run this service with the env var `AWS_SES_TRACKING_CONFIG_SET` set to the name of the cfg set you created
-
 
 ## Routing SNS events to your local machine
 

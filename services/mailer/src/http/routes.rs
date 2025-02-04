@@ -13,8 +13,9 @@ use axum::{
     response::Response,
 };
 use convert_case::{Case, Casing};
+use opentelemetry::trace::Status;
+use tracing::error;
 use tracing::Span;
-use tracing::{error, event, Level};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 #[tracing::instrument(skip_all)]
@@ -51,15 +52,11 @@ fn get_email_event_from_json_str(body: &str) -> Result<EmailEvent, String> {
         ))?
         .to_owned();
 
-    event!(Level::INFO, request_uuid);
-
     let event_type = ses_evt
         .event_type
         .or(ses_evt.notification_type)
         .ok_or("failed to get event type from ses event")?
         .to_case(Case::Snake);
-
-    event!(Level::INFO, event_type);
 
     let err_msg = format!("object for event of type: {} not present", event_type);
 
@@ -93,16 +90,33 @@ pub async fn handle_ses_event(
     State(state): State<AppState>,
     body: String,
 ) -> Result<String, StatusCode> {
+    let span = Span::current();
+
     match get_email_event_from_json_str(&body) {
         Ok(email_event) => {
+            span.set_attribute("event type", email_event.event_type.clone());
+            span.set_attribute("email uuid", email_event.request_uuid.clone());
+
             if let Err(publish_error) = state.mailer_rmq.publish_event(email_event).await {
-                error!("ses event publishing failed: {}", publish_error)
+                error!(publish_error);
+
+                span.set_status(Status::Error {
+                    description: String::from("event publishing failed").into(),
+                });
+
+                return Err(StatusCode::INTERNAL_SERVER_ERROR);
             }
 
+            span.set_status(Status::Ok);
             Ok("event handled correctly".to_owned())
         }
         Err(error) => {
             error!(error);
+
+            span.set_status(Status::Error {
+                description: String::from("failed to decode email event").into(),
+            });
+
             Err(StatusCode::BAD_REQUEST)
         }
     }
@@ -129,18 +143,18 @@ pub async fn check_aws_sns_arn_middleware(
         format!("{:?}", state.aws_email_sns_subscription_arn),
     );
 
-    // if let Some(sns_arn_to_match) = state.aws_email_sns_subscription_arn {
-    //     if let Some(sns_arn_header) = req.headers().get("x-amz-sns-subscription-arn") {
-    //         let request_sns_arn = sns_arn_header.to_str().unwrap_or("");
+    if let Some(sns_arn_to_match) = state.aws_email_sns_subscription_arn {
+        if let Some(sns_arn_header) = req.headers().get("x-amz-sns-subscription-arn") {
+            let request_sns_arn = sns_arn_header.to_str().unwrap_or("");
 
-    //         if request_sns_arn.eq(&sns_arn_to_match) {
-    //             return Ok(nxt.run(req).await);
-    //         }
-    //     }
+            if request_sns_arn.eq(&sns_arn_to_match) {
+                return Ok(nxt.run(req).await);
+            }
+        }
 
-    //     tracing::error!("invalid sns arn");
-    //     return Err((StatusCode::FORBIDDEN, String::from("invalid SNS ARN")));
-    // }
+        tracing::error!("invalid sns arn");
+        return Err((StatusCode::FORBIDDEN, String::from("invalid SNS ARN")));
+    }
 
     Ok(nxt.run(req).await)
 }
