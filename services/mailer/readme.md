@@ -24,8 +24,7 @@ single instance should be more than enough.
 
 ## Tracing
 
-Jaeger is used for tracing, by default only warn and above spans are exported, since AWS uses a lot of debug and info spans on their libraries.
-Spans are filtered according to the `RUST_LOG` env var, for example
+Jaeger is used for tracing, spans are filtered according to the `RUST_LOG` env var, for example
 
 ```bash
 # log spans with priority info and above, except for the aws_config crate which will log warn and above
