@@ -38,6 +38,10 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          # fetch the previous commit aswell so we can compare the changed files
+          # and the check-base-image-needs-rebuilding.sh script can compare them
+          fetch-depth: 2
 
       - name: Check if Base Image Needs Rebuilding
         id: run_script_check_base_image_needs_rebuild
