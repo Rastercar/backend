@@ -10,3 +10,5 @@ else
     echo "root Dockerfile changed, base image needs rebuilding"
     exit 1
 fi
+
+#
