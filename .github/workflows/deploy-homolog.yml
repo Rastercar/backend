@@ -4,7 +4,7 @@ name: Deploy Homolog
 on:
   push:
     branches:
-      - test
+      - homolog
 
 jobs:
   # set build_base_image to true if the base image must be rebuild before
