@@ -31,7 +31,7 @@ FROM chef AS builder
 COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 
-# Export compiled dependencies as a reusable layer
+# Export compiled dependencies as a reusable layer 123
 FROM chef AS base
 WORKDIR /app
 COPY --from=builder /app/target /app/target
