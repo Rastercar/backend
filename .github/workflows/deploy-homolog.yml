@@ -76,4 +76,4 @@ jobs:
         run: |
           docker build -f services/mailer/Dockerfile -t $ECR_REGISTRY/$RUST_SERVICES_BASE_ECR_REPOSITORY:latest .
           docker push $ECR_REGISTRY/$RUST_SERVICES_BASE_ECR_REPOSITORY:latest
-          echo "::set-output name=image::$ECR_REGISTRY/$RUST_SERVICES_BASE_ECR_REPOSITORY:latest"
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:latest" >> $GITHUB_OUTPUT
