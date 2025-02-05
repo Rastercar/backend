@@ -188,22 +188,3 @@ jobs:
           docker build -f services/mailer/Dockerfile -t $ECR_REGISTRY/$DECODER_ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$DECODER_ECR_REPOSITORY:$IMAGE_TAG
           echo "image=$ECR_REGISTRY/$DECODER_ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
-
-      # - name: Download task definition
-      #   run: |
-      #     aws ecs describe-task-definition --region ${{ secrets.AWS_REGION }} --task-definition decoder-homolog --query taskDefinition > task-definition.json
-
-      # - name: Fill in new image ID in task definition
-      #   id: task-def
-      #   uses: aws-actions/amazon-ecs-render-task-definition@v1
-      #   with:
-      #     image: ${{ steps.build-image.outputs.image }}
-      #     container-name: mailer
-      #     task-definition: task-definition.json
-
-      # - name: Deploy Amazon ECS task definition
-      #   uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-      #   with:
-      #     service: ${{ secrets.MAILER_ECS_HOMOLOG_SERVICE }}
-      #     cluster: ${{ secrets.ECS_HOMOLOG_CLUSTER }}
-      #     task-definition: ${{ steps.task-def.outputs.task-definition }}
