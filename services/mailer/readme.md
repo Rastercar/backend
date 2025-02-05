@@ -4,8 +4,6 @@ A simple email sending micro service, made for asynchronous and event based syst
 
 ## Architecture
 
-dasdsaidjasoij dioas
-
 ![diagram](./docs/imgs/diagram.png "diagram")
 
 The service declares and consumes a single persistent queue, producers can send to the queue using a direct exchange or by declaring their own exchanges
