@@ -1,41 +1,21 @@
 # Builds the base rust image to be used within services dockerfiles
 # to build services images, for more info see the project root Dockerfile
-name: Build rust services base image
+name: Deploy Homolog
 on:
   push:
     branches:
       - test
 
-    # paths: /
-    # # Trigger on changes to the base dependencies
-    # - "Cargo.toml"
-    # - "Cargo.lock"
-
-    # # Trigger on changes to the base dockerfile
-    # - "Dockerfile"
-
-    # # Trigger on changes in any src folder within services
-    # - "shared/*/src/**"
-    # - "shared/Cargo.toml"
-
-    # # Trigger on changes in any src folder within services
-    # - "services/*/src/**"
-
-    # # Trigger on changes in any Dockerfile within services
-    # - "services/*/Dockerfile"
-
-    # # Trigger on changes in any Cargo.toml within services
-    # - "services/*/Cargo.toml"
-    # - "services/*/Cargo.lock"
-
 jobs:
-  # set the MUST_REBUILD_BASE_IMAGE to true if the base image must be rebuild before
+  # set build_base_image to true if the base image must be rebuild before
   # building the docker images of any service that depends on this base image
-  check_base_image_needs_rebuilding:
+  check_images_that_need_building:
     name: Check base image needs to be built
     runs-on: ubuntu-latest
     outputs:
-      must_rebuild: ${{ steps.run_script_check_base_image_needs_rebuild.outputs.must_rebuild }}
+      build_base: ${{ steps.check_image.outputs.build }}
+      build_mailer: ${{ steps.check_mailer.outputs.build }}
+      build_decoder: ${{ steps.check_decoder.outputs.build }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -45,25 +25,37 @@ jobs:
           fetch-depth: 2
 
       - name: Check if Base Image Needs Rebuilding
-        id: run_script_check_base_image_needs_rebuild
+        id: check_image
         run: |
           scripts/check-base-image-needs-rebuilding.sh
-          echo "must_rebuild=$([ $? -eq 1 ] && echo "true" || echo "false")" >> "$GITHUB_OUTPUT"
+          echo "build=$([ $? -eq 1 ] && echo "true" || echo "false")" >> "$GITHUB_OUTPUT"
+
+      - name: Check mailer needs rebuilding
+        id: check_mailer
+        run: |
+          scripts/check-some-file-in-folder-has-changed.sh /services/mailer
+          echo "build=$([ $? -eq 1 ] && echo "true" || echo "false")" >> "$GITHUB_OUTPUT"
+
+      - name: Check decoder needs rebuilding
+        id: check_decoder
+        run: |
+          scripts/check-some-file-in-folder-has-changed.sh /services/decoder
+          echo "build=$([ $? -eq 1 ] && echo "true" || echo "false")" >> "$GITHUB_OUTPUT"
 
   # builds and uploads the base image needed for building the services
-  # we skip all steps if must_rebuild !== true instead of skipping the whole job
+  # we skip all steps if build_base_image !== true instead of skipping the whole job
   # so services builds can depend on this job and assure the base image has been built
   build_base_image:
     name: Build base image if needed
     runs-on: ubuntu-latest
-    needs: check_base_image_needs_rebuilding
+    needs: check_images_that_need_building
     steps:
       - name: Checkout Code
-        if: ${{ needs.check_base_image_needs_rebuilding.outputs.must_rebuild }} === 'true'
+        if: ${{ needs.check_images_that_need_building.outputs.build_base }} === 'true'
         uses: actions/checkout@v4
 
       - name: Configure AWS credentials
-        if: ${{ needs.check_base_image_needs_rebuilding.outputs.must_rebuild }} === 'true'
+        if: ${{ needs.check_images_that_need_building.outputs.build_base }} === 'true'
         uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-region: ${{ secrets.AWS_REGION }}
@@ -71,13 +63,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Login to Amazon ECR
-        if: ${{ needs.check_base_image_needs_rebuilding.outputs.must_rebuild }} === 'true'
         id: login-ecr
+        if: ${{ needs.check_images_that_need_building.outputs.build_base }} === 'true'
         uses: aws-actions/amazon-ecr-login@v1
 
       - name: Build, tag, and push Docker image to Amazon ECR
-        if: ${{ needs.check_base_image_needs_rebuilding.outputs.must_rebuild }} === 'true'
-        id: build-image
+        if: ${{ needs.check_images_that_need_building.outputs.build_base }} === 'true'
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           RUST_SERVICES_BASE_ECR_REPOSITORY: ${{ secrets.RUST_SERVICES_BASE_ECR_REPOSITORY }}
@@ -89,7 +80,8 @@ jobs:
   # deploy the mailer service
   deploy-mailer:
     runs-on: ubuntu-latest
-    needs: build_base_image
+    if: ${{ needs.check_images_that_need_building.outputs.build_mailer }} === 'true'
+    needs: ["check_images_that_need_building", "build_base_image"]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -98,7 +90,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: "Cache cargo"
-        id: cache-cargo
         uses: "actions/cache@v4"
         with:
           path: |
@@ -124,9 +115,9 @@ jobs:
       - name: Build, tag, and push Docker image to Amazon ECR
         id: build-image
         env:
+          IMAGE_TAG: ${{ github.sha }}
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           MAILER_ECR_REPOSITORY: ${{ secrets.MAILER_ECR_REPOSITORY }}
-          IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -f services/mailer/Dockerfile -t $ECR_REGISTRY/$MAILER_ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$MAILER_ECR_REPOSITORY:$IMAGE_TAG
@@ -140,17 +131,13 @@ jobs:
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: task-definition.json
-          container-name: mailer
           image: ${{ steps.build-image.outputs.image }}
+          container-name: mailer
+          task-definition: task-definition.json
 
       - name: Deploy Amazon ECS task definition
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
           service: ${{ secrets.MAILER_ECS_HOMOLOG_SERVICE }}
           cluster: ${{ secrets.ECS_HOMOLOG_CLUSTER }}
-
-      - name: Verify ECS deployment
-        run: |
-          echo "Deployment to ECS completed successfully!"
+          task-definition: ${{ steps.task-def.outputs.task-definition }}

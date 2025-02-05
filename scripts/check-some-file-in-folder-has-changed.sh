@@ -2,14 +2,20 @@
 
 # checks if any file has changed within a folder
 
-# Folder to check for changes
-TARGET_FOLDER="./services/mailer"
+# Fail if no folder is provided
+if [ -z "$1" ]; then
+    echo "ERROR: TARGET_FOLDER argument is required."
+    exit 1
+fi
+
+# Get folder to check from the first argument
+TARGET_FOLDER="$1"
 
 # Detect changes in the target folder
 if git diff --quiet HEAD~1 HEAD -- "$TARGET_FOLDER"; then
-    echo "No changes detected in $TARGET_FOLDER."
-    exit 1 # Exit with 1 to indicate no changes
+    echo "NO changes detected in $TARGET_FOLDER."
+    exit 0
 else
     echo "Changes detected in $TARGET_FOLDER."
-    exit 0 # Exit with 0 to indicate changes exist
+    exit 1
 fi
