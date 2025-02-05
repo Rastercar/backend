@@ -10,3 +10,5 @@ for file in Dockerfile Cargo.lock Cargo.toml .dockerignore; do
         exit 1
     fi
 done
+
+echo "base image does NOT need rebuilding"
