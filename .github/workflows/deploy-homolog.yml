@@ -33,13 +33,13 @@ jobs:
       - name: Check mailer needs rebuilding
         id: check_mailer
         run: |
-          scripts/check-some-file-in-folder-has-changed.sh /services/mailer
+          scripts/check-some-file-in-folder-has-changed.sh services/mailer
           echo "build=$([ $? -eq 1 ] && echo "true" || echo "false")" >> "$GITHUB_OUTPUT"
 
       - name: Check decoder needs rebuilding
         id: check_decoder
         run: |
-          scripts/check-some-file-in-folder-has-changed.sh /services/decoder
+          scripts/check-some-file-in-folder-has-changed.sh services/decoder
           echo "build=$([ $? -eq 1 ] && echo "true" || echo "false")" >> "$GITHUB_OUTPUT"
 
   # builds and uploads the base image needed for building the services
