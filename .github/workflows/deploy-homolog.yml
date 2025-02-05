@@ -1,33 +1,57 @@
-name: Deploy to Homolog
-
+# Builds the base rust image to be used within services dockerfiles
+# to build services images, for more info see the project root Dockerfile
+name: Build rust services base image
 on:
   push:
     branches:
-      - homolog
+      - test
+
+    # paths: /
+    # # Trigger on changes to the base dependencies
+    # - "Cargo.toml"
+    # - "Cargo.lock"
+
+    # # Trigger on changes to the base dockerfile
+    # - "Dockerfile"
+
+    # # Trigger on changes in any src folder within services
+    # - "shared/*/src/**"
+    # - "shared/Cargo.toml"
+
+    # # Trigger on changes in any src folder within services
+    # - "services/*/src/**"
+
+    # # Trigger on changes in any Dockerfile within services
+    # - "services/*/Dockerfile"
+
+    # # Trigger on changes in any Cargo.toml within services
+    # - "services/*/Cargo.toml"
+    # - "services/*/Cargo.lock"
 
 jobs:
-  deploy:
+  # set the MUST_REBUILD_BASE_IMAGE to true if the base image must be rebuild before
+  # building the docker images of any service that depends on this base image
+  check_base_image_needs_rebuilding:
     runs-on: ubuntu-latest
-
+    outputs:
+      must_rebuild: ${{ steps.run_script_check_base_image_needs_rebuild.outputs.must_rebuild }}
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Check if Base Image Needs Rebuilding
+        id: run_script_check_base_image_needs_rebuild
+        run: |
+          scripts/check-base-image-needs-rebuilding.sh
+          echo "must_rebuild=$([ $? -eq 1 ] && echo "true" || echo "false")" >> "$GITHUB_OUTPUT"
 
-      - name: "Cache cargo"
-        id: cache-cargo
-        uses: "actions/cache@v4"
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
+  build-base-image:
+    runs-on: ubuntu-latest
+    needs: check_base_image_needs_rebuilding
+    if: ${{ needs.check_base_image_needs_rebuilding.outputs.must_rebuild }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v3
@@ -44,33 +68,8 @@ jobs:
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          MAILER_ECR_REPOSITORY: ${{ secrets.MAILER_ECR_REPOSITORY }}
-          IMAGE_TAG: ${{ github.sha }}
+          RUST_SERVICES_BASE_ECR_REPOSITORY: ${{ secrets.RUST_SERVICES_BASE_ECR_REPOSITORY }}
         run: |
-          docker build -f services/mailer/Dockerfile -t $ECR_REGISTRY/$MAILER_ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$MAILER_ECR_REPOSITORY:$IMAGE_TAG
-          echo "::set-output name=image::$ECR_REGISTRY/$MAILER_ECR_REPOSITORY:$IMAGE_TAG"
-
-      - name: Download task definition
-        run: |
-          aws ecs describe-task-definition --region ${{ secrets.AWS_REGION }} --task-definition mailer-homolog --query taskDefinition > task-definition.json
-
-      - name: Fill in new image ID in task definition
-        id: task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: task-definition.json
-          container-name: mailer
-          image: ${{ steps.build-image.outputs.image }}
-
-      - name: Deploy Amazon ECS task definition
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ secrets.MAILER_ECS_HOMOLOG_SERVICE }}
-          cluster: ${{ secrets.ECS_HOMOLOG_CLUSTER }}
-          wait-for-service-stability: true
-
-      - name: Verify ECS deployment
-        run: |
-          echo "Deployment to ECS completed successfully!"
+          docker build -f services/mailer/Dockerfile -t $ECR_REGISTRY/$RUST_SERVICES_BASE_ECR_REPOSITORY:latest .
+          docker push $ECR_REGISTRY/$RUST_SERVICES_BASE_ECR_REPOSITORY:latest
+          echo "::set-output name=image::$ECR_REGISTRY/$RUST_SERVICES_BASE_ECR_REPOSITORY:latest"
