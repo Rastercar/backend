@@ -1,0 +1,16 @@
+# Application configuration
+app_debug: true
+
+# Rabbitmq
+rmq_uri: "amqp://localhost:5672"
+tracker_events_exchange: "tracker_events"
+
+# HTTP
+http_port: 4000
+
+# tracker decoders configuration
+port_h02: 4001
+
+# Otel config
+tracer_service_name: "tracker_decoder"
+otel_exporter_otlp_endpoint: "http://localhost:4317"

@@ -5,16 +5,24 @@ edition = "2021"
 
 [dependencies]
 shared = { workspace = true }
+
+axum = { workspace = true }
 tokio = { workspace = true }
 tokio-executor-trait = { workspace = true }
 tokio-reactor-trait = { workspace = true }
+
 serde = { workspace = true }
-chrono = { workspace = true }
 serde_json = { workspace = true }
+
+chrono = { workspace = true }
+
+config = { workspace = true }
+
 lapin = { workspace = true }
 
-signal-hook = { workspace = true }
 strum = { workspace = true }
+
+signal-hook = { workspace = true }
 
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
@@ -25,5 +33,5 @@ opentelemetry_sdk = { workspace = true }
 opentelemetry-otlp = { workspace = true }
 opentelemetry-semantic-conventions = { workspace = true }
 
+
 hex = "0.4"
-envy = "0.4"

@@ -1,6 +1,6 @@
 # Decoder
 
-A simple micro service for receiving TCP/UDP connections from vehicle trackers and decoding their packets, sending the decoded and parsed 
+A simple micro service for receiving TCP/UDP connections from vehicle trackers and decoding their packets, sending the decoded and parsed
 messages in JSON format to a rabbitmq exchange.
 
 ## Tracker configuration
@@ -27,7 +27,7 @@ The service is open connection for the following ports/protocols
 
 | PORT  | PROTOCOL | TRACKER PROTOCOL             |
 | ----- | -------- | ---------------------------- |
-| 3003  | TCP      | [H02](./docs/h02/readme.md)  |
+| 4003  | TCP      | [H02](./docs/h02/readme.md)  |
 
 ## Environment variables
 

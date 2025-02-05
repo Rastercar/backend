@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 
 mod config;
-mod errors;
+mod http;
 mod protocols;
 mod rabbitmq;
 mod server;
@@ -17,12 +17,12 @@ mod server;
 #[tokio::main]
 #[allow(clippy::never_loop)]
 async fn main() {
-    let config = AppConfig::from_env().expect("failed to load application config");
+    let config = AppConfig::from_env();
 
     shared::tracer::init_tracing_with_jaeger_otel(shared::tracer::TracingOpts {
         service_name: config.tracer_service_name.clone(),
-        exporter_endpoint: String::from("TODO: fixme !"),
-        with_std_out_layer: config.debug,
+        exporter_endpoint: config.otel_exporter_otlp_endpoint.clone(),
+        with_std_out_layer: config.app_debug,
     });
 
     let mut signals = Signals::new([SIGINT, SIGTERM]).expect("failed to setup signals hook");
@@ -33,6 +33,7 @@ async fn main() {
     let rmq_server_ref = rmq_server.clone();
 
     tokio::spawn(async move { rmq_server.start().await });
+    tokio::spawn(async move { http::start_server(config.http_port).await });
 
     tokio::spawn(async move {
         for sig in signals.forever() {

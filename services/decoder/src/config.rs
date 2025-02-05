@@ -1,60 +1,46 @@
+use config::{Config, Environment, File};
 use serde::Deserialize;
-
-fn def_debug() -> bool {
-    false
-}
-
-fn def_rmq_uri() -> String {
-    "amqp://localhost:5672".to_string()
-}
-
-fn def_tracker_events_exchange() -> String {
-    "tracker_events".to_string()
-}
-
-fn def_tracer_service_name() -> String {
-    "tracker_decoder".to_string()
-}
-
-fn def_port_h02() -> usize {
-    3003
-}
+use std::env;
 
 #[derive(Deserialize, Debug)]
 pub struct AppConfig {
     /// If the application should be run in debug mode and print additional info to stdout
-    #[serde(default = "def_debug")]
-    pub debug: bool,
+    pub app_debug: bool,
 
     /// Rabbitmq uri
-    #[serde(default = "def_rmq_uri")]
     pub rmq_uri: String,
 
     /// Name of the exchange to publish email events (positions, alarms, etc)
-    #[serde(default = "def_tracker_events_exchange")]
     pub tracker_events_exchange: String,
 
     /// The service name to be used on the tracing spans
-    #[serde(default = "def_tracer_service_name")]
     pub tracer_service_name: String,
 
     /// Default port to listen for trackers with the H02 protocol
-    #[serde(default = "def_port_h02")]
     pub port_h02: usize,
+
+    /// opentelemetry exporter endpoint
+    pub otel_exporter_otlp_endpoint: String,
+
+    /// port to open a HTTP server for service healthchecks
+    pub http_port: u16,
 }
 
 impl AppConfig {
-    pub fn from_env() -> Result<AppConfig, envy::Error> {
-        match envy::from_env::<AppConfig>() {
-            Ok(config) => {
-                if config.debug {
-                    println!("[CFG] {:?}", config);
-                }
+    pub fn from_env() -> AppConfig {
+        let run_mode = env::var("RUN_MODE").unwrap_or_else(|_| "development".into());
+        let base_path = env::var("CARGO_MANIFEST_DIR").unwrap_or_default();
 
-                Ok(config)
-            }
+        let yaml_config_file = File::with_name(&format!("{base_path}/env/{run_mode}.yaml"))
+            .format(config::FileFormat::Yaml)
+            .required(false);
 
-            Err(error) => Err(error),
-        }
+        Config::builder()
+            .add_source(yaml_config_file)
+            .add_source(Environment::default())
+            .build()
+            .unwrap_or_else(|error| panic!("[CFG] error loading config, {:#?}", error))
+            .try_deserialize::<AppConfig>()
+            .unwrap_or_else(|error| panic!("[CFG] error deserializing config, {:#?}", error))
     }
 }

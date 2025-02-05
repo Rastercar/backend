@@ -1,5 +1,3 @@
-pub mod controller;
-
 use crate::{config::app_config, utils::errors::ResultExt};
 use lapin::{
     message::Delivery,
@@ -16,6 +14,8 @@ use std::{thread, time};
 use tokio::sync::{mpsc::UnboundedSender, RwLock};
 use tokio_stream::StreamExt;
 use tracing::{event, Level};
+
+pub mod controller;
 
 pub trait Routable {
     /// Creates a routing to be used to send rabbitmq messages with

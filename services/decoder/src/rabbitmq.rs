@@ -1,4 +1,4 @@
-use crate::{config, errors};
+use crate::config;
 use lapin::{
     options::{BasicPublishOptions, ExchangeDeclareOptions},
     publisher_confirm::PublisherConfirm,
@@ -19,7 +19,7 @@ struct Options {
 /// A listener that recieves RabbitMQ messages on the reciever channel
 /// and publishes those messages to the tracker events exchange.
 ///
-/// [PROD-TODO]
+/// [IMPROVEMENT]
 ///
 /// Currently if the RabbitMQ connection is lost, any messages recieved
 /// by the rust channel will be ignored, a good idea might be to create
@@ -70,23 +70,40 @@ impl RmqListener {
     /// Starts a infinite loop that will attempt to recconect
     /// to RabbitMQ, once a connection is stablished calls `self.run`
     pub async fn start(&self) {
+        let mut reconnect_delay = 2;
+
+        let max_reconnect_delay = 60 * 10;
+
         loop {
             if let Err(err) = self.run().await {
-                println!("[RMQ] connection error: {}", err)
+                eprintln!("[RMQ] connection error: {}", err)
             }
 
-            thread::sleep(time::Duration::from_secs(5));
-            println!("[RMQ] reconnecting");
+            thread::sleep(time::Duration::from_secs(reconnect_delay));
+            println!(
+                "[RMQ] reconnecting, next attempt in: {} seconds",
+                reconnect_delay
+            );
+
+            if reconnect_delay < max_reconnect_delay {
+                reconnect_delay *= 2
+            }
         }
     }
 
-    /// Creates and sets the RabbitMQ connection and channel
-    /// and then starts listening to the RUST messages channel
-    /// indefinitely, publishing the recieved messages to the
+    /// Creates and sets the RabbitMQ connection and channel and then starts listening
+    /// to the RUST messages channel indefinitely, publishing the recieved messages to the
     /// tracker events exchange
     ///
-    /// Returns `Err` when failing to connect to RabbitMQ or when
-    /// a connection error happens after failing to publish
+    /// Returns `Err` when failing to connect to RabbitMQ or when a connection error happens
+    /// after failing to publish
+    ///
+    /// [IMPROVEMENT]
+    ///
+    /// have some way to check for connection issues and attempt to reconnect immediately,
+    /// a way to do this is to create a noop rabbitmq consumer and returns if the consumer
+    /// is broken, this is done on the mailer service but in our case the consumer would be
+    /// useless, it would be ideal to check for connection errors without creating a consumer
     async fn run(&self) -> Result<(), lapin::Error> {
         let conn_options = ConnectionProperties::default()
             .with_executor(tokio_executor_trait::Tokio::current())
@@ -118,7 +135,10 @@ impl RmqListener {
         // such error will always happen regardless of retries.
         //
         // This is required for the whole application to work so exit on failure
-        errors::exit_on_err(declare_exchange_result);
+        declare_exchange_result.unwrap_or_else(|e| {
+            panic!("[RMQ] failed to declare tracker events exchange: {}", e);
+        });
+
         println!("[RMQ] tracker events exchange created");
 
         *self.connection.write().await = Some(connection);
@@ -147,7 +167,6 @@ impl RmqListener {
         }
 
         println!("[RMQ] receiver channel closed");
-
         Ok(())
     }
 
