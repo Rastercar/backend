@@ -4,14 +4,19 @@ name: Build rust services base image
 on:
   push:
     branches:
-      - homolog
+      - test
 
     paths:
       # Trigger on changes to the base dependencies
+      - "Cargo.toml"
       - "Cargo.lock"
 
       # Trigger on changes to the base dockerfile
       - "Dockerfile"
+
+      # Trigger on changes in any src folder within services
+      - "shared/*/src/**"
+      - "shared/Cargo.toml"
 
       # Trigger on changes in any src folder within services
       - "services/*/src/**"
@@ -21,6 +26,7 @@ on:
 
       # Trigger on changes in any Cargo.toml within services
       - "services/*/Cargo.toml"
+      - "services/*/Cargo.lock"
 
 jobs:
   check-base-image:
@@ -31,6 +37,7 @@ jobs:
 
       - name: Check if Base Image Needs Rebuilding
         id: base-image-check
+        # ERRO AQUI, pega dockerfile dos services por engano
         run: |
           if git diff --name-only HEAD~1 | grep -E "Cargo.lock|Dockerfile"; then
             echo "Base image needs rebuilding."
