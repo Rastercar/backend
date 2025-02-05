@@ -7,10 +7,10 @@ on:
       - homolog
 
 jobs:
-  # set build_base_image to true if the base image must be rebuild before
-  # building the docker images of any service that depends on this base image
+  # read the commit contents to determine the containers
+  # that needs to be built and deployed to ECS
   check_images_that_need_building:
-    name: Check base image needs to be built
+    name: Check images that needs building
     runs-on: ubuntu-latest
     outputs:
       build_base: ${{ steps.check_image.outputs.build }}
@@ -24,7 +24,7 @@ jobs:
           # and the check-base-image-needs-rebuilding.sh script can compare them
           fetch-depth: 2
 
-      - name: Check if Base Image Needs Rebuilding
+      - name: Check base needs rebuilding
         id: check_image
         run: |
           scripts/check-base-image-needs-rebuilding.sh
@@ -78,7 +78,7 @@ jobs:
           echo "image=$ECR_REGISTRY/$RUST_SERVICES_BASE_ECR_REPOSITORY:latest" >> $GITHUB_OUTPUT
 
   # deploy the mailer service
-  deploy-mailer:
+  deploy_mailer:
     runs-on: ubuntu-latest
     if: ${{ needs.check_images_that_need_building.outputs.build_mailer }} === 'true'
     needs: ["check_images_that_need_building", "build_base_image"]
