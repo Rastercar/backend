@@ -8,6 +8,8 @@ The worlds best car tracking platform :car: :blue_car: :taxi: :bus:
 
 All services have logging and tracing done by the `tracing` and `tracing_subscriber` crates and is configured using [env filter](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html?search=with_env_filter#method.from_env)
 
+1
+
 useful links:
 
 - [AWS crates tracing](https://docs.aws.amazon.com/sdk-for-rust/latest/dg/logging.html)
