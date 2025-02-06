@@ -39,8 +39,6 @@ pub fn start_tcp_listener(
         println!("[TCP] listener started at: {}", addr);
 
         while let Ok((stream, _)) = listener.accept().await {
-            // TODO: remove print
-            println!("!!! got packets");
             tokio::spawn(handler(stream, sender.clone()));
         }
 

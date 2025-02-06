@@ -1,15 +1,18 @@
-# Email dispatcher
+# Mailer
 
-A simple email sending micro service, made for asynchronous and event based systems with Rabbitmq and AWS SES.
+A simple email sending service, made for asynchronous and event based systems with Rabbitmq and AWS SES.
 
 ## Architecture
 
 ![diagram](./docs/imgs/diagram.png "diagram")
 
-The service declares and consumes a single persistent queue, producers can send to the queue using a direct exchange or by declaring their own exchanges
-and binding them to said queue, although this would require the mailer queue to be declared beforehand.
+The service declares and consumes a single persistent (and with message TTL) queue, producers can send
+to the queue using a direct exchange or by declaring their own exchanges and binding them to said queue,
+although this would require the mailer queue to be declared beforehand.
 
-this service declares and publishes events to a exchange so consumers can receive events such as when a email was sent, clicked, reported, etc.
+This service declares and publishes events to a exchange so consumers can receive events such as when a email was sent, clicked, reported, etc.
+
+Check the [Async API DOC](./docs/async-api.yml) for more information.
 
 ## Known limitations
 

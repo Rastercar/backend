@@ -27,14 +27,17 @@ The service is open connection for the following ports/protocols
 
 | PORT  | PROTOCOL | TRACKER PROTOCOL             |
 | ----- | -------- | ---------------------------- |
-| 4003  | TCP      | [H02](./docs/h02/readme.md)  |
+| 4000  | HTTP     | (healthcheck route)          |
+| 4001  | TCP      | [H02](./docs/h02/readme.md)  |
 
 ## Environment variables
 
-|           name          |                                    meaning                                   | example                           |
-|-------------------------|------------------------------------------------------------------------------|-----------------------------------|
-| APP_DEBUG               | debug mode, if true will log to debug info to stdout                         | false                             |
-| RMQ_URI                 | rabbitmq uri                                                                 | amqp://guest:guest@localhost:5672 |
-| TRACKER_EVENTS_EXCHANGE | name of the rabbitmq exchange to publish events on                           | tracker_events                    |
-| TRACER_SERVICE_NAME     | name of the service to jaeger                                                | tracker_receiver                  |
-| PORT_H02                | port to listen to TCP requests of H02 trackers                               | tracker_receiver                  |
+| Name                        | Meaning                                               |
+|-----------------------------|-------------------------------------------------------|
+| APP_DEBUG                   | debug mode, if true will log to debug info to stdout  |
+| RMQ_URI                     | rabbitmq uri                                          |
+| TRACKER_EVENTS_EXCHANGE     | name of the rabbitmq exchange to publish events on    |
+| TRACER_SERVICE_NAME         | name of the service to jaeger                         |
+| HTTP_PORT                   | port to listen for HTTP requests of                   |  
+| PORT_H02                    | port to listen to TCP requests of H02 trackers        |
+| OTEL_EXPORTER_OTLP_ENDPOINT | jaeger endpoint                                       |

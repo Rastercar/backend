@@ -31,6 +31,3 @@ opentelemetry_sdk = { workspace = true }
 opentelemetry-otlp = { workspace = true }
 opentelemetry-semantic-conventions = { workspace = true }
 opentelemetry-jaeger-propagator = { workspace = true }
-
-
-email-format = "0.8.1"

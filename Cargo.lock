@@ -2492,6 +2492,7 @@ dependencies = [
  "chrono",
  "config",
  "convert_case",
+ "email-format",
  "futures",
  "governor",
  "handlebars",
@@ -4004,7 +4005,6 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "convert_case",
- "email-format",
  "lapin",
  "opentelemetry",
  "opentelemetry-jaeger-propagator",

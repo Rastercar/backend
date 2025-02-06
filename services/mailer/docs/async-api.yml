@@ -1,0 +1,488 @@
+asyncapi: "3.0.0"
+info:
+  title: "Mailer"
+  version: "1.0.0"
+  description: "Simple email sending service"
+
+servers:
+  rabbitmq:
+    host: "localhost"
+    protocol: "amqp"
+    description: "RabbitMQ broker"
+
+channels:
+  mailer:
+    description: "Queue for processing email sending requests."
+    address: "mailer"
+    messages:
+      sendEmail:
+        $ref: "#/components/messages/sendEmail"
+    servers:
+      - $ref: "#/servers/rabbitmq"
+
+  mailer_events:
+    description: "Exchange for publishing aws SES events."
+    address: "mailer_events"
+    messages:
+      EmailEvent:
+        $ref: "#/components/messages/EmailEvent"
+      EmailSendingReceivedEvent:
+        $ref: "#/components/messages/EmailSendingReceivedEvent"
+      EmailRequestFinishedEvent:
+        $ref: "#/components/messages/EmailRequestFinishedEvent"
+      EmailSendingErrorEvent:
+        $ref: "#/components/messages/EmailSendingErrorEvent"
+    servers:
+      - $ref: "#/servers/rabbitmq"
+
+operations:
+  receiveEmailRequest:
+    action: receive
+    channel:
+      $ref: "#/channels/mailer"
+    summary: "Receives email sending requests."
+    messages:
+      - $ref: "#/channels/mailer/messages/sendEmail"
+
+  publishEmailEvent:
+    action: send
+    channel:
+      $ref: "#/channels/mailer_events"
+    summary: "Publishes email-related events (e.g., delivery, bounce, etc.)."
+    messages:
+      - $ref: "#/channels/mailer_events/messages/EmailEvent"
+      - $ref: "#/channels/mailer_events/messages/EmailSendingReceivedEvent"
+      - $ref: "#/channels/mailer_events/messages/EmailRequestFinishedEvent"
+      - $ref: "#/channels/mailer_events/messages/EmailSendingErrorEvent"
+
+components:
+  messages:
+    sendEmail:
+      name: SendEmail
+      title: Send Email Request
+      summary: A request to send one or more emails
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/SendEmailPayload"
+
+    EmailSendingReceivedEvent:
+      title: Email Sending Request Recieved
+      description: Email sending request was recieved and its status updated
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          timestamp:
+            type: string
+            format: date-time
+          status:
+            $ref: "#/components/schemas/EmailRequestStatus"
+          request_uuid:
+            type: string
+            format: uuid
+          request:
+            type: object
+
+    EmailRequestFinishedEvent:
+      title: Email Sending Request Finished
+      description: all emails on the request were sent
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          timestamp:
+            type: string
+            format: date-time
+          request_uuid:
+            type: string
+            format: uuid
+
+    EmailSendingErrorEvent:
+      title: Email Sending Request Error
+      description: there was a internal error processing your request
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          timestamp:
+            type: string
+            format: date-time
+          request_uuid:
+            type: string
+            format: uuid
+          error:
+            type: string
+          recipients:
+            type: array
+            items:
+              type: string
+
+    EmailEvent:
+      title: AWS Email Event
+      description: a email event such as click, open, complaint, etc
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/AwsEmailEvent"
+
+  schemas:
+    SendEmailPayload:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          description: "A unique identifier for tracking the email request."
+          nullable: true
+        sender:
+          type: string
+          description: "RFC5322-compliant email address of the sender."
+          nullable: true
+        to:
+          type: array
+          description: "List of recipients."
+          minItems: 1
+          items:
+            type: object
+            properties:
+              email:
+                type: string
+                format: email
+                description: "Recipient email address."
+              replacements:
+                type: object
+                description: "Key-value replacements for personalizing email content."
+                additionalProperties:
+                  type: string
+                  description: "Replacement value."
+                nullable: true
+        replyToAddresses:
+          type: array
+          items:
+            type: string
+            format: email
+          description: "List of email addresses for reply-to options."
+          nullable: true
+        subject:
+          type: string
+          description: "Subject of the email."
+        bodyHtml:
+          type: string
+          description: "HTML content of the email."
+          nullable: true
+        bodyText:
+          type: string
+          description: "Plain text content of the email."
+          nullable: true
+        enableTracking:
+          type: boolean
+          description: "Indicates whether tracking (opens/clicks) is enabled."
+          default: false
+
+    AwsEmailEvent:
+      type: object
+      properties:
+        request_uuid:
+          type: string
+          format: uuid
+          description: "UUID of the mail request that generated this event."
+        event_type:
+          type: string
+          description: "Snake case version of the event type (e.g., delivery, bounce, complaint, etc.)."
+        mail:
+          $ref: "#/components/schemas/MailObj"
+        original:
+          $ref: "#/components/schemas/SesEvent"
+
+    EmailRequestStatus:
+      type: string
+      enum:
+        - STARTED
+        - REJECTED
+
+    SnsNotification:
+      type: object
+      properties:
+        notification_type:
+          type: string
+        message_id:
+          type: string
+        topic_arn:
+          type: string
+        subject:
+          type: string
+          nullable: true
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        signature_version:
+          type: string
+        signature:
+          type: string
+        signing_cert_url:
+          type: string
+        subscribe_url:
+          type: string
+          nullable: true
+        unsubscribe_url:
+          type: string
+          nullable: true
+
+    SesEvent:
+      type: object
+      properties:
+        event_type:
+          type: string
+          nullable: true
+        notification_type:
+          type: string
+          nullable: true
+        mail:
+          $ref: "#/components/schemas/MailObj"
+        bounce:
+          $ref: "#/components/schemas/BounceObj"
+          nullable: true
+        complaint:
+          $ref: "#/components/schemas/ComplaintObj"
+          nullable: true
+        delivery:
+          $ref: "#/components/schemas/DeliveryObj"
+          nullable: true
+        reject:
+          $ref: "#/components/schemas/RejectObj"
+          nullable: true
+        open:
+          $ref: "#/components/schemas/OpenObj"
+          nullable: true
+        send:
+          $ref: "#/components/schemas/SendObj"
+          nullable: true
+        click:
+          $ref: "#/components/schemas/ClickObj"
+          nullable: true
+        failure:
+          $ref: "#/components/schemas/FailureObj"
+          nullable: true
+        delivery_delay:
+          $ref: "#/components/schemas/DeliveryDelayObj"
+          nullable: true
+        subscription:
+          $ref: "#/components/schemas/SubscriptionObj"
+          nullable: true
+
+    MailObj:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        message_id:
+          type: string
+        source_arn:
+          type: string
+          nullable: true
+        sending_account_id:
+          type: string
+        destination:
+          type: array
+          items:
+            type: string
+        headers_truncated:
+          type: boolean
+        headers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Header"
+        common_headers:
+          type: object
+          additionalProperties:
+            type: object
+        tags:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+    Header:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+
+    SendObj:
+      type: object
+
+    BounceObj:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        bounce_type:
+          type: string
+        bounce_sub_type:
+          type: string
+        bounced_recipients:
+          type: array
+          items:
+            $ref: "#/components/schemas/BouncedRecipients"
+        feedback_id:
+          type: string
+        reporting_mta:
+          type: string
+
+    BouncedRecipients:
+      type: object
+      properties:
+        email_address:
+          type: string
+        action:
+          type: string
+        diagnostic_code:
+          type: string
+
+    ComplaintObj:
+      type: object
+      properties:
+        complained_recipients:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplainedRecipient"
+        timestamp:
+          type: string
+          format: date-time
+        feedback_id:
+          type: string
+        complaint_sub_type:
+          type: string
+        user_agent:
+          type: string
+        complaint_feedback_type:
+          type: string
+        arrival_date:
+          type: string
+
+    ComplainedRecipient:
+      type: object
+      properties:
+        email_address:
+          type: string
+
+    DeliveryObj:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        processing_time_millis:
+          type: integer
+        recipients:
+          type: array
+          items:
+            type: string
+        smtp_response:
+          type: string
+        reporting_mta:
+          type: string
+
+    RejectObj:
+      type: object
+      properties:
+        reason:
+          type: string
+
+    OpenObj:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        ip_address:
+          type: string
+        user_agent:
+          type: string
+
+    ClickObj:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        ip_address:
+          type: string
+        user_agent:
+          type: string
+        link:
+          type: string
+        link_tags:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          nullable: true
+
+    FailureObj:
+      type: object
+      properties:
+        template_name:
+          type: string
+        error_message:
+          type: string
+
+    DeliveryDelayObj:
+      type: object
+      properties:
+        delay_type:
+          type: string
+        delayed_recipients:
+          type: array
+          items:
+            $ref: "#/components/schemas/DelayedRecipient"
+
+    DelayedRecipient:
+      type: object
+      properties:
+        email_address:
+          type: string
+        status:
+          type: string
+        diagnostic_code:
+          type: string
+
+    SubscriptionObj:
+      type: object
+      properties:
+        contact_list:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        source:
+          type: string
+        new_topic_preferences:
+          $ref: "#/components/schemas/TopicPreference"
+        old_topic_preferences:
+          $ref: "#/components/schemas/TopicPreference"
+
+    TopicPreference:
+      type: object
+      properties:
+        unsubscribe_all:
+          type: boolean
+        topic_subscription_status:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopicSubscriptionStatus"
+
+    TopicSubscriptionStatus:
+      type: object
+      properties:
+        topic_name:
+          type: string
+        subscription_status:
+          type: string

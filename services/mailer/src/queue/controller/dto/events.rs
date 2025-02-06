@@ -13,24 +13,6 @@ pub enum EmailRequestStatus {
     REJECTED,
 }
 
-/// Root object of the AWS SES email event JSON, see:
-///
-/// https://docs.aws.amazon.com/ses/latest/dg/event-publishing-retrieving-sns-contents.html#event-publishing-retrieving-sns-contents-top-level-json-object
-#[allow(non_camel_case_types)]
-#[derive(Deserialize, Serialize)]
-pub enum Email {
-    open(ses::OpenObj),
-    send(ses::SendObj),
-    click(ses::ClickObj),
-    bounce(ses::BounceObj),
-    reject(ses::RejectObj),
-    failure(ses::FailureObj),
-    delivery(ses::DeliveryObj),
-    complaint(ses::ComplaintObj),
-    subscription(ses::SubscriptionObj),
-    delivery_delay(ses::DeliveryDelayObj),
-}
-
 /// A event to signify the status of a email sending request.
 ///
 /// note that a email sending 'request' might have any number of
@@ -132,6 +114,24 @@ impl Routable for EmailSendingErrorEvent {
     fn routing_key(&self) -> String {
         format!("sending.{}.error", self.request_uuid)
     }
+}
+
+/// Root object of the AWS SES email event JSON, see:
+///
+/// https://docs.aws.amazon.com/ses/latest/dg/event-publishing-retrieving-sns-contents.html#event-publishing-retrieving-sns-contents-top-level-json-object
+#[allow(non_camel_case_types)]
+#[derive(Deserialize, Serialize)]
+pub enum Email {
+    open(ses::OpenObj),
+    send(ses::SendObj),
+    click(ses::ClickObj),
+    bounce(ses::BounceObj),
+    reject(ses::RejectObj),
+    failure(ses::FailureObj),
+    delivery(ses::DeliveryObj),
+    complaint(ses::ComplaintObj),
+    subscription(ses::SubscriptionObj),
+    delivery_delay(ses::DeliveryDelayObj),
 }
 
 #[derive(Deserialize, Serialize)]

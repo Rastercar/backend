@@ -1,7 +1,7 @@
 //! DTOS for all events and operation inputs accepted by the mailer service over rabbitmq
 
+use crate::queue::controller::dto::validation::{email_vec, rfc_5322_email};
 use serde::{Deserialize, Serialize};
-use shared::dto::validation::{email_vec, rfc_5322_email};
 use std::collections::HashMap;
 use uuid;
 use validator::Validate;
