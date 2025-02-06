@@ -50,18 +50,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: check_images_that_need_building
     steps:
-      - name: Print build_base value
-        run: |
-          echo "Build Base: ${{ needs.check_images_that_need_building.outputs.build_base }}"
-
-      - name: Print build_mailer value
-        run: |
-          echo "Build Mailer: ${{ needs.check_images_that_need_building.outputs.build_mailer }}"
-
-      - name: Print build_decoder value
-        run: |
-          echo "Build Decoder: ${{ needs.check_images_that_need_building.outputs.build_decoder }}"
-
       - name: Checkout Code
         if: ${{ needs.check_images_that_need_building.outputs.build_base == 'true' }}
         uses: actions/checkout@v4
