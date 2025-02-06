@@ -27,20 +27,20 @@ jobs:
       - name: Check base needs rebuilding
         id: check_image
         run: |
-          scripts/check-base-image-needs-rebuilding.sh |
-          echo 'build=$([ $? -eq 1 ] && echo "true" || echo "false")' >> "$GITHUB_OUTPUT"
+          scripts/check-base-image-needs-rebuilding.sh
+          echo "build=$([ $? -eq 1 ] && echo "true" || echo "false")" >> "$GITHUB_OUTPUT"
 
       - name: Check mailer needs rebuilding
         id: check_mailer
         run: |
-          scripts/check-some-file-in-folder-has-changed.sh services/mailer |
-          echo 'build=$([ $? -eq 1 ] && echo "true" || echo "false")' >> "$GITHUB_OUTPUT"
+          scripts/check-some-file-in-folder-has-changed.sh services/mailer
+          echo "build=$([ $? -eq 1 ] && echo "true" || echo "false")" >> "$GITHUB_OUTPUT"
 
       - name: Check decoder needs rebuilding
         id: check_decoder
         run: |
-          scripts/check-some-file-in-folder-has-changed.sh services/decoder |
-          echo 'build=$([ $? -eq 1 ] && echo "true" || echo "false")' >> "$GITHUB_OUTPUT"
+          scripts/check-some-file-in-folder-has-changed.sh services/decoder
+          echo "build=$([ $? -eq 1 ] && echo "true" || echo "false")" >> "$GITHUB_OUTPUT"
 
   # builds and uploads the base image needed for building the services
   # we skip all steps if build_base_image !== true instead of skipping the whole job
