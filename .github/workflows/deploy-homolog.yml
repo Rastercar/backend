@@ -32,12 +32,12 @@ jobs:
       - name: Check mailer needs rebuilding
         id: check_mailer
         run: |
-          echo "build=$(check-some-file-in-folder-has-changed.sh services/mailer)" >> "$GITHUB_OUTPUT"
+          echo "build=$(scripts/check-some-file-in-folder-has-changed.sh services/mailer)" >> "$GITHUB_OUTPUT"
 
       - name: Check decoder needs rebuilding
         id: check_decoder
         run: |
-          echo "build=$(check-some-file-in-folder-has-changed.sh services/decoder)" >> "$GITHUB_OUTPUT"
+          echo "build=$(scripts/check-some-file-in-folder-has-changed.sh services/decoder)" >> "$GITHUB_OUTPUT"
 
   # builds and uploads the base image needed for building the services
   # we skip all steps if build_base_image !== true instead of skipping the whole job
