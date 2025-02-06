@@ -13,7 +13,6 @@ RUN apt-get update \
 RUN update-ca-certificates
 
 # add curl so the healthchecks suceed
-# test !
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
