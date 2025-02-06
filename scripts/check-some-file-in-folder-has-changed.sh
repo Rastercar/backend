@@ -13,9 +13,9 @@ TARGET_FOLDER="$1"
 
 # Detect changes in the target folder
 if git diff --quiet HEAD~1 HEAD -- "$TARGET_FOLDER"; then
-    echo "NO changes detected in $TARGET_FOLDER."
+    echo "NO changes detected in $TARGET_FOLDER (exit 0)"
     exit 0
 else
-    echo "Changes detected in $TARGET_FOLDER."
+    echo "Changes detected in $TARGET_FOLDER (exit 1)"
     exit 1
 fi
