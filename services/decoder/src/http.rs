@@ -18,5 +18,7 @@ pub async fn start_server(port: u16) {
 
 /// just returns a ok response to say the service is healthy
 async fn healthcheck() -> (StatusCode, String) {
+    // TODO: remove print
+    println!("!!! got healthcheck");
     (StatusCode::OK, String::from("ok"))
 }
