@@ -76,7 +76,7 @@ jobs:
 
   # deploy the mailer service
   deploy_mailer:
-    name: Deploy Mailer
+    name: Deploy mailer
     runs-on: ubuntu-latest
     if: ${{ needs.check_images_that_need_building.outputs.build_mailer == 'true' }}
     needs: ["check_images_that_need_building", "build_base_image"]
@@ -140,10 +140,9 @@ jobs:
           cluster: ${{ secrets.ECS_HOMOLOG_CLUSTER }}
           task-definition: ${{ steps.task-def.outputs.task-definition }}
 
-  # TODO: remove duplicated code
   # deploy the decoder service
   deploy_decoder:
-    name: Deploy Decoder
+    name: Deploy decoder
     runs-on: ubuntu-latest
     if: ${{ needs.check_images_that_need_building.outputs.build_decoder == 'true' }}
     needs: ["check_images_that_need_building", "build_base_image"]
@@ -184,6 +183,6 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           DECODER_ECR_REPOSITORY: ${{ secrets.DECODER_ECR_REPOSITORY }}
         run: |
-          docker build -f services/mailer/Dockerfile -t $ECR_REGISTRY/$DECODER_ECR_REPOSITORY:$IMAGE_TAG .
+          docker build -f services/decoder/Dockerfile -t $ECR_REGISTRY/$DECODER_ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$DECODER_ECR_REPOSITORY:$IMAGE_TAG
           echo "image=$ECR_REGISTRY/$DECODER_ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
