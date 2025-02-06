@@ -51,11 +51,11 @@ jobs:
     needs: check_images_that_need_building
     steps:
       - name: Checkout Code
-        if: ${{ needs.check_images_that_need_building.outputs.build_base }} === 'true'
+        if: ${{ needs.check_images_that_need_building.outputs.build_base }} == 'true'
         uses: actions/checkout@v4
 
       - name: Configure AWS credentials
-        if: ${{ needs.check_images_that_need_building.outputs.build_base }} === 'true'
+        if: ${{ needs.check_images_that_need_building.outputs.build_base }} == 'true'
         uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-region: ${{ secrets.AWS_REGION }}
@@ -64,11 +64,11 @@ jobs:
 
       - name: Login to ECR
         id: login-ecr
-        if: ${{ needs.check_images_that_need_building.outputs.build_base }} === 'true'
+        if: ${{ needs.check_images_that_need_building.outputs.build_base }} == 'true'
         uses: aws-actions/amazon-ecr-login@v1
 
       - name: Build, tag, and push base image to ECR
-        if: ${{ needs.check_images_that_need_building.outputs.build_base }} === 'true'
+        if: ${{ needs.check_images_that_need_building.outputs.build_base }} == 'true'
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           RUST_SERVICES_BASE_ECR_REPOSITORY: ${{ secrets.RUST_SERVICES_BASE_ECR_REPOSITORY }}
@@ -81,7 +81,7 @@ jobs:
   deploy_mailer:
     name: Deploy Mailer
     runs-on: ubuntu-latest
-    if: ${{ needs.check_images_that_need_building.outputs.build_mailer }} === 'true'
+    if: ${{ needs.check_images_that_need_building.outputs.build_mailer }} == 'true'
     needs: ["check_images_that_need_building", "build_base_image"]
     steps:
       - name: Checkout code
@@ -148,7 +148,7 @@ jobs:
   deploy_decoder:
     name: Deploy Decoder
     runs-on: ubuntu-latest
-    if: ${{ needs.check_images_that_need_building.outputs.build_decoder }} === 'true'
+    if: ${{ needs.check_images_that_need_building.outputs.build_decoder }} == 'true'
     needs: ["check_images_that_need_building", "build_base_image"]
     steps:
       - name: Checkout code
