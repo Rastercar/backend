@@ -4,12 +4,10 @@
 
 for file in Dockerfile Cargo.lock Cargo.toml .dockerignore; do
     if ! git diff --exit-code -s HEAD~1 -- "$file"; then
-        echo "$file changed, base image needs rebuilding (exit 1)"
-
-        # returns 1 if rebuild is needed
-        exit 1
+        echo "true"
+        exit 0
     fi
 done
 
-echo "base image does NOT need rebuilding (exit 0)"
+echo "false"
 exit 0
