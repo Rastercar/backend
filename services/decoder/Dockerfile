@@ -25,6 +25,4 @@ EXPOSE 4000
 
 EXPOSE 4001
 
-# test !
-
 ENTRYPOINT ["/usr/local/bin/decoder"]
