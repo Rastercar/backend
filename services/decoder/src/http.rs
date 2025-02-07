@@ -1,5 +1,9 @@
-use axum::{http::StatusCode, routing::get, Router};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use axum::{extract::Query, http::StatusCode, routing::get, Router};
+use std::{
+    collections::HashMap,
+    env,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+};
 
 pub async fn start_server(port: u16) {
     let app = Router::new().route("/healthcheck", get(healthcheck));
@@ -16,7 +20,12 @@ pub async fn start_server(port: u16) {
         .unwrap_or_else(|_| panic!("[WEB] failed to serve app on address {}", addr))
 }
 
-/// just returns a ok response to say the service is healthy
-async fn healthcheck() -> (StatusCode, String) {
+pub async fn healthcheck(Query(params): Query<HashMap<String, String>>) -> (StatusCode, String) {
+    if params.get("debug").map(|v| v == "true").unwrap_or(false) {
+        let commit_sha = env::var("COMMIT_HASH").unwrap_or_else(|_| "unknown".to_string());
+
+        return (StatusCode::OK, format!("OK, commit HASH: {}", commit_sha));
+    }
+
     (StatusCode::OK, String::from("ok"))
 }

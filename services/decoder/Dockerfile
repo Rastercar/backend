@@ -1,11 +1,17 @@
+# --------------------------- [BUILDER] ---------------------------
 FROM 152409327412.dkr.ecr.us-east-1.amazonaws.com/rastercar/rust-services-base:latest AS builder 
 
 COPY . .
 
 RUN cargo build --release --bin decoder
 
-# We do not need the Rust toolchain to run the binary!
+ARG COMMIT_HASH 
+
+# --------------------------- [RUNTIME] ---------------------------
 FROM debian:bookworm-slim AS runtime
+
+ARG COMMIT_HASH 
+ENV COMMIT_HASH=${COMMIT_HASH}
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates

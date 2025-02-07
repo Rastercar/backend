@@ -1,3 +1,5 @@
+use std::{collections::HashMap, env};
+
 use super::server::AppState;
 use crate::{
     mailer::MAIL_REQUEST_UUID_TAG_NAME,
@@ -7,7 +9,7 @@ use crate::{
     },
 };
 use axum::{
-    extract::State,
+    extract::{Query, State},
     http::{Request, StatusCode},
     middleware::Next,
     response::Response,
@@ -159,7 +161,12 @@ pub async fn check_aws_sns_arn_middleware(
     Ok(nxt.run(req).await)
 }
 
-/// just returns a ok response to say the service is healthy
-pub async fn healthcheck() -> (StatusCode, String) {
+pub async fn healthcheck(Query(params): Query<HashMap<String, String>>) -> (StatusCode, String) {
+    if params.get("debug").map(|v| v == "true").unwrap_or(false) {
+        let commit_sha = env::var("COMMIT_HASH").unwrap_or_else(|_| "unknown".to_string());
+
+        return (StatusCode::OK, format!("OK, commit HASH: {}", commit_sha));
+    }
+
     (StatusCode::OK, String::from("ok"))
 }
