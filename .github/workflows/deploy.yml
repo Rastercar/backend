@@ -1,10 +1,10 @@
 # Builds the base rust image to be used within services dockerfiles
 # to build services images, for more info see the project root Dockerfile
-name: Deploy Homolog
+name: Deploy to Prod
 on:
   push:
     branches:
-      - homolog
+      - master
 
 jobs:
   # read the commit contents to determine the containers
